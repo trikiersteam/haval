@@ -1,0 +1,19 @@
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+/app/build/
+/app/release/
+*.keystore
+*.jks
+
+# renders temporários do protótipo (gerados via Edge headless)
+/prototype/preview-on.png
+/prototype/preview-vol.png
+/prototype/zoom-*.png

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8"/>
+<style>
+  body{margin:0;background:#0a0e15;font-family:'Segoe UI',sans-serif;color:#eef4f8;}
+  .grid{display:flex;flex-wrap:wrap;gap:0;}
+  .card{width:300px;padding:26px 10px;text-align:center;border-right:1px solid #1c2531;border-bottom:1px solid #1c2531;}
+  .lbl{font-size:30px;font-weight:800;color:#2de0f0;margin-bottom:4px;}
+  .desc{font-size:15px;color:#9099a8;margin-bottom:18px;height:40px;}
+  .big{height:96px;display:flex;align-items:center;justify-content:center;}
+  .big svg{width:92px;height:92px;}
+  .small{margin-top:14px;display:flex;align-items:center;justify-content:center;gap:14px;}
+  .small svg{width:40px;height:40px;}
+  .small .cap{font-size:12px;color:#5b6471;}
+  svg{stroke:#2de0f0;}
+</style></head><body>
+<div class="grid" id="grid"></div>
+<script>
+function wrap(inner){return '<svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'+inner+'</svg>';}
+const CAND=[
+ {l:'A', d:'Atual — carro domo + seta U retangular',
+  s:'<path d="M3 16.5C3 15 3.9 14.2 5.2 14.2C5.8 9.5 8.4 6 12 6C15.6 6 18.2 9.5 18.8 14.2C20.1 14.2 21 15 21 16.5"/><path d="M3.6 16.5H20.4"/><path fill="#2de0f0" stroke="none" d="M5.7,16.8a2,2 0 1 1 4,0a2,2 0 1 1 -4,0 M13.5,16.8a2,2 0 1 1 4,0a2,2 0 1 1 -4,0"/><path stroke-width="2" d="M13 10H10.6V13H14.6"/><path fill="#2de0f0" stroke="none" d="M14.2 11.6 16 13 14.2 14.4Z"/>'},
+ {l:'B', d:'Sedã lateral + seta circular (↻)',
+  s:'<path d="M2.5 15.2C2.5 14.4 3.1 13.8 3.9 13.8H5.4L7.7 11A2.3 2.3 0 0 1 9.5 10.1H14.2A2.3 2.3 0 0 1 16.1 11.1L17.5 13.8H19.2C20 13.8 20.6 14.4 20.6 15.2"/><path d="M3 15.2H20.6"/><path fill="#2de0f0" stroke="none" d="M5.1,15.6a1.9,1.9 0 1 1 3.8,0a1.9,1.9 0 1 1 -3.8,0 M13.7,15.6a1.9,1.9 0 1 1 3.8,0a1.9,1.9 0 1 1 -3.8,0"/><path d="M14 12.2a2.1 2.1 0 1 0-.7 1.6"/><path fill="#2de0f0" stroke="none" d="M12.2 13.9 13.6 14.6 13.9 13.0Z"/>'},
+ {l:'C', d:'Carro frontal (para-brisa) + seta U',
+  s:'<path d="M5 16.5V12L7.6 7.4A2.2 2.2 0 0 1 9.5 6.3H14.5A2.2 2.2 0 0 1 16.4 7.4L19 12V16.5"/><path d="M4 16.5H20"/><path stroke-width="2" d="M13.2 10H10.4V12.8H14.8"/><path fill="#2de0f0" stroke="none" d="M14.3 11.4 16.2 12.8 14.3 14.2Z"/>'},
+ {l:'D', d:'Carro fino + seta U grossa em destaque',
+  s:'<path stroke-width="1.3" d="M3 16C3 15.2 3.6 14.7 4.4 14.7H5.5L7.8 10.2C8.3 9.3 9.1 8.8 10.1 8.8H14.3C15.3 8.8 16.1 9.3 16.6 10.2L18.3 13.5 19.7 14.1C20.4 14.4 21 14.9 21 15.7V16"/><path stroke-width="1.3" d="M3.4 16H20.6"/><path stroke-width="1.3" fill="#2de0f0" stroke="none" d="M5.4,16.4a1.9,1.9 0 1 1 3.8,0a1.9,1.9 0 1 1 -3.8,0 M14.4,16.4a1.9,1.9 0 1 1 3.8,0a1.9,1.9 0 1 1 -3.8,0"/><path stroke-width="2.6" d="M13.4 10.6H10.8V13H14.4"/><path fill="#2de0f0" stroke="none" d="M13.6 10.9 16.4 13 13.6 15.1Z"/>'},
+ {l:'E', d:'Só a seta de recirculação (sem carro)',
+  s:'<rect x="3.5" y="4.5" width="17" height="15" rx="3.5" stroke-opacity="0.35"/><path stroke-width="2.2" d="M15 9H10a2.5 2.5 0 0 0 0 5h5.5"/><path fill="#2de0f0" stroke="none" d="M14.4 10.7 17 12 14.4 14.4Z"/>'},
+ {l:'F', d:'Carro lateral + seta entrando e girando',
+  s:'<path d="M2.6 15C2.6 14.2 3.2 13.6 4 13.6H5.5L7.9 9.4C8.4 8.6 9.2 8.1 10.2 8.1H14.4C15.4 8.1 16.2 8.6 16.7 9.5L18.2 12.2 19.3 13.6H20C20.8 13.6 21.4 14.2 21.4 15" transform="translate(-0.4 0.6)"/><path d="M2.6 15.6H20.6"/><path fill="#2de0f0" stroke="none" d="M5.1,16a1.9,1.9 0 1 1 3.8,0a1.9,1.9 0 1 1 -3.8,0 M13.9,16a1.9,1.9 0 1 1 3.8,0a1.9,1.9 0 1 1 -3.8,0"/><path stroke-width="1.9" d="M12 8.6V11.4"/><path fill="#2de0f0" stroke="none" d="M10.4 10.4 12 12 13.6 10.4Z"/><path stroke-width="1.9" d="M10.4 12.6H13.2"/>'},
+];
+const g=document.getElementById('grid');
+CAND.forEach(c=>{
+  const d=document.createElement('div'); d.className='card';
+  d.innerHTML='<div class="lbl">'+c.l+'</div><div class="desc">'+c.d+'</div>'
+    +'<div class="big">'+wrap(c.s)+'</div>'
+    +'<div class="small">'+wrap(c.s)+'<span class="cap">tamanho real</span></div>';
+  g.appendChild(d);
+});
+</script></body></html>

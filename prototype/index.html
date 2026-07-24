@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Haval Dock — toolbar inferior (mockup v2)</title>
+<style>
+  :root{
+    --bg0:#06090c; --card:#121722; --card2:#0e131b;
+    --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.14);
+    --txt:#eef4f8; --muted:#828c9c; --muted2:#5b6471;
+    --accent:#2de0f0; --green:#36e05a; --red:#ff4d4d;
+    --glow:45,224,240; --onAccent:#04161a;
+    --shadow:0 18px 50px rgba(0,0,0,.55);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; height:100%; background:#000; font-family:'Segoe UI',system-ui,-apple-system,sans-serif; overflow:hidden;}
+  #fit{position:fixed; inset:0; overflow:hidden; background:#000;}
+  #stage{
+    width:1920px; height:720px; position:absolute; top:0; left:0; transform-origin:top left; color:var(--txt);
+    background:linear-gradient(160deg,#0a0e15,#06090c);
+  }
+
+  /* ===== A BARRA ===== */
+  .bar{
+    position:absolute; left:0; right:0; bottom:0; height:84px;
+    display:flex; align-items:center; justify-content:flex-start; gap:24px;
+    padding:0 40px;
+    background:linear-gradient(180deg, rgba(6,9,12,.55), rgba(6,9,12,.94));
+    border-top:2px solid var(--accent);
+    box-shadow:0 -2px 22px rgba(var(--glow),.45), 0 -16px 44px rgba(0,0,0,.5);
+    backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    transition:transform .35s cubic-bezier(.2,.8,.2,1);
+  }
+  .bar.hidden{transform:translateY(102%);}
+  .sec{display:flex; align-items:center; gap:30px;}
+  .sec1{margin-left:100px;}   /* grupo do meio mais perto do motorista */
+  .sec2{margin-left:auto;}    /* passageiro empurrado p/ a direita */
+
+  /* botão de projeção (CarPlay/Android Auto) — tile na barra, logo após o fluxo de ar.
+     Aparece sozinho quando há projeção conectada; ícone da marca; acende em ciano
+     quando a projeção está em foco (1º toque abre, 2º volta pro carro). */
+  .ibtn .ic.brand, .ibtn .ic.brand svg{width:34px; height:34px;}
+  .projtile.on .ic{color:var(--accent); filter:drop-shadow(0 0 8px rgba(var(--glow),.6));}
+
+  /* fundo de projeção fake (mostra o que estaria "atrás" quando a projeção está em foco) */
+  #projbg{position:absolute; left:0; right:0; top:0; bottom:84px; display:none; flex-direction:column;
+          align-items:center; justify-content:center; gap:14px; background:radial-gradient(circle at 50% 38%, #0d1726, #05080c);}
+  #projbg.show{display:flex;}
+  #projbg .pl{display:flex; align-items:center; gap:18px; font-size:48px; font-weight:800; letter-spacing:2px; color:var(--txt);}
+  #projbg .pl .lg{width:56px; height:56px; color:var(--accent); display:grid; place-items:center;}
+  #projbg .pl .lg svg{width:56px; height:56px;}
+  #projbg small{font-size:15px; letter-spacing:4px; text-transform:uppercase; color:var(--muted);}
+
+  /* simulador (SÓ no protótipo — NÃO existe no app; lá a detecção é automática).
+     Escondido por padrão; alterna com a tecla P. */
+  .sim{position:absolute; top:16px; left:16px; z-index:70; display:none; align-items:center; gap:8px;
+       background:rgba(10,14,20,.85); border:1px solid var(--line2); border-radius:12px; padding:8px 12px;
+       font-size:13px; color:var(--muted); backdrop-filter:blur(8px);}
+  .sim.show{display:flex;}
+  .sim button{appearance:none; border:1px solid var(--line2); background:var(--card2); color:var(--txt);
+              font-weight:700; font-size:13px; padding:7px 12px; border-radius:9px; cursor:pointer; transition:.14s;}
+  .sim button.on{background:linear-gradient(180deg,rgba(var(--glow),.26),rgba(var(--glow),.12)); color:#fff; border-color:rgba(var(--glow),.5);}
+
+  /* temperatura com setas */
+  .temp{display:flex; align-items:center; gap:12px;}
+  .chev{appearance:none; border:0; background:transparent; color:var(--accent); font-size:30px; font-weight:300;
+        line-height:1; cursor:pointer; padding:4px 6px; opacity:.9; transition:.12s;}
+  .chev:hover{opacity:1; text-shadow:0 0 12px rgba(var(--glow),.7);}
+  .temp .tval{font-size:27px; font-weight:700; color:var(--txt); min-width:78px; text-align:center; font-variant-numeric:tabular-nums; letter-spacing:.5px;}
+
+  /* botão de ícone (banco/fan/recirc/volume) com nível embaixo */
+  .ibtn{display:flex; flex-direction:column; align-items:center; gap:7px; cursor:pointer; padding:4px 2px;}
+  .ibtn .ic{width:26px; height:26px; color:var(--txt); display:grid; place-items:center; opacity:.92; transition:.12s;}
+  .ibtn .ic svg{width:26px; height:26px;}
+  .ibtn .ic.big, .ibtn .ic.big svg{width:40px; height:40px;}
+  .ibtn .ic.wide, .ibtn .ic.wide svg{width:48px; height:48px;}
+  .ibtn:hover .ic{opacity:1; color:#fff;}
+  .ibtn.on .ic{color:var(--accent);}
+  .lvl{width:30px; height:3px; border-radius:2px; background:rgba(255,255,255,.14); overflow:hidden;}
+  .lvl > i{display:block; height:100%; background:var(--accent); box-shadow:0 0 8px rgba(var(--glow),.7); width:0;}
+
+  /* texto MAX/AUTO */
+  .txt{display:flex; flex-direction:column; align-items:center; gap:7px; cursor:pointer; padding:4px 4px;}
+  .txt span{font-size:16px; font-weight:800; letter-spacing:1.5px; color:var(--muted); transition:.12s;}
+  .txt .ul{width:24px; height:3px; border-radius:2px; background:transparent;}
+  .txt.on span{color:var(--accent); text-shadow:0 0 12px rgba(var(--glow),.55);}
+  .txt.on .ul{background:var(--accent); box-shadow:0 0 8px rgba(var(--glow),.7);}
+
+  /* modo (condução/direção): ícone + label colorido */
+  .mode{display:flex; flex-direction:column; align-items:center; gap:5px; cursor:pointer; padding:2px 4px; min-width:74px;}
+  .mode .ic{width:20px; height:20px; display:grid; place-items:center;}
+  .mode .ic svg{width:20px; height:20px;}
+  .mode .ml{font-size:14px; font-weight:800; letter-spacing:1.5px;}
+
+  /* fluxo de ar: na barra mostra SÓ o ícone atual; toque abre o popup */
+  .ibtn .ic.air{width:34px; height:30px;}
+  .ibtn .ic.air svg, .ibtn .ic.air .maskic{width:34px; height:30px;}
+  /* ícone-máscara: usa o PNG real do carro (alpha) tingido pela cor atual */
+  .maskic{display:block; background-color:currentColor; -webkit-mask:center/contain no-repeat; mask:center/contain no-repeat;}
+  .ibtn .ic .maskic{width:100%; height:100%;}
+
+  /* popup do fluxo de ar — linha horizontal de ícones (escolha exclusiva) */
+  .airpop{position:absolute; left:50%; transform:translateX(-50%); bottom:96px; display:none; align-items:center; gap:8px; z-index:8;
+          background:rgba(10,14,20,.97); border:1px solid var(--accent); border-radius:18px; padding:12px 14px;
+          box-shadow:0 14px 36px rgba(0,0,0,.6), 0 0 22px rgba(var(--glow),.25);}
+  .airpop.show{display:flex;}
+  .airpop button{appearance:none; border:0; background:transparent; cursor:pointer; padding:9px; border-radius:13px;
+                 display:grid; place-items:center; color:var(--muted); transition:.12s;}
+  .airpop button svg, .airpop button .maskic{width:40px; height:34px; display:block;}
+  .airpop button:hover{color:var(--txt); background:rgba(255,255,255,.05);}
+  .airpop button.on{color:var(--accent); background:rgba(var(--glow),.16); box-shadow:0 0 0 1px rgba(var(--glow),.5), 0 0 14px rgba(var(--glow),.25);}
+
+  /* popup de nível (ventilação): números 1..N pra escolher direto */
+  .lvlpop{position:absolute; left:50%; transform:translateX(-50%); bottom:96px; display:none; align-items:center; gap:8px; z-index:8;
+          background:rgba(10,14,20,.97); border:1px solid var(--accent); border-radius:18px; padding:12px 14px;
+          box-shadow:0 14px 36px rgba(0,0,0,.6), 0 0 22px rgba(var(--glow),.25);}
+  .lvlpop.show{display:flex;}
+  .lvlpop button{appearance:none; border:1px solid var(--line2); background:var(--card); color:var(--txt); cursor:pointer;
+                 width:46px; height:46px; border-radius:13px; font-size:20px; font-weight:800; transition:.12s;}
+  .lvlpop button:hover{border-color:var(--accent); color:var(--accent);}
+  .lvlpop button.on{background:linear-gradient(180deg,var(--accent),#15b9c9); color:var(--onAccent); border-color:transparent; box-shadow:0 0 12px rgba(var(--glow),.35);}
+
+  /* regeneração: raio verde + barras de nível */
+  .regen{display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; padding:2px 4px;}
+  .regen .ic{width:24px; height:24px; color:var(--green); display:grid; place-items:center;}
+  .regen .ic svg{width:24px; height:24px;}
+  .rbars{display:flex; gap:3px;}
+  .rbars i{width:7px; height:5px; border-radius:1px; background:rgba(255,255,255,.16);}
+  .rbars i.on{background:var(--green); box-shadow:0 0 7px rgba(54,224,90,.7);}
+
+  /* popup de volume — barra VERTICAL (igual ao Haval Radio) */
+  .volpop{position:absolute; right:40px; bottom:96px; display:none; flex-direction:column; align-items:center; gap:12px; z-index:8;
+          background:rgba(10,14,20,.97); border:1px solid var(--accent); border-radius:18px; padding:16px;
+          box-shadow:0 14px 36px rgba(0,0,0,.6), 0 0 22px rgba(var(--glow),.25);}
+  .volpop.show{display:flex;}
+  .vbtn{appearance:none; border:1px solid var(--line2); background:var(--card); color:var(--txt); width:54px; height:46px; border-radius:13px; font-size:28px; font-weight:300; line-height:1; cursor:pointer;}
+  .vbtn:hover{border-color:var(--accent); color:var(--accent);}
+  .vbtn:active{transform:scale(.93);}
+  .vtrack{position:relative; width:26px; height:170px; border-radius:14px; background:var(--card2); border:1px solid var(--line); cursor:pointer; touch-action:none;}
+  .vfill{position:absolute; left:0; right:0; bottom:0; border-radius:0 0 13px 13px; background:linear-gradient(0deg,#15b9c9,var(--accent)); box-shadow:0 0 16px rgba(var(--glow),.5);}
+  .vfill.full{border-radius:13px;}
+  .vthumb{position:absolute; left:50%; transform:translate(-50%,50%); width:30px; height:30px; border-radius:50%; background:#fff; box-shadow:0 4px 12px rgba(0,0,0,.5), 0 0 0 4px rgba(var(--glow),.3); z-index:2;}
+  .vval{font-size:24px; font-weight:800; color:var(--accent); font-variant-numeric:tabular-nums;}
+  .vlabel{font-size:11px; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:var(--muted);}
+
+  /* alça p/ revelar a barra quando auto-oculta */
+  .reveal{position:absolute; left:50%; bottom:0; transform:translateX(-50%); display:none; align-items:center; gap:8px;
+          padding:8px 22px 10px; border-radius:13px 13px 0 0; background:rgba(6,9,12,.94); border:1px solid var(--accent); border-bottom:0;
+          color:var(--accent); font-size:14px; font-weight:800; cursor:pointer; z-index:5; backdrop-filter:blur(12px);}
+  .reveal.show{display:flex;}
+
+  /* ===== Configurações (abre pelo ícone do app; aqui pela tecla C) ===== */
+  .settings{position:absolute; inset:0; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; z-index:60;}
+  .settings.show{display:flex;}
+  .sheet{width:780px; background:linear-gradient(180deg,var(--card),var(--card2)); border:1px solid var(--line2); border-radius:24px; padding:30px 36px; box-shadow:var(--shadow);}
+  .sheet h1{font-size:26px; font-weight:800; margin:0 0 4px; display:flex; align-items:center; gap:12px;}
+  .sheet h1 svg{width:28px; height:28px; color:var(--accent);}
+  .sheet .sub{color:var(--muted); font-size:15px; margin-bottom:26px;}
+  .sgroup{border-top:1px solid var(--line); padding-top:22px;}
+  .sgroup .glabel{font-size:12px; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:var(--muted2); margin-bottom:18px;}
+  .srow{display:flex; align-items:center; justify-content:space-between; gap:22px; margin-bottom:22px;}
+  .srow .name{font-size:18px; font-weight:600;}
+  .srow .name small{display:block; color:var(--muted); font-weight:500; font-size:14px; margin-top:4px;}
+  .srow.disabled{opacity:.38; pointer-events:none;}
+  .seg2{display:flex; background:var(--card2); border:1px solid var(--line); border-radius:14px; padding:5px; gap:4px; flex:none;}
+  .seg2 button{appearance:none; border:0; background:transparent; color:var(--muted); font-weight:700; font-size:16px; padding:10px 24px; border-radius:10px; cursor:pointer; transition:.15s;}
+  .seg2 button.on{background:linear-gradient(180deg,rgba(var(--glow),.26),rgba(var(--glow),.12)); color:#fff; box-shadow:0 0 0 1px rgba(var(--glow),.45);}
+  .secs{display:flex; align-items:center; gap:12px; flex:none;}
+  .secs .num{font-size:24px; font-weight:800; min-width:66px; text-align:center; font-variant-numeric:tabular-nums; color:var(--accent);}
+  .step2{appearance:none; border:1px solid var(--line2); background:var(--card2); color:var(--txt); font-weight:700; font-size:15px; padding:10px 18px; border-radius:12px; cursor:pointer; transition:.14s; flex:none;}
+  .step2:hover{border-color:var(--accent); color:var(--accent);}
+  .step2.primary{background:linear-gradient(180deg,var(--accent),#15b9c9); color:var(--onAccent); border:0;}
+  .step{appearance:none; border:1px solid var(--line2); background:var(--card2); color:var(--txt); width:40px; height:40px; border-radius:11px; font-size:22px; line-height:1; cursor:pointer;}
+  .srow .name small.ok{color:var(--accent);}
+  .pbar{flex:1; height:10px; border-radius:6px; background:var(--card2); border:1px solid var(--line); overflow:hidden;}
+  .pbar > i{display:block; height:100%; width:0%; background:var(--accent);}
+  .sheet .actions{display:flex; justify-content:flex-end; margin-top:6px;}
+  .sheet .done{appearance:none; border:0; background:linear-gradient(180deg,var(--accent),#15b9c9); color:var(--onAccent); font-weight:800; font-size:16px; padding:12px 28px; border-radius:14px; cursor:pointer;}
+</style>
+</head>
+<body>
+<div id="fit"><div id="stage">
+
+  <!-- header e meio VAZIOS: o overlay só desenha a faixa de baixo (mapa/CarPlay por trás).
+       Config abre só pelo ícone do app na central; no protótipo, tecla "C". -->
+
+  <div id="projbg"><div class="pl"></div><small>projeção espelhada</small></div>
+
+  <div class="sim" id="sim">
+    <span>Simular projeção <small style="opacity:.6">(só protótipo · tecla P)</small>:</span>
+    <button data-c="none">Nenhuma</button>
+    <button data-c="carplay">CarPlay</button>
+    <button data-c="androidauto">Android Auto</button>
+  </div>
+
+  <div class="bar" id="bar"></div>
+
+  <div class="volpop" id="volpop">
+    <button class="vbtn" id="volPlus">+</button>
+    <div class="vtrack" id="vtrack"><div class="vfill" id="vfill"></div><div class="vthumb" id="vthumb"></div></div>
+    <button class="vbtn" id="volMinus">&#8722;</button>
+    <div class="vval" id="vval">14</div>
+    <div class="vlabel">Volume</div>
+  </div>
+
+  <div class="airpop" id="airpop"></div>
+  <div class="lvlpop" id="lvlpop"></div>
+
+  <button class="reveal" id="reveal">&#9650; Haval Dock</button>
+
+  <div class="settings" id="settings">
+    <div class="sheet">
+      <h1><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.7-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg> Haval Dock</h1>
+      <div class="sub">Configurações &middot; abertas pelo ícone do app na central</div>
+      <div class="sgroup">
+        <div class="glabel">Barra inferior</div>
+        <div class="srow">
+          <div class="name">Visibilidade<small>Sempre na tela, ou some sozinha após inatividade.</small></div>
+          <div class="seg2" id="visSeg">
+            <button data-mode="always">Sempre visível</button>
+            <button data-mode="auto">Auto-ocultar</button>
+          </div>
+        </div>
+        <div class="srow" id="secsRow">
+          <div class="name">Ocultar após<small>O tempo reinicia a cada toque na barra.</small></div>
+          <div class="secs">
+            <button class="step" id="secMinus">&#8722;</button>
+            <span class="num" id="secsNum">10s</span>
+            <button class="step" id="secPlus">+</button>
+          </div>
+        </div>
+      </div>
+      <div class="sgroup">
+        <div class="glabel">Sobre e atualização</div>
+        <div class="srow">
+          <div class="name">Versão<small id="updMsg">Verifica a última release no GitHub.</small></div>
+          <div class="secs">
+            <span class="num" id="curVer" style="font-size:20px; color:var(--txt); min-width:auto">v0.1.0</span>
+            <button class="step2" id="updCheck">Verificar</button>
+            <button class="step2 primary" id="updDo" style="display:none">Baixar e instalar</button>
+          </div>
+        </div>
+        <div class="srow" id="updProgRow" style="display:none; margin-bottom:6px;">
+          <div class="pbar"><i id="pbarFill"></i></div>
+          <span class="num" id="pPct" style="font-size:18px; min-width:56px">0%</span>
+        </div>
+      </div>
+      <div class="actions"><button class="done" id="sDone">Concluir</button></div>
+    </div>
+  </div>
+
+</div></div>
+
+<script>
+  function fit(){
+    const s=document.getElementById('stage');
+    const k=Math.min(window.innerWidth/1920, window.innerHeight/720);
+    s.style.transform='translate('+((window.innerWidth-1920*k)/2)+'px,'+((window.innerHeight-720*k)/2)+'px) scale('+k+')';
+  }
+  addEventListener('resize',fit); addEventListener('load',fit); requestAnimationFrame(fit); fit();
+
+  function svg(inner){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+inner+'</svg>';}
+  const ICONS={
+    seat: svg('<path d="M9 3h2a3 3 0 0 1 3 3v6H6V6a3 3 0 0 1 3-3z"/><path d="M6 12h11a2 2 0 0 1 2 2v1a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z"/><path d="M17 17v3"/>'),
+    fan:  svg('<path d="M3 8h9a2.5 2.5 0 1 0-2.5-2.5"/><path d="M3 12h13a2.5 2.5 0 1 1-2.5 2.5"/><path d="M3 16h8a2 2 0 1 1-2 2"/>'),
+    sync: svg('<path d="M5 9a7 7 0 0 1 12-2"/><path d="M17 3v4h-4"/><path d="M19 15a7 7 0 0 1-12 2"/><path d="M7 21v-4h4"/>'),
+    recirc:'<svg viewBox="0 0 91 91" fill="currentColor"><path d="M7.754,62.149c0.813,4.484,4.737,7.897,9.451,7.897c4.564,0,8.389-3.201,9.365-7.474h38.65c0.977,4.273,4.801,7.474,9.365,7.474c4.698,0,8.612-3.389,9.445-7.849h4.963c1.183,0,2.141-0.958,2.141-2.141V45.787c0-0.78-0.425-1.499-1.109-1.875l-8.719-4.794L66.804,24.613c-0.401-0.401-0.945-0.627-1.513-0.627H35.7c-0.542,0-1.063,0.206-1.459,0.575L16.43,41.166l-8.295,1.509c-2.8,0.156-7.793,2.307-7.793,9.53C0.342,59.248,5.055,61.752,7.754,62.149z M17.206,65.765c-2.941,0-5.333-2.393-5.333-5.333c0-2.94,2.392-5.332,5.333-5.332s5.333,2.392,5.333,5.332C22.539,63.373,20.146,65.765,17.206,65.765z M74.586,65.765c-2.941,0-5.333-2.393-5.333-5.333c0-2.94,2.392-5.332,5.333-5.332s5.334,2.392,5.334,5.332C79.92,63.373,77.527,65.765,74.586,65.765z M8.427,46.946c0.11-0.003,0.221-0.014,0.329-0.034l9.058-1.647c0.402-0.073,0.777-0.261,1.076-0.54l17.653-16.458h27.861l14.092,14.092c0.143,0.143,0.305,0.265,0.481,0.362l7.877,4.332v10.864h-2.999c-1.11-4.083-4.839-7.097-9.27-7.097c-4.564,0-8.389,3.2-9.365,7.472h-38.65c-0.977-4.272-4.801-7.472-9.365-7.472c-4.395,0-8.102,2.967-9.243,7c-1.117-0.325-3.339-1.489-3.339-5.615C4.623,47.391,7.814,46.979,8.427,46.946z"/><path d="M40.716,50.979h11.366l-0.26,0.15c-1.024,0.591-1.374,1.9-0.783,2.924c0.396,0.686,1.116,1.07,1.855,1.07c0.363,0,0.731-0.092,1.068-0.287l7.176-4.145c0.663-0.383,1.07-1.089,1.07-1.854c0-0.765-0.409-1.471-1.07-1.853l-7.176-4.142c-1.026-0.591-2.333-0.241-2.924,0.784c-0.59,1.024-0.24,2.333,0.784,2.923l0.255,0.147H40.716c-2.42,0-4.388-1.968-4.388-4.387c0-2.42,1.968-4.389,4.388-4.389H57.89c1.182,0,2.14-0.958,2.14-2.141c0-1.182-0.958-2.14-2.14-2.14H40.716c-4.78,0-8.669,3.889-8.669,8.67C32.047,47.09,35.936,50.979,40.716,50.979z"/></svg>',
+    car:  svg('<path d="M4 12l2-5a2 2 0 0 1 1.9-1.3h8.2A2 2 0 0 1 18 7l2 5"/><path d="M3 12h18v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M6 16.5a1.5 1.5 0 1 1 3 0a1.5 1.5 0 1 1-3 0"/><path d="M15 16.5a1.5 1.5 0 1 1 3 0a1.5 1.5 0 1 1-3 0"/>'),
+    // home = "voltar ao carro" (tela principal da central)
+    home: svg('<path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9"/><path d="M9.5 20v-6h5v6"/>'),
+    // CarPlay — ícone-app colorido (estilo Apple): carro branco em quadrado escuro.
+    // No app real será o ícone do launcher do com.ts.carplay.app (extraído via Shizuku).
+    carplay: '<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="44" height="44" rx="11" fill="#1c1c1e" stroke="rgba(255,255,255,.18)"/><path fill="#fff" d="M13.2 25.6l2-5.7A3.2 3.2 0 0 1 18.2 17.7h11.6a3.2 3.2 0 0 1 3 2.2l2 5.7c1 .3 1.9 1.2 1.9 2.5v4c0 .6-.5 1.1-1.1 1.1h-1.4a2.6 2.6 0 0 1-5.2 0H18.8a2.6 2.6 0 0 1-5.2 0h-1.4c-.6 0-1.1-.5-1.1-1.1v-4c0-1.3.9-2.2 1.9-2.5Zm3.3-1.6h15l-1.2-3.5a1.2 1.2 0 0 0-1.1-.8H18.8a1.2 1.2 0 0 0-1.1.8L16.5 24Zm.3 7.2a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8Zm14.4 0a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8Z"/></svg>',
+    // Android Auto — ícone-app colorido: robô verde em quadrado branco.
+    // No app real será o ícone do launcher do com.ts.androidauto.app.
+    androidauto: '<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="44" height="44" rx="11" fill="#ffffff"/><path fill="#3ddc84" d="M30.8 18.7l1.7-3a.6.6 0 1 0-1-.6l-1.73 3A10.3 10.3 0 0 0 24 16.8c-2 0-3.86.45-5.5 1.3l-1.73-3a.6.6 0 1 0-1 .6l1.7 3A8.7 8.7 0 0 0 13 26.4h22a8.7 8.7 0 0 0-4.2-7.7ZM19 23.2a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6Zm10 0a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6Z"/></svg>',
+    steer:svg('<path d="M3 12a9 9 0 1 1 18 0a9 9 0 1 1-18 0"/><path d="M9.8 12a2.2 2.2 0 1 1 4.4 0a2.2 2.2 0 1 1-4.4 0"/><path d="M12 14.2V21"/><path d="M10.1 13.1L4.5 16.5"/><path d="M13.9 13.1l5.6 3.4"/>'),
+    volume:svg('<path d="M4 9h3l4-3v12l-4-3H4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18 6a9 9 0 0 1 0 12"/>'),
+    bolt: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L5 13h5l-1 9 9-12h-5l1-8z"/></svg>',
+    // recirculador — ícones por estado (SVGs do usuário, via máscara).
+    // closed = ativo (recircula, sem ar externo); open = desligado (entra ar externo).
+    recircClosed: '<span class="maskic" style="-webkit-mask-image:url(recirc_closed.svg);mask-image:url(recirc_closed.svg)"></span>',
+    recircOpen: '<span class="maskic" style="-webkit-mask-image:url(recirc_open.svg);mask-image:url(recirc_open.svg)"></span>'
+  };
+  const MCOL={c:'var(--accent)', g:'var(--green)', r:'var(--red)', w:'var(--txt)'};
+  const REGENCOL=['var(--green)','#ffc23c','var(--red)'];   // Baixo=verde, Normal=amarelo, Alto=vermelho
+
+  // fluxo de ar — 5 posições. Os 4 primeiros são os PNGs REAIS do HVAC do carro (mesmos do app),
+  // tingidos por máscara CSS. O 5º (pára-brisa) o carro não expõe como ícone próprio -> SVG.
+  const _maskic=f=>'<span class="maskic" style="-webkit-mask-image:url('+f+');mask-image:url('+f+')"></span>';
+  const AIR=[
+    _maskic('ic_hvac_blower_face.png'),
+    _maskic('ic_hvac_blower_feet_and_face.png'),
+    _maskic('ic_hvac_blower_feet.png'),
+    _maskic('ic_hvac_blower_feet_and_defrost.png'),
+    _maskic('ic_hvac_blower_defrost.svg'),
+  ];
+
+  // ESQUERDA -> CENTRO -> DIREITA (estilo do app de referência)
+  const ITEMS=[
+    {sec:0, type:'temp',  label:'Temp. motorista',    val:23.0, min:16, max:32, step:0.5},
+    {sec:0, type:'level', icon:'seat',   label:'Ventil. motorista', val:0, max:3},
+    {sec:0, type:'level', icon:'fan',    label:'Veloc. ar-cond.',   val:3, max:7, min:1, pick:true},
+    {sec:0, type:'text',  label:'MAX',  on:false},
+    {sec:0, type:'text',  label:'AUTO', on:true},
+    {sec:0, type:'text',  label:'SYNC', on:false},
+    {sec:0, type:'itog',  icon:'recircClosed', iconOff:'recircOpen', label:'Recirculador', on:false, wide:true},
+    {sec:0, type:'airsel', label:'Fluxo de ar', idx:0, opts:['Rosto','Rosto + Pés','Pés','Pés + Pára-brisa','Pára-brisa']},
+    {sec:0, type:'proj', label:'Projeção'},
+
+    {sec:1, type:'mode',  icon:'car',   label:'Modo condução', opts:[['Normal','c'],['Eco','g'],['Sport','r'],['Neve','c']], idx:2},
+    {sec:1, type:'mode',  icon:'steer', label:'Modo direção',  opts:[['Conforto','c'],['Normal','w'],['Esportiva','r']], idx:1},
+    {sec:1, type:'regen', label:'Regeneração', opts:['Baixo','Normal','Alto'], idx:1},
+
+    {sec:2, type:'temp',  label:'Temp. passageiro',   val:23.0, min:16, max:32, step:0.5},
+    {sec:2, type:'level', icon:'seat',   label:'Ventil. passageiro', val:1, max:3},
+    {sec:2, type:'vol',   icon:'volume', label:'Volume rádio',  val:14, max:30},
+  ];
+
+  // estado da projeção: conn = qual está conectada (none/carplay/androidauto);
+  // active = a projeção está em foco agora (1º toque abre, 2º volta pro carro).
+  const proj={ conn:'carplay', active:false };
+
+  function updateProjBg(){
+    const bg=document.getElementById('projbg');
+    if(proj.active && proj.conn!=='none'){
+      const brand=proj.conn==='carplay'?'CarPlay':'Android Auto';
+      bg.querySelector('.pl').innerHTML='<span class="lg">'+ICONS[proj.conn]+'</span>'+brand;
+      bg.classList.add('show');
+    }else bg.classList.remove('show');
+  }
+
+  function render(){
+    const bar=document.getElementById('bar'); bar.innerHTML='';
+    [0,1,2].forEach(s=>{
+      const sec=document.createElement('div'); sec.className='sec sec'+s;
+      ITEMS.forEach((it,i)=>{ if(it.sec===s){ const t=tile(it,i); if(t) sec.appendChild(t); } });
+      bar.appendChild(sec);
+    });
+    updateProjBg();
+  }
+
+  function tile(it,i){
+    if(it.type==='proj'){
+      if(proj.conn==='none') return null;   // só aparece quando há projeção conectada
+      const brand=proj.conn==='carplay'?'CarPlay':'Android Auto';
+      const el=document.createElement('div'); el.className='ibtn projtile'+(proj.active?' on':'');
+      el.title=brand+(proj.active?' — toque p/ voltar ao carro':' — toque p/ abrir');
+      el.innerHTML='<span class="ic brand">'+ICONS[proj.conn]+'</span><div class="lvl"><i style="width:'+(proj.active?100:0)+'%"></i></div>';
+      el.addEventListener('click',()=>{ proj.active=!proj.active; activity(); render(); });
+      return el;
+    }
+    if(it.type==='temp'){
+      const el=document.createElement('div'); el.className='temp'; el.title=it.label;
+      el.innerHTML='<button class="chev" data-d="-1">&lsaquo;</button><span class="tval">'+it.val.toFixed(1)+'°</span><button class="chev" data-d="1">&rsaquo;</button>';
+      el.querySelectorAll('.chev').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();
+        it.val=Math.min(it.max,Math.max(it.min,Math.round((it.val+(+b.dataset.d)*it.step)*10)/10)); activity(); render();}));
+      return el;
+    }
+    if(it.type==='level'){
+      const el=document.createElement('div'); el.className='ibtn'; el.title=it.label;
+      el.innerHTML='<span class="ic">'+ICONS[it.icon]+'</span><div class="lvl"><i style="width:'+(it.val/it.max*100)+'%"></i></div>';
+      el.addEventListener('click',e=>{ if(it.pick){ e.stopPropagation(); activity(); openLvl(it); return; } it.val=it.val>=it.max?0:it.val+Math.max(1,Math.round(it.max/ (it.max>10?15:it.max))); if(it.val>it.max)it.val=it.max; activity(); render();});
+      return el;
+    }
+    if(it.type==='text'){
+      const el=document.createElement('div'); el.className='txt'+(it.on?' on':''); el.title=it.label;
+      el.innerHTML='<span>'+it.label+'</span><div class="ul"></div>';
+      el.addEventListener('click',()=>{ it.on=!it.on; activity(); render();});
+      return el;
+    }
+    if(it.type==='itog'){
+      const ic=(!it.on && it.iconOff)?ICONS[it.iconOff]:ICONS[it.icon];
+      const el=document.createElement('div'); el.className='ibtn'+(it.on?' on':''); el.title=it.label;
+      el.innerHTML='<span class="ic'+(it.big?' big':'')+(it.wide?' wide':'')+'">'+ic+'</span><div class="lvl"><i style="width:'+(it.on?100:0)+'%"></i></div>';
+      el.addEventListener('click',()=>{ it.on=!it.on; activity(); render();});
+      return el;
+    }
+    if(it.type==='vol'){
+      const el=document.createElement('div'); el.className='ibtn'; el.title=it.label;
+      el.innerHTML='<span class="ic">'+ICONS[it.icon]+'</span><div class="lvl"><i style="width:'+(it.val/it.max*100)+'%"></i></div>';
+      el.addEventListener('click',e=>{ e.stopPropagation(); activity(); openVol(it); });
+      return el;
+    }
+    if(it.type==='airsel'){
+      const el=document.createElement('div'); el.className='ibtn'; el.title=it.label+' — '+it.opts[it.idx];
+      el.innerHTML='<span class="ic air">'+AIR[it.idx]+'</span>';
+      el.addEventListener('click',e=>{ e.stopPropagation(); activity(); openAir(it); });
+      return el;
+    }
+    if(it.type==='mode'){
+      const o=it.opts[it.idx]; const col=MCOL[o[1]];
+      const el=document.createElement('div'); el.className='mode'; el.title=it.label;
+      el.innerHTML='<span class="ic" style="color:'+col+'">'+ICONS[it.icon]+'</span><span class="ml" style="color:'+col+'">'+o[0].toUpperCase()+'</span>';
+      el.addEventListener('click',()=>{ it.idx=(it.idx+1)%it.opts.length; activity(); render();});
+      return el;
+    }
+    // regen — cor do raio por nível: verde=fraco, amarelo=normal, vermelho=forte
+    const el=document.createElement('div'); el.className='regen'; el.title=it.label;
+    const rc=REGENCOL[it.idx]||'var(--green)';
+    let bars=''; for(let k=0;k<3;k++) bars+='<i class="'+(k<=it.idx?'on':'')+'" style="'+(k<=it.idx?'background:'+rc+';box-shadow:0 0 7px '+rc+';':'')+'"></i>';
+    el.innerHTML='<span class="ic" style="color:'+rc+'">'+ICONS.bolt+'</span><div class="rbars">'+bars+'</div>';
+    el.addEventListener('click',()=>{ it.idx=(it.idx+1)%it.opts.length; activity(); render();});
+    return el;
+  }
+
+  document.getElementById('bar').addEventListener('pointerdown',()=>activity(),true);
+  render();
+
+  /* ---- simulador de projeção (só no protótipo) ---- */
+  (function(){
+    const sim=document.getElementById('sim');
+    sim.querySelectorAll('button').forEach(b=>{
+      b.classList.toggle('on', b.dataset.c===proj.conn);
+      b.addEventListener('click',()=>{
+        proj.conn=b.dataset.c; proj.active=false;
+        sim.querySelectorAll('button').forEach(x=>x.classList.toggle('on', x===b));
+        activity(); render();
+      });
+    });
+  })();
+
+  /* ---- visibilidade: sempre / auto-ocultar (timer reseta a cada toque) ---- */
+  const cfg={ mode:'auto', secs:10 };
+  let hideTimer=null;
+  const bar=document.getElementById('bar'), reveal=document.getElementById('reveal');
+  function showBar(){ bar.classList.remove('hidden'); reveal.classList.remove('show'); }
+  function hideBar(){ if(cfg.mode!=='auto') return; bar.classList.add('hidden'); reveal.classList.add('show'); }
+  function armTimer(){ if(hideTimer){clearTimeout(hideTimer); hideTimer=null;} if(cfg.mode==='auto') hideTimer=setTimeout(hideBar, cfg.secs*1000); }
+  function activity(){ showBar(); armTimer(); }
+  reveal.addEventListener('click',activity);
+
+  /* ---- popup de volume — barra vertical (igual ao Haval Radio) ---- */
+  let volItem=null;
+  const volpop=document.getElementById('volpop'), vvalEl=document.getElementById('vval'),
+        vfill=document.getElementById('vfill'), vthumb=document.getElementById('vthumb'), vtrack=document.getElementById('vtrack');
+  function drawVol(){ const r=Math.max(0,Math.min(1,volItem.val/volItem.max));
+    vfill.style.height=(r*100)+'%'; vfill.classList.toggle('full', r>=0.999);
+    vthumb.style.bottom=(r*100)+'%'; vvalEl.textContent=volItem.val; }
+  function openVol(it){ volItem=it; drawVol(); volpop.classList.add('show'); }
+  function setVol(v){ if(!volItem) return; volItem.val=Math.min(volItem.max,Math.max(0,v)); drawVol(); activity(); render(); }
+  document.getElementById('volPlus').addEventListener('click',e=>{ e.stopPropagation(); setVol(volItem.val+1); });
+  document.getElementById('volMinus').addEventListener('click',e=>{ e.stopPropagation(); setVol(volItem.val-1); });
+  let vdrag=false;
+  function volFromY(y){ const rc=vtrack.getBoundingClientRect(); let r=1-(y-rc.top)/rc.height; r=Math.max(0,Math.min(1,r)); setVol(Math.round(r*volItem.max)); }
+  vtrack.addEventListener('pointerdown',e=>{ e.stopPropagation(); vdrag=true; vtrack.setPointerCapture(e.pointerId); volFromY(e.clientY); });
+  vtrack.addEventListener('pointermove',e=>{ if(vdrag) volFromY(e.clientY); });
+  vtrack.addEventListener('pointerup',()=>vdrag=false);
+  volpop.addEventListener('click',e=>e.stopPropagation());
+
+  /* ---- popup de fluxo de ar — linha horizontal de ícones (escolha exclusiva) ---- */
+  let airItem=null;
+  const airpop=document.getElementById('airpop');
+  function drawAir(){ airpop.innerHTML='';
+    AIR.forEach((ic,k)=>{
+      const b=document.createElement('button'); b.innerHTML=ic; b.title=airItem.opts[k];
+      if(k===airItem.idx) b.className='on';
+      b.addEventListener('click',e=>{ e.stopPropagation(); airItem.idx=k; airpop.classList.remove('show'); activity(); render(); });
+      airpop.appendChild(b);
+    }); }
+  function openAir(it){ airItem=it; drawAir(); airpop.classList.add('show'); }
+  airpop.addEventListener('click',e=>e.stopPropagation());
+
+  /* ---- popup de nível (ventilação): escolher 1..N direto ---- */
+  let lvlItem=null;
+  const lvlpop=document.getElementById('lvlpop');
+  function drawLvl(){ lvlpop.innerHTML='';
+    const lo=lvlItem.min||0, hi=lvlItem.max;
+    for(let n=lo;n<=hi;n++){ const b=document.createElement('button'); b.textContent=n; if(n===lvlItem.val) b.className='on';
+      (function(v){ b.addEventListener('click',e=>{ e.stopPropagation(); lvlItem.val=v; lvlpop.classList.remove('show'); activity(); render(); }); })(n);
+      lvlpop.appendChild(b); } }
+  function openLvl(it){ lvlItem=it; drawLvl(); lvlpop.classList.add('show'); }
+  lvlpop.addEventListener('click',e=>e.stopPropagation());
+
+  document.getElementById('stage').addEventListener('click',e=>{
+    if(volpop.classList.contains('show') && !volpop.contains(e.target)) volpop.classList.remove('show');
+    if(airpop.classList.contains('show') && !airpop.contains(e.target)) airpop.classList.remove('show');
+    if(lvlpop.classList.contains('show') && !lvlpop.contains(e.target)) lvlpop.classList.remove('show'); });
+
+  /* ---- Configurações ---- */
+  const settings=document.getElementById('settings');
+  function applyCfg(){
+    document.querySelectorAll('#visSeg button').forEach(b=>b.classList.toggle('on', b.dataset.mode===cfg.mode));
+    document.getElementById('secsRow').classList.toggle('disabled', cfg.mode!=='auto');
+    document.getElementById('secsNum').textContent=cfg.secs+'s';
+    if(cfg.mode==='always'){ if(hideTimer){clearTimeout(hideTimer); hideTimer=null;} showBar(); } else activity();
+  }
+  document.getElementById('sDone').addEventListener('click',()=>settings.classList.remove('show'));
+  addEventListener('keydown',e=>{ if(e.key==='c'||e.key==='C') settings.classList.toggle('show'); });
+  // tecla P: mostra/esconde o simulador de projeção (muleta SÓ do protótipo)
+  addEventListener('keydown',e=>{ if(e.key==='p'||e.key==='P') document.getElementById('sim').classList.toggle('show'); });
+  settings.addEventListener('click',e=>{ if(e.target===settings) settings.classList.remove('show'); });
+  document.querySelectorAll('#visSeg button').forEach(b=>b.addEventListener('click',()=>{ cfg.mode=b.dataset.mode; applyCfg(); }));
+  document.getElementById('secMinus').addEventListener('click',()=>{ cfg.secs=Math.max(3,cfg.secs-1); applyCfg(); });
+  document.getElementById('secPlus').addEventListener('click',()=>{ cfg.secs=Math.min(30,cfg.secs+1); applyCfg(); });
+  applyCfg();
+
+  /* ---- updater (mock) ---- */
+  (function(){
+    const msg=document.getElementById('updMsg'), check=document.getElementById('updCheck'), doIt=document.getElementById('updDo');
+    const progRow=document.getElementById('updProgRow'), fill=document.getElementById('pbarFill'), pct=document.getElementById('pPct');
+    check.addEventListener('click',()=>{ check.disabled=true; msg.className=''; msg.textContent='Verificando no GitHub…';
+      setTimeout(()=>{ msg.className='ok'; msg.textContent='Nova versão v0.2.0 disponível'; check.style.display='none'; doIt.style.display=''; check.disabled=false; },800); });
+    doIt.addEventListener('click',()=>{ doIt.style.display='none'; msg.className=''; msg.textContent='Baixando…'; progRow.style.display='flex';
+      let p=0; const t=setInterval(()=>{ p+=Math.max(4,Math.round(Math.random()*12)); if(p>=100){p=100;clearInterval(t);fill.style.width='100%';pct.textContent='100%';
+        setTimeout(()=>{ msg.className='ok'; msg.textContent='Baixado — abrindo instalador… (mock)'; progRow.style.display='none'; },300); return;}
+        fill.style.width=p+'%'; pct.textContent=p+'%'; },140); });
+  })();
+
+  if(location.hash==='#settings') settings.classList.add('show');
+  if(location.hash==='#vol'){ const v=ITEMS.find(x=>x.type==='vol'); if(v) openVol(v); }
+</script>
+</body>
+</html>

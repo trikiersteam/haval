@@ -1,0 +1,8 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="34dp" android:height="34dp" android:viewportWidth="48" android:viewportHeight="48">
+    <!-- ícone-app do Android Auto: "A"/seta — chevron azul atrás + branco na frente -->
+    <path android:fillColor="#5AC8FA"
+        android:pathData="M24,8 L43,39 L33,39 L24,24 L15,39 L5,39 Z" />
+    <path android:fillColor="#ECEFF1"
+        android:pathData="M24,19 L35,39 L28,39 L24,31 L20,39 L13,39 Z" />
+</vector>

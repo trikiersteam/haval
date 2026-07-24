@@ -1,0 +1,11 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="34dp" android:height="34dp" android:viewportWidth="48" android:viewportHeight="48">
+    <!-- ícone-app do CarPlay: quadrado verde + play branco num círculo aberto -->
+    <path android:fillColor="#73D43B"
+        android:pathData="M11,4h26a7,7 0 0 1 7,7v26a7,7 0 0 1 -7,7h-26a7,7 0 0 1 -7,-7v-26a7,7 0 0 1 7,-7z" />
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="2.6" android:fillColor="#00000000"
+        android:strokeLineCap="round"
+        android:pathData="M31.8,15.4 A11.5,11.5 0 1 0 31.8,32.6" />
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M20.5,16.8 L20.5,31.2 L31,24 Z" />
+</vector>

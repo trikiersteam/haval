@@ -1,0 +1,21 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- barra inferior (toolbar) -->
+    <path
+        android:fillColor="#19E3B1"
+        android:pathData="M26,58 h56 a6,6 0 0 1 6,6 v8 a6,6 0 0 1 -6,6 h-56 a6,6 0 0 1 -6,-6 v-8 a6,6 0 0 1 6,-6 z" />
+    <!-- 4 botões da barra (recortes escuros) -->
+    <path android:fillColor="#0E1A17" android:pathData="M30,64 h8 v8 h-8 z" />
+    <path android:fillColor="#0E1A17" android:pathData="M46,64 h8 v8 h-8 z" />
+    <path android:fillColor="#0E1A17" android:pathData="M62,64 h8 v8 h-8 z" />
+    <path android:fillColor="#0E1A17" android:pathData="M78,64 h8 v8 h-8 z" />
+    <!-- tela acima (indicando o mapa/CarPlay que a barra não cobre) -->
+    <path
+        android:strokeColor="#5FF0CF"
+        android:strokeWidth="3"
+        android:fillColor="#00000000"
+        android:pathData="M24,30 h60 a4,4 0 0 1 4,4 v14 h-68 v-14 a4,4 0 0 1 4,-4 z" />
+</vector>
