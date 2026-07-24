@@ -1,8 +1,10 @@
 # Haval Dock
 
+Projeto de estudo, copia de projeto haval-dock de licença MIT aberta.
+
 Uma **toolbar inferior** (barra de atalhos) para a central Haval/GWM, desenhada como **overlay**
 por cima do mediacenter/CarPlay. App Android **standalone** (não depende de outros apps nem de
-aprovação de terceiros), no mesmo molde do [haval-radio](https://github.com/leandrosavn/haval-radio).
+aprovação de terceiros).
 
 A barra fica **só na faixa de baixo** da tela — nunca cobre o header, o meio ou as laterais (é onde
 o mapa/CarPlay aparece). As configurações abrem **apenas pelo ícone do app** na central.
