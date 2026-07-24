@@ -21,7 +21,8 @@ import java.util.concurrent.Executors
  */
 object UpdateManager {
     private const val TAG = "HavalDockUpdate"
-    private const val REPO = "leandrosavn/haval-dock"
+    private const val REPO = "trikiersteam/haval"
+
     private val main = Handler(Looper.getMainLooper())
     private val io = Executors.newSingleThreadExecutor()
 
