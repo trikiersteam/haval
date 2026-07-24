@@ -28,6 +28,7 @@ import android.widget.TextView
 import br.com.redesurftank.havaldock.data.Airflow
 import br.com.redesurftank.havaldock.data.AirflowOption
 import br.com.redesurftank.havaldock.data.Control
+import br.com.redesurftank.havaldock.data.DockColors
 import br.com.redesurftank.havaldock.data.DockControls
 import br.com.redesurftank.havaldock.data.HvacPanel
 import br.com.redesurftank.havaldock.data.IconToggle
@@ -65,6 +66,7 @@ class OverlayService : Service() {
     private var volWin: View? = null
     private var airflowWin: View? = null
     private var levelWin: View? = null
+    private var modeWin: View? = null
     private var hidden = false
 
     // botão de atalho de projeção (CarPlay/AA): aparece quando há projeção conectada
@@ -80,8 +82,8 @@ class OverlayService : Service() {
     private val handleHeightPx by lazy { dp(HANDLE_DP) }
     private val trackPx by lazy { dp(30) }
 
-    private val cAccent = Color.parseColor("#2DE0F0")
-    private val cTxt = Color.parseColor("#EEF4F8")
+    private val cAccent = DockColors.CYAN
+    private val cTxt = DockColors.WHITE
     private val cMuted = Color.parseColor("#828C9C")
     private val cCard = Color.parseColor("#121722")
     private val cLine = Color.parseColor("#23FFFFFF")
@@ -192,14 +194,18 @@ class OverlayService : Service() {
     }
 
     private fun buildSections(content: LinearLayout) {
-        val secs = arrayOf(rowSection(), rowSection(), rowSection())
-        for (c in DockControls.ALL) secs[c.section].addView(tile(c))
-        secs[0].addView(projTile())   // atalho da projeção: após o fluxo de ar (grupo do motorista)
+        val secs = arrayOf(rowSection(), rowSection(), rowSection(), rowSection())
+        for (c in DockControls.ALL) {
+            if (c.section < secs.size) secs[c.section].addView(tile(c))
+        }
+        secs[0].addView(projTile())
         content.addView(secs[0])
-        content.addView(fixedSpacer(90))   // gap fixo: grupo do meio fica perto do motorista
+        content.addView(fixedSpacer(80))
         content.addView(secs[1])
-        content.addView(spacer())          // o restante da folga vai p/ a direita (passageiro encosta na borda)
+        content.addView(fixedSpacer(70))
         content.addView(secs[2])
+        content.addView(spacer())
+        content.addView(secs[3])
     }
 
     private fun rowSection() = LinearLayout(this).apply {
@@ -262,7 +268,7 @@ class OverlayService : Service() {
         val track = makeTrack()
         v.addView(track.first)
         updaters[c.id] = { st -> setTrack(track.second, st.ratio) }
-        v.setOnClickListener { if (c.picker) { onUserActivity(); openLevel(c) } else act(c) { c.cycle() } }
+        v.setOnClickListener { if (c.picker) { onUserActivity(); openLevel(c, v) } else act(c) { c.cycle() } }
         return v
     }
 
@@ -272,7 +278,7 @@ class OverlayService : Service() {
         val track = makeTrack()
         v.addView(track.first)
         updaters[c.id] = { st -> setTrack(track.second, st.ratio) }
-        v.setOnClickListener { onUserActivity(); openVolume(c) }
+        v.setOnClickListener { onUserActivity(); openVolume(c, v) }
         return v
     }
 
@@ -323,7 +329,7 @@ class OverlayService : Service() {
             if (st.icon != 0) ic.setImageResource(st.icon)
             ic.setColorFilter(cTxt)
         }
-        v.setOnClickListener { onUserActivity(); openAirflow(c) }
+        v.setOnClickListener { onUserActivity(); openAirflow(c, v) }
         return v
     }
 
@@ -338,7 +344,7 @@ class OverlayService : Service() {
         v.addView(tv, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
             LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) })
         updaters[c.id] = { st -> ic.setColorFilter(st.color); tv.text = st.text; tv.setTextColor(st.color) }
-        v.setOnClickListener { act(c) { c.next() } }
+        v.setOnClickListener { onUserActivity(); openMode(c, v) }
         return v
     }
 
@@ -398,9 +404,11 @@ class OverlayService : Service() {
 
     // ---- volume popup (janela vertical separada) ----
 
-    private fun openVolume(c: Volume) {
+    // ---- popups (volume, ar, modo, nivel): centralizados sobre o ícone que os abriu ----
+
+    private fun openVolume(c: Volume, anchor: View) {
         if (volWin != null) { closeVolume(); return }
-        closeAirflow(); closeLevel()
+        closeAirflow(); closeLevel(); closeMode()
         val pop = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
             background = pill(cBarBg, dp(18)); setPadding(dp(14), dp(14), dp(14), dp(14))
@@ -446,7 +454,12 @@ class OverlayService : Service() {
             else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT,
-        ).apply { gravity = Gravity.BOTTOM or Gravity.END; x = dp(40); y = barHeightPx + dp(8) }
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = barHeightPx + dp(8)
+            val loc = IntArray(2); anchor.getLocationOnScreen(loc)
+            @Suppress("DEPRECATION")
+            x = (loc[0] + anchor.width / 2) - (wm.defaultDisplay.width / 2)
+        }
         runCatching { wm.addView(pop, lp); volWin = pop; draw() }
     }
 
@@ -458,11 +471,13 @@ class OverlayService : Service() {
 
     private fun closeVolume() { volWin?.let { v -> runCatching { wm.removeView(v) } }; volWin = null }
 
+    private fun closeMode() { modeWin?.let { v -> runCatching { wm.removeView(v) } }; modeWin = null }
+
     // ---- popup de fluxo de ar (linha horizontal de ícones) ----
 
-    private fun openAirflow(c: Airflow) {
+    private fun openAirflow(c: Airflow, anchor: View) {
         if (airflowWin != null) { closeAirflow(); return }
-        closeVolume(); closeLevel()
+        closeVolume(); closeLevel(); closeMode()
         val pop = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             background = pill(cBarBg, dp(18)); setPadding(dp(12), dp(10), dp(12), dp(10))
@@ -488,7 +503,12 @@ class OverlayService : Service() {
             else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT,
-        ).apply { gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = barHeightPx + dp(8) }
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = barHeightPx + dp(8)
+            val loc = IntArray(2); anchor.getLocationOnScreen(loc)
+            @Suppress("DEPRECATION")
+            x = (loc[0] + anchor.width / 2) - (wm.defaultDisplay.width / 2)
+        }
         runCatching { wm.addView(pop, lp); airflowWin = pop }
         // destaca o modo atual em ciano (IPC fora da main thread)
         io.execute {
@@ -498,13 +518,92 @@ class OverlayService : Service() {
         onUserActivity()
     }
 
+    // ---- popup de modo (Modos de condução + SOC HEV) ----
+
+    private fun openMode(c: Mode, anchor: View) {
+        if (modeWin != null) { closeMode(); return }
+        closeVolume(); closeAirflow(); closeLevel()
+        val pop = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
+            background = pill(cBarBg, dp(18)); setPadding(dp(12), dp(10), dp(12), dp(10))
+        }
+
+        val row1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        val modeViews = ArrayList<Pair<Int, TextView>>()
+        val row2 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
+            setPadding(0, dp(8), 0, 0)
+        }
+        val socViews = ArrayList<Pair<String, TextView>>()
+
+        c.order.forEach { m ->
+            val tv = TextView(this).apply {
+                text = (c.labels[m] ?: "—").uppercase(); setTextColor(cTxt); textSize = 15f; setTypeface(null, Typeface.BOLD)
+                setPadding(dp(16), dp(10), dp(16), dp(10)); isClickable = true
+                setOnClickListener {
+                    onUserActivity()
+                    io.execute {
+                        c.select(m)
+                        main.post {
+                            if (m != 0) closeMode() else row2.visibility = View.VISIBLE
+                            refreshAll()
+                            // Update colors
+                            val curM = c.cur(); val curS = c.curHevSoc()
+                            modeViews.forEach { (mo, t) -> t.setTextColor(if (mo == curM) c.colors[mo] ?: cAccent else cTxt) }
+                            socViews.forEach { (s, t) -> t.setTextColor(if (s == curS) DockColors.AMBER else cTxt) }
+                        }
+                    }
+                }
+            }
+            modeViews.add(m to tv); row1.addView(tv)
+        }
+        pop.addView(row1)
+
+        c.hevOptions.forEach { opt ->
+            val tv = TextView(this).apply {
+                text = opt.label; setTextColor(cTxt); textSize = 14f; setTypeface(null, Typeface.BOLD)
+                setPadding(dp(12), dp(8), dp(12), dp(8)); isClickable = true
+                setOnClickListener {
+                    onUserActivity()
+                    io.execute { c.select(0, opt.value); main.post { closeMode(); refreshAll() } }
+                }
+            }
+            socViews.add(opt.value to tv); row2.addView(tv)
+        }
+        pop.addView(row2)
+
+        val lp = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = barHeightPx + dp(8)
+            val loc = IntArray(2); anchor.getLocationOnScreen(loc)
+            @Suppress("DEPRECATION")
+            x = (loc[0] + anchor.width / 2) - (wm.defaultDisplay.width / 2)
+        }
+        runCatching { wm.addView(pop, lp); modeWin = pop }
+
+        io.execute {
+            val curM = c.cur(); val curS = c.curHevSoc()
+            main.post {
+                row2.visibility = if (curM == 0) View.VISIBLE else View.GONE
+                modeViews.forEach { (m, tv) -> tv.setTextColor(if (m == curM) c.colors[m] ?: cAccent else cTxt) }
+                socViews.forEach { (s, tv) -> tv.setTextColor(if (s == curS) DockColors.AMBER else cTxt) }
+            }
+        }
+    }
+
     private fun closeAirflow() { airflowWin?.let { v -> runCatching { wm.removeView(v) } }; airflowWin = null }
 
     // ---- popup de nível (ventilação): escolher min..max direto ----
 
-    private fun openLevel(c: Level) {
+    private fun openLevel(c: Level, anchor: View) {
         if (levelWin != null) { closeLevel(); return }
-        closeVolume(); closeAirflow()
+        closeVolume(); closeAirflow(); closeMode()
         io.execute {
             val lo = c.min
             val hi = c.hi().coerceAtLeast(lo)
@@ -535,7 +634,12 @@ class OverlayService : Service() {
                     else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
                     PixelFormat.TRANSLUCENT,
-                ).apply { gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = barHeightPx + dp(8) }
+                ).apply {
+                    gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = barHeightPx + dp(8)
+                    val loc = IntArray(2); anchor.getLocationOnScreen(loc)
+                    @Suppress("DEPRECATION")
+                    x = (loc[0] + anchor.width / 2) - (wm.defaultDisplay.width / 2)
+                }
                 runCatching { wm.addView(pop, lp); levelWin = pop }
                 onUserActivity()
             }

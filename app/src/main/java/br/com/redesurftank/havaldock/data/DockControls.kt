@@ -32,7 +32,7 @@ object DockKeys {
     const val CAR_BASIC_OUTSIDE_TEMP = "car.basic.outside_temp"
     const val CAR_CONFIGURE_OUTSIDE_TEMP_DISPLAY = "car.configure.outside_temp_display"
     const val CAR_EV_SETTING_POWER_MODEL_CONFIG = "car.ev_setting.power_model_config" //0=HEV, 1=Prior.EV, 3=EV
-
+    const val HEV_SOC_TARGET = "car.ev_setting.power_reserve_config"
 }
 
 /** Cores do tema v2 (ARGB int — sem dependência de android no data layer). */
@@ -164,20 +164,37 @@ class IconToggle(id: String, section: Int, label: String, @DrawableRes val iconO
     fun flip() = VehicleClient.set(key, if (isOn()) offV else onV)
 }
 
-/** Modo (condução/direção): ícone + label colorido por estado; toque cicla. */
+/** Modo (condução/direção): ícone + label colorido por estado; toque abre seleção. */
 class Mode(id: String, section: Int, label: String, @DrawableRes val icon: Int,
-          val key: String, val order: List<Int>, val labels: Map<Int, String>, val colors: Map<Int, Int>) :
+          val key: String, val order: List<Int>, val labels: Map<Int, String>, val colors: Map<Int, Int>,
+          val hevKey: String? = null, val hevOptions: List<HevSaveOption> = emptyList()) :
     Control(id, section, label) {
-    private fun cur() = VehicleClient.getData(key)?.trim()?.toIntOrNull()
+    fun cur() = VehicleClient.getData(key)?.trim()?.toIntOrNull()
+    fun curHevSoc() = hevKey?.let { VehicleClient.getData(it)?.trim() }
+
     override fun render(): RenderState {
         val v = cur()
-        return RenderState(text = (labels[v] ?: "—").uppercase(), color = colors[v] ?: DockColors.CYAN)
+        var txt = (labels[v] ?: "—").uppercase()
+        if (v == 0) { // HEV
+            curHevSoc()?.let { txt += " $it%" }
+        }
+        return RenderState(text = txt, color = colors[v] ?: DockColors.CYAN)
     }
+
+    fun select(mode: Int, soc: String? = null) {
+        VehicleClient.set(key, mode.toString())
+        if (mode == 0 && soc != null && hevKey != null) {
+            VehicleClient.set(hevKey, soc)
+        }
+    }
+
     fun next() {
         val idx = order.indexOf(cur())
-        VehicleClient.set(key, order[(idx + 1).mod(order.size)].toString())
+        select(order[(idx + 1).mod(order.size)])
     }
 }
+
+data class HevSaveOption(val value: String, val label: String)
 
 /** Informação simples (apenas leitura): ícone + valor formatado. */
 class Info(id: String, section: Int, label: String, @DrawableRes val icon: Int, val key: String) :
@@ -266,33 +283,47 @@ object DockControls {
         AirflowOption("1", "Desembaçador", R.drawable.ic_hvac_blower_defrost, defrost = true),
     )
 
+    val HEVSAVE_OPTIONS = listOf(
+        HevSaveOption("20", "20%"),
+        HevSaveOption("25", "25%"),
+        HevSaveOption("35", "35%"),
+        HevSaveOption("45", "45%"),
+        HevSaveOption("55", "55%"),
+    )
+
     val ALL: List<Control> = listOf(
         // ----- ESQUERDA (clima) -----
-        Temp("tempD", 0, "Temp. motorista", DockKeys.DRIVER_TEMP, 16.0, 32.0, 0.5, DockKeys.FRONT_TEMP_RANGE),
         Level("ventD", 0, "Ventil. motorista", R.drawable.ic_seat, DockKeys.DRIVER_SEAT_VENT, 3, DockKeys.SEAT_VENT_MAX),
-        Level("fan", 0, "Veloc. ar-cond.", R.drawable.ic_fan, DockKeys.FAN_SPEED, 7, DockKeys.FAN_RANGE, min = 1, picker = true),
-        //MaxAc("max", 0, "MAX"),
-        TxtToggle("auto", 0, "AUTO", DockKeys.AUTO),
-        //TxtToggle("sync", 0, "SYNC", DockKeys.SYNC),
-        IconToggle("recirc", 0, "Recirculador", R.drawable.ic_recirc_closed, R.drawable.ic_recirc_open, DockKeys.CYCLE_MODE, "0", "1"),
-        Airflow("airflow", 0, "Fluxo de ar", DockKeys.BLOWER_MODE, DockKeys.FRONT_DEFROST, AIRFLOW_OPTIONS),
-        // ----- CENTRO (condução) -----
+        Temp("tempD", 0, "Temp. motorista", DockKeys.DRIVER_TEMP, 16.0, 32.0, 0.5, DockKeys.FRONT_TEMP_RANGE),
+
+        //---------Espacado
         Mode("drive", 1, "Modo", R.drawable.ic_car, DockKeys.CAR_EV_SETTING_POWER_MODEL_CONFIG,
             listOf(1, 3, 0),
             mapOf(0 to "HEV", 1 to "PriorEv",3 to "EV"), //0=HEV, 1=Prior.EV, 3=EV
-            mapOf(0 to DockColors.RED, 1 to DockColors.GREEN, 3 to DockColors.CYAN)),
-        Info("tempIn", 1, "Interna", R.drawable.ic_thermo, DockKeys.CAR_BASIC_INSIDE_TEMP),
-        Info("tempOut", 1, "Externa", R.drawable.ic_thermo, DockKeys.CAR_BASIC_OUTSIDE_TEMP),
-       /* Mode("steer", 1, "Modo direção", R.drawable.ic_steer, DockKeys.STEER_MODE,
+            mapOf(0 to DockColors.AMBER, 1 to DockColors.GREEN, 3 to DockColors.CYAN),
+            hevKey = DockKeys.HEV_SOC_TARGET,
+            hevOptions = HEVSAVE_OPTIONS
+        ),
+
+        // ----- CENTRO (condução) -----
+        IconToggle("recirc", 2, "Recirculador", R.drawable.ic_recirc_closed, R.drawable.ic_recirc_open, DockKeys.CYCLE_MODE, "0", "1"),
+        Info("tempIn", 2, "Interna", R.drawable.ic_thermo, DockKeys.CAR_BASIC_INSIDE_TEMP),
+        //MaxAc("max", 0, "MAX"),
+        //TxtToggle("sync", 0, "SYNC", DockKeys.SYNC),
+        Level("fan", 2, "Veloc. ar-cond.", R.drawable.ic_fan, DockKeys.FAN_SPEED, 7, DockKeys.FAN_RANGE, min = 1, picker = true),
+        Airflow("airflow", 2, "Fluxo de ar", DockKeys.BLOWER_MODE, DockKeys.FRONT_DEFROST, AIRFLOW_OPTIONS),
+        Info("tempOut", 2, "Externa", R.drawable.ic_thermo, DockKeys.CAR_BASIC_OUTSIDE_TEMP),
+        TxtToggle("auto", 2, "AUTO", DockKeys.AUTO),
+        /* Mode("steer", 1, "Modo direção", R.drawable.ic_steer, DockKeys.STEER_MODE,
             listOf(2, 0, 1),
             mapOf(2 to "Conforto", 0 to "Normal", 1 to "Esportiva"),
             mapOf(2 to DockColors.CYAN, 0 to DockColors.WHITE, 1 to DockColors.RED)),
         */
         //Regen("regen", 1, "Regeneração", R.drawable.ic_bolt, DockKeys.REGEN_LEVEL, listOf(2, 0, 1)),
         // ----- DIREITA (passageiro + volume) -----
-        Temp("tempP", 2, "Temp. passageiro", DockKeys.PASS_TEMP, 16.0, 32.0, 0.5, DockKeys.FRONT_TEMP_RANGE),
-        Level("ventP", 2, "Ventil. passageiro", R.drawable.ic_seat, DockKeys.PASS_SEAT_VENT, 3, DockKeys.SEAT_VENT_MAX),
-        Volume("vol", 2, "Volume rádio", R.drawable.ic_volume, DockKeys.MEDIA_VOLUME, 30, DockKeys.MEDIA_VOLUME_RANGE),
+        Volume("vol", 3, "Volume rádio", R.drawable.ic_volume, DockKeys.MEDIA_VOLUME, 30, DockKeys.MEDIA_VOLUME_RANGE),
+        Temp("tempP", 3, "Temp. passageiro", DockKeys.PASS_TEMP, 16.0, 32.0, 0.5, DockKeys.FRONT_TEMP_RANGE),
+        Level("ventP", 3, "Ventil. passageiro", R.drawable.ic_seat, DockKeys.PASS_SEAT_VENT, 3, DockKeys.SEAT_VENT_MAX),
     )
 
     val MONITORED: List<String> = listOf(
