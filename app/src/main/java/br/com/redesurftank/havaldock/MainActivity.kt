@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -170,11 +171,24 @@ class MainActivity : ComponentActivity() {
                 }
                 if (monitorEnabled) {
                     Spacer(Modifier.height(14.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        DockControls.DEBUG_VARIABLES.keys.forEach { label ->
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(label, color = Muted, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                                Text(debugValues[label] ?: "—", color = Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Column {
+                        DockControls.DEBUG_VARIABLES.keys.forEachIndexed { index, label ->
+                            if (index > 0) {
+                                Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.05f)))
+                            }
+                            Row(
+                                Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                                horizontalArrangement = Arrangement.Start,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(label, color = Muted, fontSize = 13.sp, modifier = Modifier.weight(0.3f))
+                                Text(
+                                    debugValues[label] ?: "—",
+                                    color = Accent,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.weight(0.7f)
+                                )
                             }
                         }
                     }

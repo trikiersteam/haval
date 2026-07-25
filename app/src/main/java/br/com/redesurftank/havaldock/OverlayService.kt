@@ -27,6 +27,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import br.com.redesurftank.havaldock.data.Airflow
 import br.com.redesurftank.havaldock.data.AirflowOption
+import br.com.redesurftank.havaldock.data.Battery
 import br.com.redesurftank.havaldock.data.Control
 import br.com.redesurftank.havaldock.data.DockColors
 import br.com.redesurftank.havaldock.data.DockControls
@@ -92,6 +93,7 @@ class OverlayService : Service() {
     private val cOnAccent = Color.parseColor("#04161A")
 
     private val hideRunnable = Runnable { hideBar() }
+    private val closePopupsRunnable = Runnable { closeAllPopups() }
 
     private val listener = object : IListener.Stub() {
         override fun onDataChanged(key: String?, value: String?) { main.post { refreshAll() } }
@@ -133,10 +135,9 @@ class OverlayService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         main.removeCallbacks(hideRunnable)
+        main.removeCallbacks(closePopupsRunnable)
         main.removeCallbacks(projPoll)
-        closeVolume()
-        closeAirflow()
-        closeLevel()
+        closeAllPopups()
         runCatching { SettingsStore.prefs(this).unregisterOnSharedPreferenceChangeListener(prefsListener) }
         runCatching { unregisterReceiver(requestReceiver) }
         // barra saiu de cena: avisa quem reserva o rodapé p/ liberar o espaço
@@ -229,6 +230,7 @@ class OverlayService : Service() {
         is MaxAc -> tileMax(c)
         is IconToggle -> tileIconToggle(c)
         is Mode -> tileMode(c)
+        is Battery -> tileBattery(c)
         is Info -> tileInfo(c)
         is Regen -> tileRegen(c)
         is Airflow -> tileAirflow(c)
@@ -332,12 +334,27 @@ class OverlayService : Service() {
         val tv = TextView(this).apply {
             setTextColor(cAccent); textSize = 14f; setTypeface(typeface, Typeface.BOLD)
             gravity = Gravity.CENTER; setSingleLine(true); maxLines = 1; setPadding(dp(4), 0, dp(4), 0); text = "—"
+            minWidth = dp(75) // Garante espaço p/ textos longos (ex: HEV 80%)
         }
         v.addView(ic)
         v.addView(tv, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
             LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) })
         updaters[c.id] = { st -> ic.setColorFilter(st.color); tv.text = st.text; tv.setTextColor(st.color) }
         v.setOnClickListener { onUserActivity(); openMode(c, v) }
+        return v
+    }
+
+    private fun tileBattery(c: Battery): View {
+        val v = col()
+        val ic = icon(R.drawable.ic_bolt, cAccent, 20)
+        val tv = TextView(this).apply {
+            setTextColor(cAccent); textSize = 14f; setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER; setSingleLine(true); maxLines = 1; setPadding(dp(4), 0, dp(4), 0); text = "—%"
+        }
+        v.addView(ic)
+        v.addView(tv, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) })
+        updaters[c.id] = { st -> ic.setColorFilter(st.color); tv.text = st.text; tv.setTextColor(st.color) }
         return v
     }
 
@@ -402,6 +419,7 @@ class OverlayService : Service() {
     private fun openVolume(c: Volume, anchor: View) {
         if (volWin != null) { closeVolume(); return }
         closeAirflow(); closeLevel(); closeMode(); closeTemp()
+        armPopupTimer()
         val pop = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             background = pill(cBarBg, dp(18)); setPadding(dp(16), dp(12), dp(16), dp(12))
@@ -431,6 +449,7 @@ class OverlayService : Service() {
         }
 
         sliderTrack.setOnTouchListener { view, e ->
+            armPopupTimer()
             val r = (e.x / view.width).coerceIn(0f, 1f)
             val v = (r * c.hi()).toInt()
             updateUI(v)
@@ -469,11 +488,22 @@ class OverlayService : Service() {
 
     private fun closeTemp() { tempWin?.let { v -> runCatching { wm.removeView(v) } }; tempWin = null }
 
+    private fun closeAllPopups() {
+        main.removeCallbacks(closePopupsRunnable)
+        closeVolume(); closeAirflow(); closeLevel(); closeMode(); closeTemp()
+    }
+
+    private fun armPopupTimer() {
+        main.removeCallbacks(closePopupsRunnable)
+        main.postDelayed(closePopupsRunnable, 3000)
+    }
+
     // ---- popup de fluxo de ar (linha horizontal de ícones) ----
 
     private fun openAirflow(c: Airflow, anchor: View) {
         if (airflowWin != null) { closeAirflow(); return }
         closeVolume(); closeLevel(); closeMode(); closeTemp()
+        armPopupTimer()
         val pop = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             background = pill(cBarBg, dp(18)); setPadding(dp(12), dp(10), dp(12), dp(10))
@@ -485,7 +515,7 @@ class OverlayService : Service() {
                 setPadding(dp(8), dp(8), dp(8), dp(8))
                 layoutParams = LinearLayout.LayoutParams(dp(54), dp(54)).apply { marginStart = dp(4); marginEnd = dp(4) }
                 setOnClickListener {
-                    onUserActivity()
+                    onUserActivity(); armPopupTimer()
                     io.execute { c.select(opt); main.post { closeAirflow(); refreshAll() } }
                 }
             }
@@ -519,6 +549,7 @@ class OverlayService : Service() {
     private fun openMode(c: Mode, anchor: View) {
         if (modeWin != null) { closeMode(); return }
         closeVolume(); closeAirflow(); closeLevel(); closeTemp()
+        armPopupTimer()
         val pop = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
             background = pill(cBarBg, dp(18)); setPadding(dp(12), dp(10), dp(12), dp(10))
@@ -526,21 +557,27 @@ class OverlayService : Service() {
 
         val row1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
         val modeViews = ArrayList<Pair<Int, TextView>>()
-
         val row2 = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(16), dp(8), dp(16), dp(0))
+            setPadding(dp(12), dp(8), dp(12), dp(0))
         }
 
-        // Label do SOC à esquerda
+        // Botão Inteligente
+        val intelBtn = TextView(this).apply {
+            text = "INTELIGENTE"; setTextColor(cTxt); textSize = 13f; setTypeface(null, Typeface.BOLD)
+            background = pill(cCard, dp(14)); setPadding(dp(12), dp(6), dp(12), dp(6)); isClickable = true
+        }
+        row2.addView(intelBtn)
+
+        // Label do SOC
         val socLabel = TextView(this).apply {
             setTextColor(cTxt); textSize = 15f; setTypeface(null, Typeface.BOLD)
-            setPadding(0, 0, dp(12), 0); text = "—%"
+            setPadding(dp(12), 0, dp(8), 0); text = "—%"
         }
         row2.addView(socLabel)
 
         // Slider do SOC
-        val sliderW = dp(240); val sliderH = dp(32)
+        val sliderW = dp(200); val sliderH = dp(32)
         val sliderTrack = FrameLayout(this).apply {
             background = pill(cCard, dp(16))
             layoutParams = LinearLayout.LayoutParams(sliderW, sliderH)
@@ -549,20 +586,33 @@ class OverlayService : Service() {
         sliderTrack.addView(sliderFill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
         row2.addView(sliderTrack)
 
-        fun updateSliderUI(soc: Int) {
+        fun updateHEVUI(strategy: Int, soc: Int) {
+            val isIntel = strategy == 1
+            intelBtn.setTextColor(if (isIntel) cOnAccent else cTxt)
+            intelBtn.background = pill(if (isIntel) DockColors.AMBER else cCard, dp(14))
+
             socLabel.text = "$soc%"
+            socLabel.setTextColor(if (!isIntel) DockColors.AMBER else cMuted)
+
             val r = (soc - c.minSoc).toFloat() / (c.maxSoc - c.minSoc)
             val lp = sliderFill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt()
             sliderFill.layoutParams = lp
+            sliderFill.setBackgroundColor(if (!isIntel) DockColors.AMBER else cMuted)
+        }
+
+        intelBtn.setOnClickListener {
+            onUserActivity(); armPopupTimer()
+            io.execute { c.select(0, strategy = 1); main.post { updateHEVUI(1, c.curHevSocInt()); refreshAll() } }
         }
 
         sliderTrack.setOnTouchListener { view, e ->
+            armPopupTimer()
             val r = (e.x / view.width).coerceIn(0f, 1f)
             val soc = c.minSoc + (r * (c.maxSoc - c.minSoc)).toInt()
-            updateSliderUI(soc)
+            updateHEVUI(2, soc)
             if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
                 onUserActivity()
-                io.execute { c.select(0, soc); main.post { refreshAll() } }
+                io.execute { c.select(0, strategy = 2, soc = soc); main.post { refreshAll() } }
             }
             true
         }
@@ -572,13 +622,13 @@ class OverlayService : Service() {
                 text = (c.labels[m] ?: "—").uppercase(); setTextColor(cTxt); textSize = 15f; setTypeface(null, Typeface.BOLD)
                 setPadding(dp(16), dp(10), dp(16), dp(10)); isClickable = true
                 setOnClickListener {
-                    onUserActivity()
+                    onUserActivity(); armPopupTimer()
                     io.execute {
-                        c.select(m)
+                        c.select(m, strategy = if (m == 0) c.curStrategy() else null)
                         main.post {
                             if (m != 0) closeMode() else {
                                 row2.visibility = View.VISIBLE
-                                updateSliderUI(c.curHevSocInt())
+                                updateHEVUI(c.curStrategy(), c.curHevSocInt())
                             }
                             refreshAll()
                             // Update colors
@@ -609,10 +659,10 @@ class OverlayService : Service() {
         runCatching { wm.addView(pop, lp); modeWin = pop }
 
         io.execute {
-            val curM = c.cur(); val curS = c.curHevSocInt()
+            val curM = c.cur(); val curS = c.curHevSocInt(); val curSt = c.curStrategy()
             main.post {
                 row2.visibility = if (curM == 0) View.VISIBLE else View.GONE
-                updateSliderUI(curS)
+                updateHEVUI(curSt, curS)
                 modeViews.forEach { (m, tv) -> tv.setTextColor(if (m == curM) c.colors[m] ?: cAccent else cTxt) }
             }
         }
@@ -625,6 +675,7 @@ class OverlayService : Service() {
     private fun openTemp(c: Temp, anchor: View) {
         if (tempWin != null) { closeTemp(); return }
         closeVolume(); closeAirflow(); closeLevel(); closeMode()
+        armPopupTimer()
         val pop = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             background = pill(cBarBg, dp(18)); setPadding(dp(16), dp(12), dp(16), dp(12))
@@ -656,6 +707,7 @@ class OverlayService : Service() {
         }
 
         sliderTrack.setOnTouchListener { view, e ->
+            armPopupTimer()
             val r = (e.x / view.width).coerceIn(0f, 1f)
             val raw = c.min + r * (c.hi() - c.min)
             val v = (Math.round(raw / c.step) * c.step).coerceIn(c.min, c.hi())
@@ -695,6 +747,7 @@ class OverlayService : Service() {
     private fun openLevel(c: Level, anchor: View) {
         if (levelWin != null) { closeLevel(); return }
         closeVolume(); closeAirflow(); closeMode(); closeTemp()
+        armPopupTimer()
         val pop = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             background = pill(cBarBg, dp(18)); setPadding(dp(16), dp(12), dp(16), dp(12))
@@ -724,6 +777,7 @@ class OverlayService : Service() {
         }
 
         sliderTrack.setOnTouchListener { view, e ->
+            armPopupTimer()
             val r = (e.x / view.width).coerceIn(0f, 1f)
             val lo = c.min; val hi = c.hi().coerceAtLeast(lo + 1)
             val v = lo + (r * (hi - lo)).toInt()
@@ -884,9 +938,7 @@ class OverlayService : Service() {
     private fun hideBar(manual: Boolean = false) {
         // gesto (manual) esconde em qualquer modo; o timer só esconde no modo auto
         if (!manual && SettingsStore.mode(this) != SettingsStore.MODE_AUTO) return
-        closeVolume()
-        closeAirflow()
-        closeLevel()
+        closeAllPopups()
         hidden = true; bar.visibility = View.GONE; handle.visibility = View.VISIBLE
         params.height = handleHeightPx; runCatching { wm.updateViewLayout(root, params) }
         broadcastBarState()

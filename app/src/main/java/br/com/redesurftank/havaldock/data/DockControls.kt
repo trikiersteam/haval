@@ -32,7 +32,7 @@ object DockKeys {
     const val CAR_BASIC_OUTSIDE_TEMP = "car.basic.outside_temp"
     const val CAR_CONFIGURE_OUTSIDE_TEMP_DISPLAY = "car.configure.outside_temp_display"
     const val CAR_EV_SETTING_POWER_MODEL_CONFIG = "car.ev_setting.power_model_config" //0=HEV, 1=Prior.EV, 3=EV
-    const val HEV_SOC_TARGET = "car.ev_setting.power_reserve_config"
+    const val CAR_EV_SETTING_POWER_RESERVE_CONFIG = "car.ev_setting.power_reserve_config" //1=inteligente, 2=save prioritario %
 
     // Debug / Monitor Variables
     const val CAR_EV_SETTING_APPOINT_CHARGE_SET = "car.ev_setting.appoint_charge_set"
@@ -47,7 +47,7 @@ object DockKeys {
     const val CAR_EV_SETTING_CHARGE_MODE = "car.ev_setting.charge_mode"
     const val CAR_EV_SETTING_CHARGE_SAVE_MODE_LIMIT_CONFIG = "car.ev_setting.charge_save_mode_limit_config"
     const val CAR_EV_SETTING_CHARGE_SOC_LIMIT_CONFIG = "car.ev_setting.charge_soc_limit_config"
-    const val CAR_EV_SETTING_CHARGE_SOC_TARGET_CONFIG = "car.ev_setting.charge_soc_target_config"
+    const val CAR_EV_SETTING_CHARGE_SOC_TARGET_CONFIG = "car.ev_setting.charge_soc_target_config" //percentual de 20 a 80% de save
     const val CAR_EV_SETTING_DRIVE_TIME_CONFIG = "car.ev_setting.drive_time_config"
     const val CAR_EV_SETTING_ENGINE_DISCHARGE_ENABLE = "car.ev.setting.engine_discharge_enable"
     const val CAR_EV_SETTING_GMODE_GW_STATE = "car.ev.setting.gmode_gw_state"
@@ -61,6 +61,10 @@ object DockKeys {
     const val CAR_EV_SETTING_VSG_CONFIG = "car.ev.setting.vsg_config"
     const val CAR_EV_SETTING_WADE_MODE_ENABLE = "car.ev.setting.wade_mode_enable"
     const val CAR_EV_SETTING_WASH_MODE_ENABLE = "car.ev.setting.wash_mode_enable"
+    const val CAR_BASIC_BATTERY_POWER_LEVEL = "car.basic.battery_power_level"
+    const val CAR_EV_INFO_BATTERY_CHARGE_PERCENTAGE = "car.ev_info.battery_charge_percentage"
+    const val CAR_EV_INFO_CAR_EV_INFO_SOC_OF_BATTERY = "car.ev_info.soc_of_battery"
+    const val CAR_EV_INFO_CUR_BATTERY_POWER_PERCENTAGE = "car.ev_info.cur_battery_power_percentage"
 }
 
 /** Cores do tema v2 (ARGB int — sem dependência de android no data layer). */
@@ -200,25 +204,34 @@ class IconToggle(id: String, section: Int, label: String, @DrawableRes val iconO
 /** Modo (condução/direção): ícone + label colorido por estado; toque abre seleção. */
 class Mode(id: String, section: Int, label: String, @DrawableRes val icon: Int,
           val key: String, val order: List<Int>, val labels: Map<Int, String>, val colors: Map<Int, Int>,
-          val hevKey: String? = null, val minSoc: Int = 20, val maxSoc: Int = 80) :
+          val strategyKey: String? = null, val socKey: String? = null,
+          val minSoc: Int = 20, val maxSoc: Int = 80) :
     Control(id, section, label) {
     fun cur() = VehicleClient.getData(key)?.trim()?.toIntOrNull()
-    fun curHevSoc() = hevKey?.let { VehicleClient.getData(it)?.trim() }
+    fun curStrategy() = strategyKey?.let { VehicleClient.getData(it)?.trim()?.toIntOrNull() } ?: 1
+    fun curHevSoc() = socKey?.let { VehicleClient.getData(it)?.trim() }
     fun curHevSocInt() = curHevSoc()?.toIntOrNull() ?: minSoc
 
     override fun render(): RenderState {
         val v = cur()
         var txt = (labels[v] ?: "—").uppercase()
         if (v == 0) { // HEV
-            curHevSoc()?.let { txt += " $it%" }
+            if (curStrategy() == 1) {
+                txt += " INT"
+            } else {
+                curHevSoc()?.let { txt += " $it%" }
+            }
         }
         return RenderState(text = txt, color = colors[v] ?: DockColors.CYAN)
     }
 
-    fun select(mode: Int, soc: Int? = null) {
+    fun select(mode: Int, strategy: Int? = null, soc: Int? = null) {
         VehicleClient.set(key, mode.toString())
-        if (mode == 0 && soc != null && hevKey != null) {
-            VehicleClient.set(hevKey, soc.toString())
+        if (mode == 0 && strategyKey != null && strategy != null) {
+            VehicleClient.set(strategyKey, strategy.toString())
+            if (strategy == 2 && soc != null && socKey != null) {
+                VehicleClient.set(socKey, soc.toString())
+            }
         }
     }
 
@@ -257,6 +270,21 @@ class Regen(id: String, section: Int, label: String, @DrawableRes val icon: Int,
     fun next() {
         val idx = order.indexOf(cur())
         VehicleClient.set(key, order[(idx + 1).mod(order.size)].toString())
+    }
+}
+
+/** Bateria: percentual com cor dinâmica (Verde >= 90, Ciano 35-89, Ambar <= 34). */
+class Battery(id: String, section: Int, label: String, @DrawableRes val icon: Int, val key: String) :
+    Control(id, section, label) {
+    private fun value() = VehicleClient.getData(key)?.trim()?.toIntOrNull() ?: 0
+    override fun render(): RenderState {
+        val v = value()
+        val color = when {
+            v >= 90 -> DockColors.GREEN
+            v >= 35 -> DockColors.CYAN
+            else -> DockColors.AMBER
+        }
+        return RenderState(text = "$v%", color = color, icon = icon)
     }
 }
 
@@ -321,11 +349,13 @@ object DockControls {
         Temp("tempD", 0, "Temp. motorista", DockKeys.DRIVER_TEMP, 16.0, 32.0, 0.5, DockKeys.FRONT_TEMP_RANGE),
 
         //---------Espacado
+        Battery("bat", 1, "Bateria", R.drawable.ic_bolt, DockKeys.CAR_BASIC_BATTERY_POWER_LEVEL),
         Mode("drive", 1, "Modo", R.drawable.ic_car, DockKeys.CAR_EV_SETTING_POWER_MODEL_CONFIG,
             listOf(1, 3, 0),
-            mapOf(0 to "HEV", 1 to "PriorEv",3 to "EV"), //0=HEV, 1=Prior.EV, 3=EV
+            mapOf(0 to "HEV", 1 to "Prior.Ev",3 to "EV"), //0=HEV, 1=Prior.EV, 3=EV
             mapOf(0 to DockColors.AMBER, 1 to DockColors.GREEN, 3 to DockColors.CYAN),
-            hevKey = DockKeys.HEV_SOC_TARGET,
+            strategyKey = DockKeys.CAR_EV_SETTING_POWER_RESERVE_CONFIG,
+            socKey = DockKeys.CAR_EV_SETTING_CHARGE_SOC_TARGET_CONFIG,
             minSoc = 20, maxSoc = 80
         ),
 
@@ -345,7 +375,7 @@ object DockControls {
         */
         //Regen("regen", 1, "Regeneração", R.drawable.ic_bolt, DockKeys.REGEN_LEVEL, listOf(2, 0, 1)),
         // ----- DIREITA (passageiro + volume) -----
-        Volume("vol", 3, "Volume rádio", R.drawable.ic_volume, DockKeys.MEDIA_VOLUME, 30, DockKeys.MEDIA_VOLUME_RANGE),
+        Volume("vol", 3, "Volume rádio", R.drawable.ic_volume, DockKeys.MEDIA_VOLUME, 12, DockKeys.MEDIA_VOLUME_RANGE),
         Temp("tempP", 3, "Temp. passageiro", DockKeys.PASS_TEMP, 16.0, 32.0, 0.5, DockKeys.FRONT_TEMP_RANGE),
         Level("ventP", 3, "Ventil. passageiro", R.drawable.ic_seat, DockKeys.PASS_SEAT_VENT, 3, DockKeys.SEAT_VENT_MAX),
     )
@@ -361,6 +391,9 @@ object DockControls {
         DockKeys.BLOWER_MODE,
         DockKeys.FRONT_DEFROST,
         DockKeys.CAR_EV_SETTING_POWER_MODEL_CONFIG,
+        DockKeys.CAR_EV_SETTING_POWER_RESERVE_CONFIG,
+        DockKeys.CAR_EV_SETTING_CHARGE_SOC_TARGET_CONFIG,
+        DockKeys.CAR_BASIC_BATTERY_POWER_LEVEL,
         DockKeys.CAR_BASIC_INSIDE_TEMP, DockKeys.CAR_BASIC_OUTSIDE_TEMP,
         //DockKeys.STEER_MODE,
         //DockKeys.REGEN_LEVEL,
@@ -390,12 +423,16 @@ object DockControls {
         "GMODE_NOTIFY" to DockKeys.CAR_EV_SETTING_GMODE_NOTIFY,
         "GMODE_STATE" to DockKeys.CAR_EV_SETTING_GMODE_STATE,
         "POWER_MODEL_CONFIG" to DockKeys.CAR_EV_SETTING_POWER_MODEL_CONFIG,
-        "POWER_RESERVE_CONFIG" to DockKeys.HEV_SOC_TARGET,
+        "POWER_RESERVE_CONFIG" to DockKeys.CAR_EV_SETTING_POWER_RESERVE_CONFIG,
         "V2L_DISCHARGE_ENABLE" to DockKeys.CAR_EV_SETTING_VEHICLE_TO_LOAD_DISCHARGE_ENABLE,
         "V2V_DISCHARGE_ENABLE" to DockKeys.CAR_EV_SETTING_VEHICLE_TO_VEHICLE_DISCHARGE_ENABLE,
         "V2V_DISCHARGE_NOTIFY" to DockKeys.CAR_EV_SETTING_VEHICLE_TO_VEHICLE_DISCHARGE_NOTIFY,
         "VSG_CONFIG" to DockKeys.CAR_EV_SETTING_VSG_CONFIG,
         "WADE_MODE_ENABLE" to DockKeys.CAR_EV_SETTING_WADE_MODE_ENABLE,
         "WASH_MODE_ENABLE" to DockKeys.CAR_EV_SETTING_WASH_MODE_ENABLE,
+        "BATTERY_POWER_LEVEL" to DockKeys.CAR_BASIC_BATTERY_POWER_LEVEL,
+        "BATTERY_CHARGE_PERCENTAGE" to DockKeys.CAR_EV_INFO_BATTERY_CHARGE_PERCENTAGE,
+        "INFO_SOC_OF_BATTERY" to DockKeys.CAR_EV_INFO_CAR_EV_INFO_SOC_OF_BATTERY,
+        "CUR_BATTERY_POWER_PERCENTAGE" to DockKeys.CAR_EV_INFO_CUR_BATTERY_POWER_PERCENTAGE,
     )
 }
