@@ -67,6 +67,7 @@ class OverlayService : Service() {
     private var airflowWin: View? = null
     private var levelWin: View? = null
     private var modeWin: View? = null
+    private var tempWin: View? = null
     private var hidden = false
 
     // botão de atalho de projeção (CarPlay/AA): aparece quando há projeção conectada
@@ -202,7 +203,7 @@ class OverlayService : Service() {
         content.addView(secs[0])
         content.addView(fixedSpacer(80))
         content.addView(secs[1])
-        content.addView(fixedSpacer(70))
+        content.addView(fixedSpacer(90))
         content.addView(secs[2])
         content.addView(spacer())
         content.addView(secs[3])
@@ -243,23 +244,15 @@ class OverlayService : Service() {
     }
 
     private fun tileTemp(c: Temp): View {
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        row.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(22) }
+        val v = col(); v.isClickable = true
         val tv = TextView(this).apply {
-            setTextColor(cTxt); textSize = 22f; setTypeface(typeface, Typeface.BOLD); text = "—°"
-            gravity = Gravity.CENTER; minWidth = dp(74)
+            setTextColor(cAccent); textSize = 25f; setTypeface(typeface, Typeface.BOLD); text = "—°"
+            gravity = Gravity.CENTER; setPadding(dp(14), 0, dp(14), 0)
         }
-        row.addView(chev("‹") { act(c) { c.nudge(-1) } })
-        row.addView(tv)
-        row.addView(chev("›") { act(c) { c.nudge(1) } })
+        v.addView(tv)
         updaters[c.id] = { st -> tv.text = st.text }
-        return row
-    }
-
-    private fun chev(s: String, onClick: () -> Unit) = TextView(this).apply {
-        text = s; setTextColor(cAccent); textSize = 26f; gravity = Gravity.CENTER
-        setPadding(dp(8), dp(2), dp(8), dp(2)); isClickable = true; setOnClickListener { onClick() }
+        v.setOnClickListener { onUserActivity(); openTemp(c, v) }
+        return v
     }
 
     private fun tileLevel(c: Level): View {
@@ -408,41 +401,42 @@ class OverlayService : Service() {
 
     private fun openVolume(c: Volume, anchor: View) {
         if (volWin != null) { closeVolume(); return }
-        closeAirflow(); closeLevel(); closeMode()
+        closeAirflow(); closeLevel(); closeMode(); closeTemp()
         val pop = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
-            background = pill(cBarBg, dp(18)); setPadding(dp(14), dp(14), dp(14), dp(14))
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            background = pill(cBarBg, dp(18)); setPadding(dp(16), dp(12), dp(16), dp(12))
         }
+
         val valTv = TextView(this).apply {
-            setTextColor(cAccent); textSize = 22f; setTypeface(typeface, Typeface.BOLD); gravity = Gravity.CENTER
+            setTextColor(cAccent); textSize = 22f; setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER; minWidth = dp(70)
         }
-        val trackH = dp(160)
-        val vtrack = FrameLayout(this).apply { background = pill(cCard, dp(13)) }
-        val vfill = View(this).apply { setBackgroundColor(cAccent) }
-        vtrack.addView(vfill, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, 0, Gravity.BOTTOM))
+        pop.addView(valTv)
 
-        fun draw() {
-            io.execute {
-                val v = c.value(); val hi = c.hi(); val r = v.toFloat() / hi
-                main.post {
-                    val lp = vfill.layoutParams; lp.height = (trackH * r).toInt(); vfill.layoutParams = lp
-                    valTv.text = v.toString()
-                }
-            }
+        val sliderW = dp(240); val sliderH = dp(32)
+        val sliderTrack = FrameLayout(this).apply {
+            background = pill(cCard, dp(16))
+            layoutParams = LinearLayout.LayoutParams(sliderW, sliderH).apply { marginStart = dp(12) }
         }
-        fun change(d: Int) { io.execute { c.set(c.value() + d) }; onUserActivity(); main.postDelayed({ draw(); refreshAll() }, 60) }
+        val sliderFill = View(this).apply { setBackgroundColor(cAccent) }
+        sliderTrack.addView(sliderFill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
+        pop.addView(sliderTrack)
 
-        pop.addView(volBtn("+") { change(1) })
-        pop.addView(vtrack, LinearLayout.LayoutParams(dp(26), trackH).apply { topMargin = dp(10); bottomMargin = dp(10) })
-        pop.addView(volBtn("−") { change(-1) })
-        pop.addView(valTv, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
+        fun updateUI(v: Int) {
+            valTv.text = v.toString()
+            val hi = c.hi().coerceAtLeast(1)
+            val r = v.toFloat() / hi
+            val lp = sliderFill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt()
+            sliderFill.layoutParams = lp
+        }
 
-        vtrack.setOnTouchListener { view, e ->
-            if (e.action == MotionEvent.ACTION_DOWN || e.action == MotionEvent.ACTION_MOVE) {
-                val r = (1f - e.y / view.height).coerceIn(0f, 1f)
-                io.execute { c.set((r * c.hi()).toInt()) }; onUserActivity()
-                main.postDelayed({ draw(); refreshAll() }, 30)
+        sliderTrack.setOnTouchListener { view, e ->
+            val r = (e.x / view.width).coerceIn(0f, 1f)
+            val v = (r * c.hi()).toInt()
+            updateUI(v)
+            if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
+                onUserActivity()
+                io.execute { c.set(v); main.post { refreshAll() } }
             }
             true
         }
@@ -460,24 +454,26 @@ class OverlayService : Service() {
             @Suppress("DEPRECATION")
             x = (loc[0] + anchor.width / 2) - (wm.defaultDisplay.width / 2)
         }
-        runCatching { wm.addView(pop, lp); volWin = pop; draw() }
-    }
+        runCatching { wm.addView(pop, lp); volWin = pop }
 
-    private fun volBtn(s: String, onClick: () -> Unit) = TextView(this).apply {
-        text = s; setTextColor(cTxt); textSize = 26f; gravity = Gravity.CENTER
-        background = pill(cCard, dp(13)); isClickable = true; setOnClickListener { onClick() }
-        layoutParams = LinearLayout.LayoutParams(dp(52), dp(46))
+        io.execute {
+            val cur = c.value()
+            main.post { updateUI(cur) }
+        }
+        onUserActivity()
     }
 
     private fun closeVolume() { volWin?.let { v -> runCatching { wm.removeView(v) } }; volWin = null }
 
     private fun closeMode() { modeWin?.let { v -> runCatching { wm.removeView(v) } }; modeWin = null }
 
+    private fun closeTemp() { tempWin?.let { v -> runCatching { wm.removeView(v) } }; tempWin = null }
+
     // ---- popup de fluxo de ar (linha horizontal de ícones) ----
 
     private fun openAirflow(c: Airflow, anchor: View) {
         if (airflowWin != null) { closeAirflow(); return }
-        closeVolume(); closeLevel(); closeMode()
+        closeVolume(); closeLevel(); closeMode(); closeTemp()
         val pop = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             background = pill(cBarBg, dp(18)); setPadding(dp(12), dp(10), dp(12), dp(10))
@@ -522,7 +518,7 @@ class OverlayService : Service() {
 
     private fun openMode(c: Mode, anchor: View) {
         if (modeWin != null) { closeMode(); return }
-        closeVolume(); closeAirflow(); closeLevel()
+        closeVolume(); closeAirflow(); closeLevel(); closeTemp()
         val pop = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
             background = pill(cBarBg, dp(18)); setPadding(dp(12), dp(10), dp(12), dp(10))
@@ -530,11 +526,46 @@ class OverlayService : Service() {
 
         val row1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
         val modeViews = ArrayList<Pair<Int, TextView>>()
+
         val row2 = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
-            setPadding(0, dp(8), 0, 0)
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(16), dp(8), dp(16), dp(0))
         }
-        val socViews = ArrayList<Pair<String, TextView>>()
+
+        // Label do SOC à esquerda
+        val socLabel = TextView(this).apply {
+            setTextColor(cTxt); textSize = 15f; setTypeface(null, Typeface.BOLD)
+            setPadding(0, 0, dp(12), 0); text = "—%"
+        }
+        row2.addView(socLabel)
+
+        // Slider do SOC
+        val sliderW = dp(240); val sliderH = dp(32)
+        val sliderTrack = FrameLayout(this).apply {
+            background = pill(cCard, dp(16))
+            layoutParams = LinearLayout.LayoutParams(sliderW, sliderH)
+        }
+        val sliderFill = View(this).apply { setBackgroundColor(DockColors.AMBER) }
+        sliderTrack.addView(sliderFill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
+        row2.addView(sliderTrack)
+
+        fun updateSliderUI(soc: Int) {
+            socLabel.text = "$soc%"
+            val r = (soc - c.minSoc).toFloat() / (c.maxSoc - c.minSoc)
+            val lp = sliderFill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt()
+            sliderFill.layoutParams = lp
+        }
+
+        sliderTrack.setOnTouchListener { view, e ->
+            val r = (e.x / view.width).coerceIn(0f, 1f)
+            val soc = c.minSoc + (r * (c.maxSoc - c.minSoc)).toInt()
+            updateSliderUI(soc)
+            if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
+                onUserActivity()
+                io.execute { c.select(0, soc); main.post { refreshAll() } }
+            }
+            true
+        }
 
         c.order.forEach { m ->
             val tv = TextView(this).apply {
@@ -545,12 +576,14 @@ class OverlayService : Service() {
                     io.execute {
                         c.select(m)
                         main.post {
-                            if (m != 0) closeMode() else row2.visibility = View.VISIBLE
+                            if (m != 0) closeMode() else {
+                                row2.visibility = View.VISIBLE
+                                updateSliderUI(c.curHevSocInt())
+                            }
                             refreshAll()
                             // Update colors
-                            val curM = c.cur(); val curS = c.curHevSoc()
+                            val curM = c.cur()
                             modeViews.forEach { (mo, t) -> t.setTextColor(if (mo == curM) c.colors[mo] ?: cAccent else cTxt) }
-                            socViews.forEach { (s, t) -> t.setTextColor(if (s == curS) DockColors.AMBER else cTxt) }
                         }
                     }
                 }
@@ -558,18 +591,6 @@ class OverlayService : Service() {
             modeViews.add(m to tv); row1.addView(tv)
         }
         pop.addView(row1)
-
-        c.hevOptions.forEach { opt ->
-            val tv = TextView(this).apply {
-                text = opt.label; setTextColor(cTxt); textSize = 14f; setTypeface(null, Typeface.BOLD)
-                setPadding(dp(12), dp(8), dp(12), dp(8)); isClickable = true
-                setOnClickListener {
-                    onUserActivity()
-                    io.execute { c.select(0, opt.value); main.post { closeMode(); refreshAll() } }
-                }
-            }
-            socViews.add(opt.value to tv); row2.addView(tv)
-        }
         pop.addView(row2)
 
         val lp = WindowManager.LayoutParams(
@@ -588,62 +609,152 @@ class OverlayService : Service() {
         runCatching { wm.addView(pop, lp); modeWin = pop }
 
         io.execute {
-            val curM = c.cur(); val curS = c.curHevSoc()
+            val curM = c.cur(); val curS = c.curHevSocInt()
             main.post {
                 row2.visibility = if (curM == 0) View.VISIBLE else View.GONE
+                updateSliderUI(curS)
                 modeViews.forEach { (m, tv) -> tv.setTextColor(if (m == curM) c.colors[m] ?: cAccent else cTxt) }
-                socViews.forEach { (s, tv) -> tv.setTextColor(if (s == curS) DockColors.AMBER else cTxt) }
             }
         }
     }
 
     private fun closeAirflow() { airflowWin?.let { v -> runCatching { wm.removeView(v) } }; airflowWin = null }
 
+    // ---- popup de temperatura (slider horizontal) ----
+
+    private fun openTemp(c: Temp, anchor: View) {
+        if (tempWin != null) { closeTemp(); return }
+        closeVolume(); closeAirflow(); closeLevel(); closeMode()
+        val pop = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            background = pill(cBarBg, dp(18)); setPadding(dp(16), dp(12), dp(16), dp(12))
+        }
+
+        val valTv = TextView(this).apply {
+            setTextColor(cAccent); textSize = 22f; setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER; minWidth = dp(70)
+        }
+        pop.addView(valTv)
+
+        val sliderW = dp(240); val sliderH = dp(32)
+        val sliderTrack = FrameLayout(this).apply {
+            background = pill(cCard, dp(16))
+            layoutParams = LinearLayout.LayoutParams(sliderW, sliderH).apply { marginStart = dp(12) }
+        }
+        val sliderFill = View(this).apply { setBackgroundColor(cAccent) }
+        sliderTrack.addView(sliderFill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
+        pop.addView(sliderTrack)
+
+        fun updateUI(v: Double) {
+            val r = ((v - c.min) / (c.hi() - c.min)).toFloat()
+            val color = blend(DockColors.CYAN, DockColors.AMBER, r)
+            valTv.text = c.fmt(v) + "°"
+            valTv.setTextColor(color)
+            val lp = sliderFill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt()
+            sliderFill.layoutParams = lp
+            sliderFill.setBackgroundColor(color)
+        }
+
+        sliderTrack.setOnTouchListener { view, e ->
+            val r = (e.x / view.width).coerceIn(0f, 1f)
+            val raw = c.min + r * (c.hi() - c.min)
+            val v = (Math.round(raw / c.step) * c.step).coerceIn(c.min, c.hi())
+            updateUI(v)
+            if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
+                onUserActivity()
+                io.execute { c.select(v); main.post { refreshAll() } }
+            }
+            true
+        }
+
+        val lp = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = barHeightPx + dp(8)
+            val loc = IntArray(2); anchor.getLocationOnScreen(loc)
+            @Suppress("DEPRECATION")
+            x = (loc[0] + anchor.width / 2) - (wm.defaultDisplay.width / 2)
+        }
+        runCatching { wm.addView(pop, lp); tempWin = pop }
+
+        io.execute {
+            val cur = c.read() ?: c.min
+            main.post { updateUI(cur) }
+        }
+        onUserActivity()
+    }
+
+
     // ---- popup de nível (ventilação): escolher min..max direto ----
 
     private fun openLevel(c: Level, anchor: View) {
         if (levelWin != null) { closeLevel(); return }
-        closeVolume(); closeAirflow(); closeMode()
-        io.execute {
-            val lo = c.min
-            val hi = c.hi().coerceAtLeast(lo)
-            val cur = c.value()
-            main.post {
-                val pop = LinearLayout(this).apply {
-                    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                    background = pill(cBarBg, dp(18)); setPadding(dp(12), dp(10), dp(12), dp(10))
-                }
-                for (n in lo..hi) {
-                    val on = n == cur
-                    pop.addView(TextView(this).apply {
-                        text = n.toString(); textSize = 20f; setTypeface(typeface, Typeface.BOLD); gravity = Gravity.CENTER
-                        setTextColor(if (on) cOnAccent else cTxt)
-                        background = pill(if (on) cAccent else cCard, dp(13))
-                        isClickable = true
-                        layoutParams = LinearLayout.LayoutParams(dp(46), dp(46)).apply { marginStart = dp(4); marginEnd = dp(4) }
-                        setOnClickListener {
-                            onUserActivity()
-                            io.execute { c.setLevel(n); main.post { closeLevel(); refreshAll() } }
-                        }
-                    })
-                }
-                val lp = WindowManager.LayoutParams(
-                    WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                    else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
-                    PixelFormat.TRANSLUCENT,
-                ).apply {
-                    gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = barHeightPx + dp(8)
-                    val loc = IntArray(2); anchor.getLocationOnScreen(loc)
-                    @Suppress("DEPRECATION")
-                    x = (loc[0] + anchor.width / 2) - (wm.defaultDisplay.width / 2)
-                }
-                runCatching { wm.addView(pop, lp); levelWin = pop }
-                onUserActivity()
-            }
+        closeVolume(); closeAirflow(); closeMode(); closeTemp()
+        val pop = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            background = pill(cBarBg, dp(18)); setPadding(dp(16), dp(12), dp(16), dp(12))
         }
+
+        val valTv = TextView(this).apply {
+            setTextColor(cAccent); textSize = 22f; setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER; minWidth = dp(70)
+        }
+        pop.addView(valTv)
+
+        val sliderW = dp(240); val sliderH = dp(32)
+        val sliderTrack = FrameLayout(this).apply {
+            background = pill(cCard, dp(16))
+            layoutParams = LinearLayout.LayoutParams(sliderW, sliderH).apply { marginStart = dp(12) }
+        }
+        val sliderFill = View(this).apply { setBackgroundColor(cAccent) }
+        sliderTrack.addView(sliderFill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
+        pop.addView(sliderTrack)
+
+        fun updateUI(v: Int) {
+            valTv.text = v.toString()
+            val lo = c.min; val hi = c.hi().coerceAtLeast(lo + 1)
+            val r = (v - lo).toFloat() / (hi - lo)
+            val lp = sliderFill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt()
+            sliderFill.layoutParams = lp
+        }
+
+        sliderTrack.setOnTouchListener { view, e ->
+            val r = (e.x / view.width).coerceIn(0f, 1f)
+            val lo = c.min; val hi = c.hi().coerceAtLeast(lo + 1)
+            val v = lo + (r * (hi - lo)).toInt()
+            updateUI(v)
+            if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
+                onUserActivity()
+                io.execute { c.setLevel(v); main.post { refreshAll() } }
+            }
+            true
+        }
+
+        val lp = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = barHeightPx + dp(8)
+            val loc = IntArray(2); anchor.getLocationOnScreen(loc)
+            @Suppress("DEPRECATION")
+            x = (loc[0] + anchor.width / 2) - (wm.defaultDisplay.width / 2)
+        }
+        runCatching { wm.addView(pop, lp); levelWin = pop }
+
+        io.execute {
+            val cur = c.value()
+            main.post { updateUI(cur) }
+        }
+        onUserActivity()
     }
 
     private fun closeLevel() { levelWin?.let { v -> runCatching { wm.removeView(v) } }; levelWin = null }
@@ -660,6 +771,7 @@ class OverlayService : Service() {
     }
 
     private fun refreshAll() {
+        if (hidden) return
         io.execute {
             val snap = DockControls.ALL.map { it.id to it.render() }
             main.post { snap.forEach { (id, st) -> updaters[id]?.invoke(st) } }
@@ -765,6 +877,7 @@ class OverlayService : Service() {
             hidden = false; bar.visibility = View.VISIBLE; handle.visibility = View.GONE
             params.height = barHeightPx; runCatching { wm.updateViewLayout(root, params) }
             broadcastBarState()
+            refreshAll()
         }
         armTimer()
     }
@@ -801,6 +914,15 @@ class OverlayService : Service() {
     // ---- utils ----
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
+
+    private fun blend(c1: Int, c2: Int, ratio: Float): Int {
+        val ir = 1f - ratio
+        val a = (Color.alpha(c1) * ir + Color.alpha(c2) * ratio).toInt()
+        val r = (Color.red(c1) * ir + Color.red(c2) * ratio).toInt()
+        val g = (Color.green(c1) * ir + Color.green(c2) * ratio).toInt()
+        val b = (Color.blue(c1) * ir + Color.blue(c2) * ratio).toInt()
+        return Color.argb(a, r, g, b)
+    }
 
     private fun pill(fill: Int, radius: Int, topOnly: Boolean = false): GradientDrawable =
         GradientDrawable().apply {

@@ -33,6 +33,34 @@ object DockKeys {
     const val CAR_CONFIGURE_OUTSIDE_TEMP_DISPLAY = "car.configure.outside_temp_display"
     const val CAR_EV_SETTING_POWER_MODEL_CONFIG = "car.ev_setting.power_model_config" //0=HEV, 1=Prior.EV, 3=EV
     const val HEV_SOC_TARGET = "car.ev_setting.power_reserve_config"
+
+    // Debug / Monitor Variables
+    const val CAR_EV_SETTING_APPOINT_CHARGE_SET = "car.ev_setting.appoint_charge_set"
+    const val CAR_EV_SETTING_AUTO_CHARGE_CONFIG = "car.ev_setting.auto_charge_config"
+    const val CAR_EV_SETTING_AVAS_CONFIG = "car.ev.setting.avas_config"
+    const val CAR_EV_SETTING_AVAS_ENABLE = "car.ev.setting.avas_enable"
+    const val CAR_EV_SETTING_BATTERY_CHARGING_INSULATION_ENABLE = "car.ev.setting.battery_charging_insulation_enable"
+    const val CAR_EV_SETTING_BATTERY_CHARGING_INSULATION_TYPE = "car.ev.setting.battery_charging_insulation_type"
+    const val CAR_EV_SETTING_BATTERY_PACK_AUTO_INSULATION_ENABLE = "car.ev.setting.battery_pack_auto_insulation_enable"
+    const val CAR_EV_SETTING_CHARGE_ACTION = "car.ev_setting.charge_action"
+    const val CAR_EV_SETTING_CHARGE_CURRENT_CONFIG = "car.ev_setting.charge_current_config"
+    const val CAR_EV_SETTING_CHARGE_MODE = "car.ev_setting.charge_mode"
+    const val CAR_EV_SETTING_CHARGE_SAVE_MODE_LIMIT_CONFIG = "car.ev_setting.charge_save_mode_limit_config"
+    const val CAR_EV_SETTING_CHARGE_SOC_LIMIT_CONFIG = "car.ev_setting.charge_soc_limit_config"
+    const val CAR_EV_SETTING_CHARGE_SOC_TARGET_CONFIG = "car.ev_setting.charge_soc_target_config"
+    const val CAR_EV_SETTING_DRIVE_TIME_CONFIG = "car.ev_setting.drive_time_config"
+    const val CAR_EV_SETTING_ENGINE_DISCHARGE_ENABLE = "car.ev.setting.engine_discharge_enable"
+    const val CAR_EV_SETTING_GMODE_GW_STATE = "car.ev.setting.gmode_gw_state"
+    const val CAR_EV_SETTING_GMODE_HUT_SET = "car.ev.setting.gmode_hut_set"
+    const val CAR_EV_SETTING_GMODE_HUT_STATE = "car.ev.setting.gmode_hut_state"
+    const val CAR_EV_SETTING_GMODE_NOTIFY = "car.ev.setting.gmode_notify"
+    const val CAR_EV_SETTING_GMODE_STATE = "car.ev.setting.gmode_state"
+    const val CAR_EV_SETTING_VEHICLE_TO_LOAD_DISCHARGE_ENABLE = "car.ev.setting.vehicle_to_load_discharge_enable"
+    const val CAR_EV_SETTING_VEHICLE_TO_VEHICLE_DISCHARGE_ENABLE = "car.ev.setting.vehicle_to_vehicle_discharge_enable"
+    const val CAR_EV_SETTING_VEHICLE_TO_VEHICLE_DISCHARGE_NOTIFY = "car.ev.setting.vehicle_to_vehicle_discharge_notify"
+    const val CAR_EV_SETTING_VSG_CONFIG = "car.ev.setting.vsg_config"
+    const val CAR_EV_SETTING_WADE_MODE_ENABLE = "car.ev.setting.wade_mode_enable"
+    const val CAR_EV_SETTING_WASH_MODE_ENABLE = "car.ev.setting.wash_mode_enable"
 }
 
 /** Cores do tema v2 (ARGB int — sem dependência de android no data layer). */
@@ -68,12 +96,17 @@ class Temp(id: String, section: Int, label: String, val key: String,
           val min: Double, val max: Double, val step: Double, val rangeKey: String?) :
     Control(id, section, label) {
     override fun render() = RenderState(text = read()?.let { fmt(it) + "°" } ?: "—°")
-    private fun read() = VehicleClient.getData(key)?.trim()?.toDoubleOrNull()
-    private fun fmt(v: Double) = String.format(Locale.US, "%.1f", v)
+    fun read() = VehicleClient.getData(key)?.trim()?.toDoubleOrNull()
+    fun fmt(v: Double) = String.format(Locale.US, "%.1f", v)
+    fun hi() = rangeKey?.let { parseMax(VehicleClient.getData(it)) } ?: max
+
+    fun select(v: Double) {
+        VehicleClient.set(key, fmt(v.coerceIn(min, hi())))
+    }
+
     fun nudge(dir: Int) {
         val cur = read() ?: return
-        val hi = rangeKey?.let { parseMax(VehicleClient.getData(it)) } ?: max
-        VehicleClient.set(key, fmt((cur + dir * step).coerceIn(min, hi)))
+        select(cur + dir * step)
     }
 }
 
@@ -167,10 +200,11 @@ class IconToggle(id: String, section: Int, label: String, @DrawableRes val iconO
 /** Modo (condução/direção): ícone + label colorido por estado; toque abre seleção. */
 class Mode(id: String, section: Int, label: String, @DrawableRes val icon: Int,
           val key: String, val order: List<Int>, val labels: Map<Int, String>, val colors: Map<Int, Int>,
-          val hevKey: String? = null, val hevOptions: List<HevSaveOption> = emptyList()) :
+          val hevKey: String? = null, val minSoc: Int = 20, val maxSoc: Int = 80) :
     Control(id, section, label) {
     fun cur() = VehicleClient.getData(key)?.trim()?.toIntOrNull()
     fun curHevSoc() = hevKey?.let { VehicleClient.getData(it)?.trim() }
+    fun curHevSocInt() = curHevSoc()?.toIntOrNull() ?: minSoc
 
     override fun render(): RenderState {
         val v = cur()
@@ -181,10 +215,10 @@ class Mode(id: String, section: Int, label: String, @DrawableRes val icon: Int,
         return RenderState(text = txt, color = colors[v] ?: DockColors.CYAN)
     }
 
-    fun select(mode: Int, soc: String? = null) {
+    fun select(mode: Int, soc: Int? = null) {
         VehicleClient.set(key, mode.toString())
         if (mode == 0 && soc != null && hevKey != null) {
-            VehicleClient.set(hevKey, soc)
+            VehicleClient.set(hevKey, soc.toString())
         }
     }
 
@@ -193,8 +227,6 @@ class Mode(id: String, section: Int, label: String, @DrawableRes val icon: Int,
         select(order[(idx + 1).mod(order.size)])
     }
 }
-
-data class HevSaveOption(val value: String, val label: String)
 
 /** Informação simples (apenas leitura): ícone + valor formatado. */
 class Info(id: String, section: Int, label: String, @DrawableRes val icon: Int, val key: String) :
@@ -283,14 +315,6 @@ object DockControls {
         AirflowOption("1", "Desembaçador", R.drawable.ic_hvac_blower_defrost, defrost = true),
     )
 
-    val HEVSAVE_OPTIONS = listOf(
-        HevSaveOption("20", "20%"),
-        HevSaveOption("25", "25%"),
-        HevSaveOption("35", "35%"),
-        HevSaveOption("45", "45%"),
-        HevSaveOption("55", "55%"),
-    )
-
     val ALL: List<Control> = listOf(
         // ----- ESQUERDA (clima) -----
         Level("ventD", 0, "Ventil. motorista", R.drawable.ic_seat, DockKeys.DRIVER_SEAT_VENT, 3, DockKeys.SEAT_VENT_MAX),
@@ -302,7 +326,7 @@ object DockControls {
             mapOf(0 to "HEV", 1 to "PriorEv",3 to "EV"), //0=HEV, 1=Prior.EV, 3=EV
             mapOf(0 to DockColors.AMBER, 1 to DockColors.GREEN, 3 to DockColors.CYAN),
             hevKey = DockKeys.HEV_SOC_TARGET,
-            hevOptions = HEVSAVE_OPTIONS
+            minSoc = 20, maxSoc = 80
         ),
 
         // ----- CENTRO (condução) -----
@@ -327,13 +351,51 @@ object DockControls {
     )
 
     val MONITORED: List<String> = listOf(
-        DockKeys.DRIVER_TEMP, DockKeys.PASS_TEMP, DockKeys.FAN_SPEED, DockKeys.DRIVER_SEAT_VENT,
-        DockKeys.PASS_SEAT_VENT, DockKeys.AUTO, DockKeys.SYNC, DockKeys.CYCLE_MODE,
-        DockKeys.BLOWER_MODE, DockKeys.FRONT_DEFROST,
+        DockKeys.DRIVER_TEMP,
+        DockKeys.PASS_TEMP,
+        DockKeys.FAN_SPEED,
+        DockKeys.DRIVER_SEAT_VENT,
+        DockKeys.PASS_SEAT_VENT,
+        DockKeys.AUTO, //DockKeys.SYNC,
+        DockKeys.CYCLE_MODE,
+        DockKeys.BLOWER_MODE,
+        DockKeys.FRONT_DEFROST,
         DockKeys.CAR_EV_SETTING_POWER_MODEL_CONFIG,
         DockKeys.CAR_BASIC_INSIDE_TEMP, DockKeys.CAR_BASIC_OUTSIDE_TEMP,
         //DockKeys.STEER_MODE,
         //DockKeys.REGEN_LEVEL,
         DockKeys.MEDIA_VOLUME,
+    )
+
+    val DEBUG_VARIABLES: Map<String, String> = linkedMapOf(
+        "APPOINT_CHARGE_SET" to DockKeys.CAR_EV_SETTING_APPOINT_CHARGE_SET,
+        "AUTO_CHARGE_CONFIG" to DockKeys.CAR_EV_SETTING_AUTO_CHARGE_CONFIG,
+        "AVAS_CONFIG" to DockKeys.CAR_EV_SETTING_AVAS_CONFIG,
+        "AVAS_ENABLE" to DockKeys.CAR_EV_SETTING_AVAS_ENABLE,
+        "BATTERY_INSULATION_ENABLE" to DockKeys.CAR_EV_SETTING_BATTERY_CHARGING_INSULATION_ENABLE,
+        "BATTERY_INSULATION_TYPE" to DockKeys.CAR_EV_SETTING_BATTERY_CHARGING_INSULATION_TYPE,
+        "AUTO_INSULATION_ENABLE" to DockKeys.CAR_EV_SETTING_BATTERY_PACK_AUTO_INSULATION_ENABLE,
+        "CHARGE_ACTION" to DockKeys.CAR_EV_SETTING_CHARGE_ACTION,
+        "CHARGE_CURRENT_CONFIG" to DockKeys.CAR_EV_SETTING_CHARGE_CURRENT_CONFIG,
+        "CHARGE_MODE" to DockKeys.CAR_EV_SETTING_CHARGE_MODE,
+        "CHARGE_SAVE_LIMIT" to DockKeys.CAR_EV_SETTING_CHARGE_SAVE_MODE_LIMIT_CONFIG,
+        "CHARGE_SOC_LIMIT" to DockKeys.CAR_EV_SETTING_CHARGE_SOC_LIMIT_CONFIG,
+        "CHARGE_SOC_TARGET" to DockKeys.CAR_EV_SETTING_CHARGE_SOC_TARGET_CONFIG,
+        "DRIVE_TIME_CONFIG" to DockKeys.CAR_EV_SETTING_DRIVE_TIME_CONFIG,
+        "RECOVERY_LEVEL" to DockKeys.REGEN_LEVEL,
+        "ENGINE_DISCHARGE_ENABLE" to DockKeys.CAR_EV_SETTING_ENGINE_DISCHARGE_ENABLE,
+        "GMODE_GW_STATE" to DockKeys.CAR_EV_SETTING_GMODE_GW_STATE,
+        "GMODE_HUT_SET" to DockKeys.CAR_EV_SETTING_GMODE_HUT_SET,
+        "GMODE_HUT_STATE" to DockKeys.CAR_EV_SETTING_GMODE_HUT_STATE,
+        "GMODE_NOTIFY" to DockKeys.CAR_EV_SETTING_GMODE_NOTIFY,
+        "GMODE_STATE" to DockKeys.CAR_EV_SETTING_GMODE_STATE,
+        "POWER_MODEL_CONFIG" to DockKeys.CAR_EV_SETTING_POWER_MODEL_CONFIG,
+        "POWER_RESERVE_CONFIG" to DockKeys.HEV_SOC_TARGET,
+        "V2L_DISCHARGE_ENABLE" to DockKeys.CAR_EV_SETTING_VEHICLE_TO_LOAD_DISCHARGE_ENABLE,
+        "V2V_DISCHARGE_ENABLE" to DockKeys.CAR_EV_SETTING_VEHICLE_TO_VEHICLE_DISCHARGE_ENABLE,
+        "V2V_DISCHARGE_NOTIFY" to DockKeys.CAR_EV_SETTING_VEHICLE_TO_VEHICLE_DISCHARGE_NOTIFY,
+        "VSG_CONFIG" to DockKeys.CAR_EV_SETTING_VSG_CONFIG,
+        "WADE_MODE_ENABLE" to DockKeys.CAR_EV_SETTING_WADE_MODE_ENABLE,
+        "WASH_MODE_ENABLE" to DockKeys.CAR_EV_SETTING_WASH_MODE_ENABLE,
     )
 }

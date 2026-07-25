@@ -43,11 +43,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import br.com.redesurftank.havaldock.data.DockControls
 import br.com.redesurftank.havaldock.data.SettingsStore
 import br.com.redesurftank.havaldock.data.VehicleClient
 import br.com.redesurftank.havaldock.update.UpdateManager
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateMapOf
 import rikka.shizuku.Shizuku
 
 private val Accent = Color(0xFF19E3B1)
@@ -89,6 +91,20 @@ class MainActivity : ComponentActivity() {
         val mode by SettingsStore.visibilityMode
         val secs by SettingsStore.autoHideSecs
         val boot by SettingsStore.launchOnBoot
+
+        var monitorEnabled by remember { mutableStateOf(false) }
+        val debugValues = remember { mutableStateMapOf<String, String>() }
+
+        LaunchedEffect(monitorEnabled) {
+            if (monitorEnabled) {
+                while (true) {
+                    DockControls.DEBUG_VARIABLES.forEach { (label, key) ->
+                        debugValues[label] = VehicleClient.getData(key) ?: "—"
+                    }
+                    delay(1500)
+                }
+            }
+        }
 
 
         Column(
@@ -144,6 +160,24 @@ class MainActivity : ComponentActivity() {
             SectionCard("Inicialização") {
                 RowSwitch("Religar ao ligar o carro", "Mostra a barra automaticamente no boot.", boot) {
                     SettingsStore.setLaunchOnBoot(it)
+                }
+            }
+
+            // ---- monitor ----
+            SectionCard("Monitor de Variáveis") {
+                RowSwitch("Monitorar variáveis", "Lê valores em tempo real do sistema.", monitorEnabled) {
+                    monitorEnabled = it
+                }
+                if (monitorEnabled) {
+                    Spacer(Modifier.height(14.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        DockControls.DEBUG_VARIABLES.keys.forEach { label ->
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(label, color = Muted, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                                Text(debugValues[label] ?: "—", color = Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
                 }
             }
 
