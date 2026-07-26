@@ -205,7 +205,7 @@ class MainActivity : ComponentActivity() {
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Versão ${UpdateManager.currentVersion}", color = Color.White, fontSize = 16.sp)
+                        Text("Versão atual ${UpdateManager.currentVersion}", color = Color.White, fontSize = 16.sp)
                         message?.let { Text(it, color = AccentSoft, fontSize = 13.sp) }
                             ?: Text("Verifica a última release no GitHub.", color = Muted, fontSize = 13.sp)
                     }

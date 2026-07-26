@@ -232,7 +232,6 @@ class OverlayService : Service() {
         is Battery -> tileBattery(c)
         is Info -> tileInfo(c)
         is Regen -> tileRegen(c)
-        is Airflow -> tileAirflow(c)
         else -> View(this)
     }
 
@@ -247,7 +246,8 @@ class OverlayService : Service() {
     private fun tileTemp(c: Temp): View {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(76)).apply { marginStart = dp(22) }
+            val ms = if (c.id == "tempP") 42 else 22
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(76)).apply { marginStart = dp(ms) }
             isClickable = true
         }
         val tv = TextView(this).apply {
@@ -319,17 +319,6 @@ class OverlayService : Service() {
         return v
     }
 
-    private fun tileAirflow(c: Airflow): View {
-        val v = col(); v.isClickable = true
-        val ic = icon(c.options.first().icon, cTxt, 42) // Aumentado
-        v.addView(ic)
-        updaters[c.id] = { st ->
-            if (st.icon != 0) ic.setImageResource(st.icon)
-            ic.setColorFilter(cTxt)
-        }
-        v.setOnClickListener { onUserActivity(); openAirflow(c, v) }
-        return v
-    }
 
 
     private fun tileBattery(c: Battery): View {
@@ -492,11 +481,14 @@ class OverlayService : Service() {
         tempWin = null
         updaters.remove("fan_popup")
         updaters.remove("vent_popup")
+        updaters.remove("auto_popup")
+        updaters.remove("air_popup")
     }
 
     private fun closeAllPopups() {
         main.removeCallbacks(closePopupsRunnable)
-        closeVolume(); closeAirflow(); closeLevel(); closeMode(); closeTemp()
+        closeVolume(); closeLevel(); closeMode(); closeTemp()
+        airflowWin?.let { v -> runCatching { wm.removeView(v) } }; airflowWin = null
     }
 
     private fun armPopupTimer() {
@@ -675,7 +667,7 @@ class OverlayService : Service() {
     }
 
 
-    // ---- popup de temperatura, ventilador e banco (sliders combinados) ----
+    // ---- popup de clima (AUTO, Temp, Ventilador, Fluxo, Banco) ----
 
     private fun openTemp(c: Temp, anchor: View) {
         if (tempWin != null) { closeTemp(); return }
@@ -688,7 +680,23 @@ class OverlayService : Service() {
 
         val sliderW = dp(240); val sliderH = dp(32)
 
-        // --- Linha 1: Temperatura ---
+        // --- Linha 1: AUTO ---
+        val auto = DockControls.AUTO_CONTROL
+        val rowAuto = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(14))
+        }
+        val autoBtn = TextView(this).apply {
+            text = "AUTO"; setTextColor(cTxt); textSize = 18f; setTypeface(null, Typeface.BOLD)
+            background = pill(cCard, dp(14)); setPadding(dp(24), dp(8), dp(24), dp(8)); isClickable = true
+            setOnClickListener {
+                onUserActivity(); armPopupTimer()
+                io.execute { auto.flip(); main.post { refreshAll() } }
+            }
+        }
+        rowAuto.addView(autoBtn); pop.addView(rowAuto)
+
+        // --- Linha 2: Temperatura ---
         val rowTemp = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         val tempTv = TextView(this).apply {
             setTextColor(cAccent); textSize = 22f; setTypeface(typeface, Typeface.BOLD)
@@ -724,7 +732,7 @@ class OverlayService : Service() {
             true
         }
 
-        // --- Linha 2: Ventilador ---
+        // --- Linha 3: Ventilador (Velocidade) ---
         val fan = DockControls.FAN
         val rowFan = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
@@ -765,7 +773,35 @@ class OverlayService : Service() {
             true
         }
 
-        // --- Linha 3: Ventilação do Banco ---
+        // --- Linha 4: Fluxo de Ar (Ícones) ---
+        val airflow = DockControls.AIRFLOW_CONTROL
+        val rowAir = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
+            setPadding(0, dp(14), 0, 0)
+        }
+        val airIcons = ArrayList<Pair<AirflowOption, ImageView>>()
+        airflow.options.forEach { opt: AirflowOption ->
+            val iv = ImageView(this).apply {
+                setImageResource(opt.icon); setColorFilter(cTxt); isClickable = true
+                setPadding(dp(8), dp(8), dp(8), dp(8))
+                layoutParams = LinearLayout.LayoutParams(dp(54), dp(54)).apply { marginStart = dp(4); marginEnd = dp(4) }
+                setOnClickListener {
+                    onUserActivity(); armPopupTimer()
+                    io.execute { airflow.select(opt); main.post { refreshAll() } }
+                }
+            }
+            airIcons.add(Pair(opt, iv)); rowAir.addView(iv)
+        }
+        pop.addView(rowAir)
+
+        fun updateAirflowUI(cur: AirflowOption) {
+            airIcons.forEach { pair ->
+                val o = pair.first; val iv = pair.second
+                iv.setColorFilter(if (o == cur) cAccent else cTxt)
+            }
+        }
+
+        // --- Linha 5: Ventilação do Banco ---
         val vent = if (c.id == "tempD") DockControls.VENT_D else DockControls.VENT_P
         val rowVent = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
@@ -826,12 +862,30 @@ class OverlayService : Service() {
         updaters["vent_popup"] = { _ ->
             io.execute { val v = vent.value(); main.post { updateVentUI(v) } }
         }
+        updaters["auto_popup"] = { _ ->
+            io.execute {
+                val on = auto.isOn()
+                main.post {
+                    autoBtn.setTextColor(if (on) cOnAccent else cTxt)
+                    autoBtn.background = pill(if (on) cAccent else cCard, dp(14))
+                }
+            }
+        }
+        updaters["air_popup"] = { _ ->
+            io.execute { val cur = airflow.currentOption(); main.post { updateAirflowUI(cur) } }
+        }
 
         io.execute {
             val curT = c.read() ?: c.min
             val curF = fan.value()
             val curV = vent.value()
-            main.post { updateTempUI(curT); updateFanUI(curF); updateVentUI(curV) }
+            val isAuto = auto.isOn()
+            val curA = airflow.currentOption()
+            main.post {
+                updateTempUI(curT); updateFanUI(curF); updateVentUI(curV); updateAirflowUI(curA)
+                autoBtn.setTextColor(if (isAuto) cOnAccent else cTxt)
+                autoBtn.background = pill(if (isAuto) cAccent else cCard, dp(14))
+            }
         }
         onUserActivity()
     }
@@ -924,13 +978,16 @@ class OverlayService : Service() {
     private fun refreshAll() {
         if (hidden) return
         io.execute {
-            val controls = DockControls.ALL + listOf(DockControls.DRIVE, DockControls.FAN, DockControls.VENT_D, DockControls.VENT_P)
+            val standalone = listOf(DockControls.DRIVE, DockControls.FAN, DockControls.VENT_D, DockControls.VENT_P, DockControls.AUTO_CONTROL, DockControls.AIRFLOW_CONTROL)
+            val controls = DockControls.ALL + standalone
             val snap = controls.map { it.id to it.render() }
             main.post {
                 snap.forEach { (id, st) -> updaters[id]?.invoke(st) }
                 // Garante que os popups abertos também atualizem
                 updaters["fan_popup"]?.invoke(RenderState())
                 updaters["vent_popup"]?.invoke(RenderState())
+                updaters["auto_popup"]?.invoke(RenderState())
+                updaters["air_popup"]?.invoke(RenderState())
             }
         }
     }

@@ -345,6 +345,7 @@ object DockControls {
         socKey = DockKeys.CAR_EV_SETTING_CHARGE_SOC_TARGET_CONFIG,
         minSoc = 20, maxSoc = 80
     )
+    val AUTO_CONTROL = TxtToggle("auto", 2, "AUTO", DockKeys.AUTO)
 
     /** Modos de fluxo de ar, na ordem em que aparecem no popup (o último é o desembaçador). */
     val AIRFLOW_OPTIONS = listOf(
@@ -354,20 +355,19 @@ object DockControls {
         AirflowOption("3", "Vidro/Pés", R.drawable.ic_hvac_blower_feet_and_defrost),
         AirflowOption("1", "Desembaçador", R.drawable.ic_hvac_blower_defrost, defrost = true),
     )
+    val AIRFLOW_CONTROL = Airflow("airflow", 2, "Fluxo de ar", DockKeys.BLOWER_MODE, DockKeys.FRONT_DEFROST, AIRFLOW_OPTIONS)
 
     val ALL: List<Control> = listOf(
-        // ----- ESQUERDA (clima) -----
+        // ----- ESQUERDA (clima motorista) -----
         Temp("tempD", 0, "Temp. motorista", DockKeys.DRIVER_TEMP, 16.0, 32.0, 0.5, DockKeys.FRONT_TEMP_RANGE),
 
-        //---------Espacado
+        //---------Espacado Mode EV/HEV/PriorEV imagemRaio percentual bateria atual
         Battery("bat", 1, "Bateria", R.drawable.ic_bolt, DockKeys.CAR_EV_INFO_CUR_BATTERY_POWER_PERCENTAGE),
 
-        // ----- CENTRO (condução) -----
+        // ----- CENTRO (REcirulacao, temp interna, direcao da ventilacao, temp externa) -----
         IconToggle("recirc", 2, "Recirculador", R.drawable.ic_recirc_closed, R.drawable.ic_recirc_open, DockKeys.CYCLE_MODE, "0", "1"),
         Info("tempIn", 2, "Interna", R.drawable.ic_thermo, DockKeys.CAR_BASIC_INSIDE_TEMP),
-        Airflow("airflow", 2, "Fluxo de ar", DockKeys.BLOWER_MODE, DockKeys.FRONT_DEFROST, AIRFLOW_OPTIONS),
         Info("tempOut", 2, "Externa", R.drawable.ic_thermo, DockKeys.CAR_BASIC_OUTSIDE_TEMP),
-        TxtToggle("auto", 2, "AUTO", DockKeys.AUTO),
 
         // ----- DIREITA (passageiro + volume) -----
         Volume("vol", 3, "Volume rádio", R.drawable.ic_volume, DockKeys.MEDIA_VOLUME, 12, DockKeys.MEDIA_VOLUME_RANGE),
