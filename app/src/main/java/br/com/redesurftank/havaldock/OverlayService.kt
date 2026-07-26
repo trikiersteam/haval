@@ -229,37 +229,40 @@ class OverlayService : Service() {
         is TxtToggle -> tileTxt(c)
         is MaxAc -> tileMax(c)
         is IconToggle -> tileIconToggle(c)
-        is Mode -> tileMode(c)
         is Battery -> tileBattery(c)
         is Info -> tileInfo(c)
         is Regen -> tileRegen(c)
         is Airflow -> tileAirflow(c)
+        else -> View(this)
     }
 
     private fun gap(v: View, start: Int) { (v.layoutParams as LinearLayout.LayoutParams).marginStart = dp(start) }
 
     private fun col() = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
-        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(22) }
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(76)).apply { marginStart = dp(22) }
         setPadding(dp(4), dp(4), dp(4), dp(4))
     }
 
     private fun tileTemp(c: Temp): View {
-        val v = col(); v.isClickable = true
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(76)).apply { marginStart = dp(22) }
+            isClickable = true
+        }
         val tv = TextView(this).apply {
             setTextColor(cAccent); textSize = 25f; setTypeface(typeface, Typeface.BOLD); text = "—°"
             gravity = Gravity.CENTER; setPadding(dp(14), 0, dp(14), 0)
         }
-        v.addView(tv)
+        row.addView(tv)
         updaters[c.id] = { st -> tv.text = st.text }
-        v.setOnClickListener { onUserActivity(); openTemp(c, v) }
-        return v
+        row.setOnClickListener { onUserActivity(); openTemp(c, row) }
+        return row
     }
 
     private fun tileLevel(c: Level): View {
         val v = col(); v.isClickable = true
-        v.addView(icon(c.icon, cTxt, 26))
+        v.addView(icon(c.icon, cTxt, 32)) // Aumentado
         val track = makeTrack()
         v.addView(track.first)
         updaters[c.id] = { st -> setTrack(track.second, st.ratio) }
@@ -269,7 +272,7 @@ class OverlayService : Service() {
 
     private fun tileVolume(c: Volume): View {
         val v = col(); v.isClickable = true
-        v.addView(icon(c.icon, cTxt, 26))
+        v.addView(icon(c.icon, cTxt, 32)) // Aumentado
         val track = makeTrack()
         v.addView(track.first)
         updaters[c.id] = { st -> setTrack(track.second, st.ratio) }
@@ -283,7 +286,7 @@ class OverlayService : Service() {
     private fun textTile(c: Control, label: String, onFlip: () -> Unit): View {
         val v = col(); v.isClickable = true
         val tv = TextView(this).apply {
-            text = label; setTextColor(cMuted); textSize = 20f; setTypeface(typeface, Typeface.BOLD)
+            text = label; setTextColor(cMuted); textSize = 24f; setTypeface(typeface, Typeface.BOLD) // Aumentado
             gravity = Gravity.CENTER; maxLines = 1; setPadding(dp(6), 0, dp(6), 0)
         }
         val ul = View(this)
@@ -318,7 +321,7 @@ class OverlayService : Service() {
 
     private fun tileAirflow(c: Airflow): View {
         val v = col(); v.isClickable = true
-        val ic = icon(c.options.first().icon, cTxt, 34)
+        val ic = icon(c.options.first().icon, cTxt, 42) // Aumentado
         v.addView(ic)
         updaters[c.id] = { st ->
             if (st.icon != 0) ic.setImageResource(st.icon)
@@ -328,59 +331,57 @@ class OverlayService : Service() {
         return v
     }
 
-    private fun tileMode(c: Mode): View {
-        val v = col(); v.isClickable = true
-        val ic = icon(c.icon, cAccent, 20)
-        val tv = TextView(this).apply {
-            setTextColor(cAccent); textSize = 14f; setTypeface(typeface, Typeface.BOLD)
-            gravity = Gravity.CENTER; setSingleLine(true); maxLines = 1; setPadding(dp(4), 0, dp(4), 0); text = "—"
-            minWidth = dp(75) // Garante espaço p/ textos longos (ex: HEV 80%)
-        }
-        v.addView(ic)
-        v.addView(tv, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) })
-        updaters[c.id] = { st -> ic.setColorFilter(st.color); tv.text = st.text; tv.setTextColor(st.color) }
-        v.setOnClickListener { onUserActivity(); openMode(c, v) }
-        return v
-    }
 
     private fun tileBattery(c: Battery): View {
-        val v = col()
-        val ic = icon(R.drawable.ic_bolt, cAccent, 20)
-        val tv = TextView(this).apply {
-            setTextColor(cAccent); textSize = 14f; setTypeface(typeface, Typeface.BOLD)
-            gravity = Gravity.CENTER; setSingleLine(true); maxLines = 1; setPadding(dp(4), 0, dp(4), 0); text = "—%"
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(76)).apply { marginStart = dp(22) }
+            setPadding(dp(8), 0, dp(8), 0); isClickable = true
         }
-        v.addView(ic)
-        v.addView(tv, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) })
-        updaters[c.id] = { st -> ic.setColorFilter(st.color); tv.text = st.text; tv.setTextColor(st.color) }
-        return v
+        val modeTv = TextView(this).apply {
+            setTextColor(cAccent); textSize = 25f; setTypeface(typeface, Typeface.NORMAL)
+            gravity = Gravity.CENTER; text = "—"
+        }
+        val ic = icon(R.drawable.ic_bolt, cAccent, 26)
+        val batTv = TextView(this).apply {
+            setTextColor(cAccent); textSize = 25f; setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER; setSingleLine(true); maxLines = 1; setPadding(dp(10), 0, 0, 0); text = "—%"
+        }
+        row.addView(modeTv); row.addView(ic); row.addView(batTv)
+
+        updaters["drive"] = { st -> modeTv.text = st.text; modeTv.setTextColor(st.color) }
+        updaters[c.id] = { st ->
+            ic.setColorFilter(st.color); batTv.text = st.text; batTv.setTextColor(st.color)
+        }
+        row.setOnClickListener { onUserActivity(); openMode(DockControls.DRIVE, row) }
+        return row
     }
 
     private fun tileInfo(c: Info): View {
-        val v = col()
-        val ic = icon(c.icon, cTxt, 18)
-        val tv = TextView(this).apply {
-            setTextColor(cTxt); textSize = 15f; setTypeface(typeface, Typeface.BOLD)
-            gravity = Gravity.CENTER; setSingleLine(true); maxLines = 1; setPadding(dp(4), 0, dp(4), 0); text = "—°"
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; isClickable = false
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(76)).apply { marginStart = dp(22) }
+            setPadding(dp(8), 0, dp(8), 0)
         }
-        v.addView(ic)
-        v.addView(tv, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(2) })
+        val ic = icon(c.icon, cTxt, 24)
+        val tv = TextView(this).apply {
+            setTextColor(cTxt); textSize = 25f; setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER; setSingleLine(true); maxLines = 1; setPadding(dp(10), 0, 0, 0); text = "—°"
+        }
+        row.addView(ic); row.addView(tv)
         updaters[c.id] = { st -> tv.text = st.text }
-        return v
+        return row
     }
 
     private fun tileRegen(c: Regen): View {
         val v = col(); v.isClickable = true
-        val ic = icon(c.icon, cAccent, 24)
+        val ic = icon(c.icon, cAccent, 30) // Aumentado
         v.addView(ic)
         val barsRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         val bars = Array(3) { View(this) }
         bars.forEachIndexed { i, b ->
             b.background = pill(cLine, dp(1))
-            barsRow.addView(b, LinearLayout.LayoutParams(dp(7), dp(5)).apply { if (i > 0) marginStart = dp(3) })
+            barsRow.addView(b, LinearLayout.LayoutParams(dp(10), dp(7)).apply { if (i > 0) marginStart = dp(4) })
         }
         v.addView(barsRow, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
             LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
@@ -486,7 +487,12 @@ class OverlayService : Service() {
 
     private fun closeMode() { modeWin?.let { v -> runCatching { wm.removeView(v) } }; modeWin = null }
 
-    private fun closeTemp() { tempWin?.let { v -> runCatching { wm.removeView(v) } }; tempWin = null }
+    private fun closeTemp() {
+        tempWin?.let { v -> runCatching { wm.removeView(v) } }
+        tempWin = null
+        updaters.remove("fan_popup")
+        updaters.remove("vent_popup")
+    }
 
     private fun closeAllPopups() {
         main.removeCallbacks(closePopupsRunnable)
@@ -495,7 +501,7 @@ class OverlayService : Service() {
 
     private fun armPopupTimer() {
         main.removeCallbacks(closePopupsRunnable)
-        main.postDelayed(closePopupsRunnable, 3000)
+        main.postDelayed(closePopupsRunnable, 4000)
     }
 
     // ---- popup de fluxo de ar (linha horizontal de ícones) ----
@@ -668,53 +674,133 @@ class OverlayService : Service() {
         }
     }
 
-    private fun closeAirflow() { airflowWin?.let { v -> runCatching { wm.removeView(v) } }; airflowWin = null }
 
-    // ---- popup de temperatura (slider horizontal) ----
+    // ---- popup de temperatura, ventilador e banco (sliders combinados) ----
 
     private fun openTemp(c: Temp, anchor: View) {
         if (tempWin != null) { closeTemp(); return }
         closeVolume(); closeAirflow(); closeLevel(); closeMode()
         armPopupTimer()
         val pop = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
             background = pill(cBarBg, dp(18)); setPadding(dp(16), dp(12), dp(16), dp(12))
         }
 
-        val valTv = TextView(this).apply {
+        val sliderW = dp(240); val sliderH = dp(32)
+
+        // --- Linha 1: Temperatura ---
+        val rowTemp = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val tempTv = TextView(this).apply {
             setTextColor(cAccent); textSize = 22f; setTypeface(typeface, Typeface.BOLD)
             gravity = Gravity.CENTER; minWidth = dp(70)
         }
-        pop.addView(valTv)
-
-        val sliderW = dp(240); val sliderH = dp(32)
-        val sliderTrack = FrameLayout(this).apply {
+        val tempTrack = FrameLayout(this).apply {
             background = pill(cCard, dp(16))
             layoutParams = LinearLayout.LayoutParams(sliderW, sliderH).apply { marginStart = dp(12) }
         }
-        val sliderFill = View(this).apply { setBackgroundColor(cAccent) }
-        sliderTrack.addView(sliderFill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
-        pop.addView(sliderTrack)
+        val tempFill = View(this).apply { setBackgroundColor(cAccent) }
+        tempTrack.addView(tempFill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
+        rowTemp.addView(tempTv); rowTemp.addView(tempTrack)
+        pop.addView(rowTemp)
 
-        fun updateUI(v: Double) {
+        fun updateTempUI(v: Double) {
             val r = ((v - c.min) / (c.hi() - c.min)).toFloat()
             val color = blend(DockColors.CYAN, DockColors.AMBER, r)
-            valTv.text = c.fmt(v) + "°"
-            valTv.setTextColor(color)
-            val lp = sliderFill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt()
-            sliderFill.layoutParams = lp
-            sliderFill.setBackgroundColor(color)
+            tempTv.text = c.fmt(v) + "°"; tempTv.setTextColor(color)
+            val lp = tempFill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt()
+            tempFill.layoutParams = lp; tempFill.setBackgroundColor(color)
         }
 
-        sliderTrack.setOnTouchListener { view, e ->
+        tempTrack.setOnTouchListener { view, e ->
             armPopupTimer()
             val r = (e.x / view.width).coerceIn(0f, 1f)
             val raw = c.min + r * (c.hi() - c.min)
             val v = (Math.round(raw / c.step) * c.step).coerceIn(c.min, c.hi())
-            updateUI(v)
+            updateTempUI(v)
             if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
                 onUserActivity()
                 io.execute { c.select(v); main.post { refreshAll() } }
+            }
+            true
+        }
+
+        // --- Linha 2: Ventilador ---
+        val fan = DockControls.FAN
+        val rowFan = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(14), 0, 0)
+        }
+        val fanIcon = icon(R.drawable.ic_fan, cTxt, 24)
+        val fanTv = TextView(this).apply {
+            setTextColor(cTxt); textSize = 20f; setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER; minWidth = dp(34); setPadding(dp(8), 0, dp(8), 0)
+        }
+        val fanTrack = FrameLayout(this).apply {
+            background = pill(cCard, dp(16))
+            layoutParams = LinearLayout.LayoutParams(sliderW, sliderH)
+        }
+        val fanFill = View(this).apply { setBackgroundColor(cAccent) }
+        fanTrack.addView(fanFill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
+        rowFan.addView(fanIcon); rowFan.addView(fanTv); rowFan.addView(fanTrack)
+        pop.addView(rowFan)
+
+        fun updateFanUI(v: Int) {
+            fanTv.text = v.toString()
+            val lo = fan.min; val hi = fan.hi().coerceAtLeast(lo + 1)
+            val r = (v - lo).toFloat() / (hi - lo)
+            val lp = fanFill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt()
+            fanFill.layoutParams = lp
+        }
+
+        fanTrack.setOnTouchListener { view, e ->
+            armPopupTimer()
+            val r = (e.x / view.width).coerceIn(0f, 1f)
+            val lo = fan.min; val hi = fan.hi().coerceAtLeast(lo + 1)
+            val v = lo + (r * (hi - lo)).toInt()
+            updateFanUI(v)
+            if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
+                onUserActivity()
+                io.execute { fan.setLevel(v); main.post { refreshAll() } }
+            }
+            true
+        }
+
+        // --- Linha 3: Ventilação do Banco ---
+        val vent = if (c.id == "tempD") DockControls.VENT_D else DockControls.VENT_P
+        val rowVent = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(14), 0, 0)
+        }
+        val ventIcon = icon(R.drawable.ic_seat, cTxt, 24)
+        val ventTv = TextView(this).apply {
+            setTextColor(cTxt); textSize = 20f; setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER; minWidth = dp(34); setPadding(dp(8), 0, dp(8), 0)
+        }
+        val ventTrack = FrameLayout(this).apply {
+            background = pill(cCard, dp(16))
+            layoutParams = LinearLayout.LayoutParams(sliderW, sliderH)
+        }
+        val ventFill = View(this).apply { setBackgroundColor(cAccent) }
+        ventTrack.addView(ventFill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
+        rowVent.addView(ventIcon); rowVent.addView(ventTv); rowVent.addView(ventTrack)
+        pop.addView(rowVent)
+
+        fun updateVentUI(v: Int) {
+            ventTv.text = v.toString()
+            val hi = vent.hi().coerceAtLeast(1)
+            val r = v.toFloat() / hi
+            val lp = ventFill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt()
+            ventFill.layoutParams = lp
+        }
+
+        ventTrack.setOnTouchListener { view, e ->
+            armPopupTimer()
+            val r = (e.x / view.width).coerceIn(0f, 1f)
+            val v = (r * vent.hi()).toInt()
+            updateVentUI(v)
+            if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
+                onUserActivity()
+                io.execute { vent.setLevel(v); main.post { refreshAll() } }
             }
             true
         }
@@ -734,19 +820,30 @@ class OverlayService : Service() {
         }
         runCatching { wm.addView(pop, lp); tempWin = pop }
 
+        updaters["fan_popup"] = { _ ->
+            io.execute { val v = fan.value(); main.post { updateFanUI(v) } }
+        }
+        updaters["vent_popup"] = { _ ->
+            io.execute { val v = vent.value(); main.post { updateVentUI(v) } }
+        }
+
         io.execute {
-            val cur = c.read() ?: c.min
-            main.post { updateUI(cur) }
+            val curT = c.read() ?: c.min
+            val curF = fan.value()
+            val curV = vent.value()
+            main.post { updateTempUI(curT); updateFanUI(curF); updateVentUI(curV) }
         }
         onUserActivity()
     }
+
+    private fun closeAirflow() { airflowWin?.let { v -> runCatching { wm.removeView(v) } }; airflowWin = null }
 
 
     // ---- popup de nível (ventilação): escolher min..max direto ----
 
     private fun openLevel(c: Level, anchor: View) {
         if (levelWin != null) { closeLevel(); return }
-        closeVolume(); closeAirflow(); closeMode(); closeTemp()
+        closeVolume(); closeAirflow(); closeLevel(); closeMode(); closeTemp()
         armPopupTimer()
         val pop = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
@@ -827,8 +924,14 @@ class OverlayService : Service() {
     private fun refreshAll() {
         if (hidden) return
         io.execute {
-            val snap = DockControls.ALL.map { it.id to it.render() }
-            main.post { snap.forEach { (id, st) -> updaters[id]?.invoke(st) } }
+            val controls = DockControls.ALL + listOf(DockControls.DRIVE, DockControls.FAN, DockControls.VENT_D, DockControls.VENT_P)
+            val snap = controls.map { it.id to it.render() }
+            main.post {
+                snap.forEach { (id, st) -> updaters[id]?.invoke(st) }
+                // Garante que os popups abertos também atualizem
+                updaters["fan_popup"]?.invoke(RenderState())
+                updaters["vent_popup"]?.invoke(RenderState())
+            }
         }
     }
 
@@ -988,8 +1091,10 @@ class OverlayService : Service() {
         val channelId = "haval_dock_overlay"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val nm = getSystemService(NotificationManager::class.java)
-            if (nm.getNotificationChannel(channelId) == null)
-                nm.createNotificationChannel(NotificationChannel(channelId, "Haval Dock", NotificationManager.IMPORTANCE_MIN))
+            if (nm.getNotificationChannel(channelId) == null) {
+                val channel = NotificationChannel(channelId, "Haval Dock", NotificationManager.IMPORTANCE_MIN)
+                nm.createNotificationChannel(channel)
+            }
         }
         val b = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             Notification.Builder(this, channelId) else @Suppress("DEPRECATION") Notification.Builder(this)

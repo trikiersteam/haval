@@ -256,7 +256,7 @@ class Info(id: String, section: Int, label: String, @DrawableRes val icon: Int, 
 class Regen(id: String, section: Int, label: String, @DrawableRes val icon: Int,
            val key: String, val order: List<Int>) :
     Control(id, section, label) {
-    // value -> (barras, cor): 2=Baixo(1,verde), 0=Normal(2,amarelo), 1=Alto(3,vermelho)
+    // value -> (barras, com.): 2=Baixo(1,verde), 0=Normal(2,amarelo), 1=Alto(3,vermelho)
     private val map = mapOf(
         2 to Pair(1, DockColors.GREEN),
         0 to Pair(2, DockColors.AMBER),
@@ -334,6 +334,18 @@ class MaxAc(id: String, section: Int, label: String) : Control(id, section, labe
 }
 
 object DockControls {
+    val FAN = Level("fan", 2, "Veloc. ar-cond.", R.drawable.ic_fan, DockKeys.FAN_SPEED, 7, DockKeys.FAN_RANGE, min = 1, picker = true)
+    val VENT_D = Level("ventD", 0, "Ventil. motorista", R.drawable.ic_seat, DockKeys.DRIVER_SEAT_VENT, 3, DockKeys.SEAT_VENT_MAX)
+    val VENT_P = Level("ventP", 3, "Ventil. passageiro", R.drawable.ic_seat, DockKeys.PASS_SEAT_VENT, 3, DockKeys.SEAT_VENT_MAX)
+    val DRIVE = Mode("drive", 1, "Modo", R.drawable.ic_car, DockKeys.CAR_EV_SETTING_POWER_MODEL_CONFIG,
+        listOf(1, 3, 0),
+        mapOf(0 to "HEV", 1 to "Prior.Ev", 3 to "EV"),
+        mapOf(0 to DockColors.AMBER, 1 to DockColors.GREEN, 3 to DockColors.CYAN),
+        strategyKey = DockKeys.CAR_EV_SETTING_POWER_RESERVE_CONFIG,
+        socKey = DockKeys.CAR_EV_SETTING_CHARGE_SOC_TARGET_CONFIG,
+        minSoc = 20, maxSoc = 80
+    )
+
     /** Modos de fluxo de ar, na ordem em que aparecem no popup (o último é o desembaçador). */
     val AIRFLOW_OPTIONS = listOf(
         AirflowOption("0", "Rosto", R.drawable.ic_hvac_blower_face),
@@ -345,39 +357,21 @@ object DockControls {
 
     val ALL: List<Control> = listOf(
         // ----- ESQUERDA (clima) -----
-        Level("ventD", 0, "Ventil. motorista", R.drawable.ic_seat, DockKeys.DRIVER_SEAT_VENT, 3, DockKeys.SEAT_VENT_MAX),
         Temp("tempD", 0, "Temp. motorista", DockKeys.DRIVER_TEMP, 16.0, 32.0, 0.5, DockKeys.FRONT_TEMP_RANGE),
 
         //---------Espacado
-        Battery("bat", 1, "Bateria", R.drawable.ic_bolt, DockKeys.CAR_BASIC_BATTERY_POWER_LEVEL),
-        Mode("drive", 1, "Modo", R.drawable.ic_car, DockKeys.CAR_EV_SETTING_POWER_MODEL_CONFIG,
-            listOf(1, 3, 0),
-            mapOf(0 to "HEV", 1 to "Prior.Ev",3 to "EV"), //0=HEV, 1=Prior.EV, 3=EV
-            mapOf(0 to DockColors.AMBER, 1 to DockColors.GREEN, 3 to DockColors.CYAN),
-            strategyKey = DockKeys.CAR_EV_SETTING_POWER_RESERVE_CONFIG,
-            socKey = DockKeys.CAR_EV_SETTING_CHARGE_SOC_TARGET_CONFIG,
-            minSoc = 20, maxSoc = 80
-        ),
+        Battery("bat", 1, "Bateria", R.drawable.ic_bolt, DockKeys.CAR_EV_INFO_CUR_BATTERY_POWER_PERCENTAGE),
 
         // ----- CENTRO (condução) -----
         IconToggle("recirc", 2, "Recirculador", R.drawable.ic_recirc_closed, R.drawable.ic_recirc_open, DockKeys.CYCLE_MODE, "0", "1"),
         Info("tempIn", 2, "Interna", R.drawable.ic_thermo, DockKeys.CAR_BASIC_INSIDE_TEMP),
-        //MaxAc("max", 0, "MAX"),
-        //TxtToggle("sync", 0, "SYNC", DockKeys.SYNC),
-        Level("fan", 2, "Veloc. ar-cond.", R.drawable.ic_fan, DockKeys.FAN_SPEED, 7, DockKeys.FAN_RANGE, min = 1, picker = true),
         Airflow("airflow", 2, "Fluxo de ar", DockKeys.BLOWER_MODE, DockKeys.FRONT_DEFROST, AIRFLOW_OPTIONS),
         Info("tempOut", 2, "Externa", R.drawable.ic_thermo, DockKeys.CAR_BASIC_OUTSIDE_TEMP),
         TxtToggle("auto", 2, "AUTO", DockKeys.AUTO),
-        /* Mode("steer", 1, "Modo direção", R.drawable.ic_steer, DockKeys.STEER_MODE,
-            listOf(2, 0, 1),
-            mapOf(2 to "Conforto", 0 to "Normal", 1 to "Esportiva"),
-            mapOf(2 to DockColors.CYAN, 0 to DockColors.WHITE, 1 to DockColors.RED)),
-        */
-        //Regen("regen", 1, "Regeneração", R.drawable.ic_bolt, DockKeys.REGEN_LEVEL, listOf(2, 0, 1)),
+
         // ----- DIREITA (passageiro + volume) -----
         Volume("vol", 3, "Volume rádio", R.drawable.ic_volume, DockKeys.MEDIA_VOLUME, 12, DockKeys.MEDIA_VOLUME_RANGE),
         Temp("tempP", 3, "Temp. passageiro", DockKeys.PASS_TEMP, 16.0, 32.0, 0.5, DockKeys.FRONT_TEMP_RANGE),
-        Level("ventP", 3, "Ventil. passageiro", R.drawable.ic_seat, DockKeys.PASS_SEAT_VENT, 3, DockKeys.SEAT_VENT_MAX),
     )
 
     val MONITORED: List<String> = listOf(
@@ -393,7 +387,7 @@ object DockControls {
         DockKeys.CAR_EV_SETTING_POWER_MODEL_CONFIG,
         DockKeys.CAR_EV_SETTING_POWER_RESERVE_CONFIG,
         DockKeys.CAR_EV_SETTING_CHARGE_SOC_TARGET_CONFIG,
-        DockKeys.CAR_BASIC_BATTERY_POWER_LEVEL,
+        DockKeys.CAR_EV_INFO_CUR_BATTERY_POWER_PERCENTAGE,
         DockKeys.CAR_BASIC_INSIDE_TEMP, DockKeys.CAR_BASIC_OUTSIDE_TEMP,
         //DockKeys.STEER_MODE,
         //DockKeys.REGEN_LEVEL,
