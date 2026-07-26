@@ -22,8 +22,8 @@ object DockKeys {
     const val DRIVER_SEAT_VENT = "car.comfort_setting.driver_seat_ventilation_level"
     const val PASS_SEAT_VENT = "car.comfort_setting.passenger_seat_ventilation_level"
     const val SEAT_VENT_MAX = "car.comfort_setting.seat_ventilation_max_level"
-    const val DRIVE_MODE = "car.drive_setting.drive_mode"
-    const val STEER_MODE = "car.drive_setting.steering_wheel_assist_mode"
+    //const val DRIVE_MODE = "car.drive_setting.drive_mode"
+    //const val STEER_MODE = "car.drive_setting.steering_wheel_assist_mode"
     const val REGEN_LEVEL = "car.ev_setting.energy_recovery_level"
     const val MEDIA_VOLUME = "sys.settings.audio.media_volume"
     const val MEDIA_VOLUME_RANGE = "sys.settings.audio.media_volume_range"
@@ -65,6 +65,7 @@ object DockKeys {
     const val CAR_EV_INFO_BATTERY_CHARGE_PERCENTAGE = "car.ev_info.battery_charge_percentage"
     const val CAR_EV_INFO_CAR_EV_INFO_SOC_OF_BATTERY = "car.ev_info.soc_of_battery"
     const val CAR_EV_INFO_CUR_BATTERY_POWER_PERCENTAGE = "car.ev_info.cur_battery_power_percentage"
+
 }
 
 /** Cores do tema v2 (ARGB int — sem dependência de android no data layer). */
@@ -365,8 +366,8 @@ object DockControls {
         Battery("bat", 1, "Bateria", R.drawable.ic_bolt, DockKeys.CAR_EV_INFO_CUR_BATTERY_POWER_PERCENTAGE),
 
         // ----- CENTRO (REcirulacao, temp interna, direcao da ventilacao, temp externa) -----
-        IconToggle("recirc", 2, "Recirculador", R.drawable.ic_recirc_closed, R.drawable.ic_recirc_open, DockKeys.CYCLE_MODE, "0", "1"),
         Info("tempIn", 2, "Interna", R.drawable.ic_thermo, DockKeys.CAR_BASIC_INSIDE_TEMP),
+        IconToggle("recirc", 2, "Recirculador", R.drawable.ic_recirc_closed, R.drawable.ic_recirc_open, DockKeys.CYCLE_MODE, "0", "1"),
         Info("tempOut", 2, "Externa", R.drawable.ic_thermo, DockKeys.CAR_BASIC_OUTSIDE_TEMP),
 
         // ----- DIREITA (passageiro + volume) -----
@@ -428,5 +429,6 @@ object DockControls {
         "BATTERY_CHARGE_PERCENTAGE" to DockKeys.CAR_EV_INFO_BATTERY_CHARGE_PERCENTAGE,
         "INFO_SOC_OF_BATTERY" to DockKeys.CAR_EV_INFO_CAR_EV_INFO_SOC_OF_BATTERY,
         "CUR_BATTERY_POWER_PERCENTAGE" to DockKeys.CAR_EV_INFO_CUR_BATTERY_POWER_PERCENTAGE,
+        "HVAC_AUTO_ENABLE" to DockKeys.AUTO,
     )
 }

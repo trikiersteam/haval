@@ -61,7 +61,7 @@ class OverlayService : Service() {
     private lateinit var params: WindowManager.LayoutParams
     private lateinit var root: TouchFrame
     private lateinit var bar: LinearLayout
-    private lateinit var handle: TextView
+    private lateinit var handle: View
 
     private val updaters = HashMap<String, (RenderState) -> Unit>()
     private var volWin: View? = null
@@ -183,14 +183,12 @@ class OverlayService : Service() {
         root.addView(bar, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
 
-        handle = TextView(this).apply {
-            text = "▴ Haval Dock"; setTextColor(cAccent); textSize = 13f; gravity = Gravity.CENTER
-            setPadding(dp(22), dp(5), dp(22), dp(6)); background = pill(cBarBg, dp(12), topOnly = true)
+        handle = View(this).apply {
+            background = pill(Color.parseColor("#40FFFFFF"), dp(2))
             visibility = View.GONE; setOnClickListener { showBar() }
         }
-        root.addView(handle, FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
-            Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL))
+        root.addView(handle, FrameLayout.LayoutParams(dp(100), dp(4),
+            Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = dp(6) })
 
         wm.addView(root, params)
     }
@@ -327,16 +325,16 @@ class OverlayService : Service() {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(76)).apply { marginStart = dp(22) }
             setPadding(dp(8), 0, dp(8), 0); isClickable = true
         }
+        val ic = icon(R.drawable.ic_bolt, cAccent, 26)
         val modeTv = TextView(this).apply {
             setTextColor(cAccent); textSize = 25f; setTypeface(typeface, Typeface.NORMAL)
-            gravity = Gravity.CENTER; text = "—"
+            gravity = Gravity.CENTER; setPadding(dp(10), 0, dp(8), 0); text = "—"
         }
-        val ic = icon(R.drawable.ic_bolt, cAccent, 26)
         val batTv = TextView(this).apply {
             setTextColor(cAccent); textSize = 25f; setTypeface(typeface, Typeface.BOLD)
-            gravity = Gravity.CENTER; setSingleLine(true); maxLines = 1; setPadding(dp(10), 0, 0, 0); text = "—%"
+            gravity = Gravity.CENTER; setSingleLine(true); maxLines = 1; text = "—%"
         }
-        row.addView(modeTv); row.addView(ic); row.addView(batTv)
+        row.addView(ic); row.addView(modeTv); row.addView(batTv)
 
         updaters["drive"] = { st -> modeTv.text = st.text; modeTv.setTextColor(st.color) }
         updaters[c.id] = { st ->
@@ -493,7 +491,7 @@ class OverlayService : Service() {
 
     private fun armPopupTimer() {
         main.removeCallbacks(closePopupsRunnable)
-        main.postDelayed(closePopupsRunnable, 4000)
+        main.postDelayed(closePopupsRunnable, 5000)
     }
 
     // ---- popup de fluxo de ar (linha horizontal de ícones) ----
@@ -558,6 +556,7 @@ class OverlayService : Service() {
         val row2 = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(12), dp(8), dp(12), dp(0))
+            visibility = View.GONE // Começa escondido p/ evitar flicker
         }
 
         // Botão Inteligente
