@@ -325,16 +325,16 @@ class OverlayService : Service() {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(76)).apply { marginStart = dp(22) }
             setPadding(dp(8), 0, dp(8), 0); isClickable = true
         }
-        val ic = icon(R.drawable.ic_bolt, cAccent, 26)
         val modeTv = TextView(this).apply {
             setTextColor(cAccent); textSize = 25f; setTypeface(typeface, Typeface.NORMAL)
-            gravity = Gravity.CENTER; setPadding(dp(10), 0, dp(8), 0); text = "—"
+            gravity = Gravity.CENTER; setPadding(0, 0, dp(12), 0); text = "—"
         }
+        val ic = icon(R.drawable.ic_bolt, cAccent, 26)
         val batTv = TextView(this).apply {
             setTextColor(cAccent); textSize = 25f; setTypeface(typeface, Typeface.BOLD)
-            gravity = Gravity.CENTER; setSingleLine(true); maxLines = 1; text = "—%"
+            gravity = Gravity.CENTER; setSingleLine(true); maxLines = 1; setPadding(dp(10), 0, 0, 0); text = "—%"
         }
-        row.addView(ic); row.addView(modeTv); row.addView(batTv)
+        row.addView(modeTv); row.addView(ic); row.addView(batTv)
 
         updaters["drive"] = { st -> modeTv.text = st.text; modeTv.setTextColor(st.color) }
         updaters[c.id] = { st ->
