@@ -24,8 +24,10 @@ object HvacPanel {
 
     /** Chaves cuja escrita abre o painel — só essas disparam a supressão (espelha o Impulse). */
     private val SUSPEND_KEYS = setOf(
-        DockKeys.DRIVER_TEMP, DockKeys.PASS_TEMP, DockKeys.FAN_SPEED, DockKeys.AUTO, DockKeys.SYNC,
-        DockKeys.CYCLE_MODE, DockKeys.BLOWER_MODE, DockKeys.FRONT_DEFROST, DockKeys.POWER_MODE, DockKeys.AC_ENABLE,
+        DockKeys.CAR_HVAC_DRIVER_TEMPERATURE, DockKeys.CAR_HVAC_PASS_TEMPERATURE, DockKeys.CAR_HVAC_FAN_SPEED,
+        DockKeys.CAR_HVAC_AUTO_ENABLE, DockKeys.CAR_HVAC_SYNC_ENABLE, DockKeys.CAR_HVAC_CYCLE_MODE,
+        DockKeys.CAR_HVAC_BLOWER_MODE, DockKeys.CAR_HVAC_FRONT_DEFROST_ENABLE, DockKeys.CAR_HVAC_POWER_MODE,
+        DockKeys.CAR_HVAC_AC_ENABLE,
     )
 
     fun isHvacKey(key: String): Boolean = key in SUSPEND_KEYS

@@ -99,8 +99,10 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(monitorEnabled) {
             if (monitorEnabled) {
                 while (true) {
-                    DockControls.DEBUG_VARIABLES.forEach { (label, key) ->
-                        debugValues[label] = VehicleClient.getData(key) ?: "—"
+                    DockControls.DEBUG_VARIABLES.values.forEach { vars ->
+                        vars.forEach { (label, key) ->
+                            debugValues[label] = VehicleClient.getData(key) ?: "—"
+                        }
                     }
                     delay(1500)
                 }
@@ -172,23 +174,30 @@ class MainActivity : ComponentActivity() {
                 if (monitorEnabled) {
                     Spacer(Modifier.height(14.dp))
                     Column {
-                        DockControls.DEBUG_VARIABLES.keys.forEachIndexed { index, label ->
-                            if (index > 0) {
-                                Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.05f)))
-                            }
-                            Row(
-                                Modifier.fillMaxWidth().padding(vertical = 10.dp),
-                                horizontalArrangement = Arrangement.Start,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(label, color = Muted, fontSize = 13.sp, modifier = Modifier.weight(0.3f))
-                                Text(
-                                    debugValues[label] ?: "—",
-                                    color = Accent,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.weight(0.7f)
-                                )
+                        DockControls.DEBUG_VARIABLES.forEach { (category, vars) ->
+                            Text(
+                                category,
+                                color = Accent,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                            )
+                            val items = vars.toList()
+                            val half = (items.size + 1) / 2
+                            val col1 = items.take(half)
+                            val col2 = items.drop(half)
+
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                                Column(Modifier.weight(1f)) {
+                                    col1.forEach { (label, _) ->
+                                        MonitorRow(label, debugValues[label] ?: "—")
+                                    }
+                                }
+                                Column(Modifier.weight(1f)) {
+                                    col2.forEach { (label, _) ->
+                                        MonitorRow(label, debugValues[label] ?: "—")
+                                    }
+                                }
                             }
                         }
                     }
@@ -291,6 +300,24 @@ class MainActivity : ComponentActivity() {
             OutlinedButton(onClick = { onStep(-1) }, modifier = Modifier.size(44.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("−", fontSize = 20.sp) }
             Text(value, color = AccentSoft, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             OutlinedButton(onClick = { onStep(1) }, modifier = Modifier.size(44.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("+", fontSize = 20.sp) }
+        }
+    }
+
+    @Composable
+    private fun MonitorRow(label: String, value: String) {
+        Column(Modifier.padding(vertical = 6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(label, color = Muted, fontSize = 12.sp, modifier = Modifier.weight(0.55f), maxLines = 1)
+                Text(
+                    value,
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(0.45f),
+                    maxLines = 1
+                )
+            }
+            Box(Modifier.fillMaxWidth().padding(top = 4.dp).height(0.5.dp).background(Color.White.copy(alpha = 0.05f)))
         }
     }
 }

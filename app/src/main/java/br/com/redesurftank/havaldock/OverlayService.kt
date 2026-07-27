@@ -327,14 +327,14 @@ class OverlayService : Service() {
         }
         val modeTv = TextView(this).apply {
             setTextColor(cAccent); textSize = 25f; setTypeface(typeface, Typeface.NORMAL)
-            gravity = Gravity.CENTER; setPadding(0, 0, dp(12), 0); text = "—"
+            gravity = Gravity.CENTER; setPadding(dp(12), 0, 0, 0); text = "—"
         }
         val ic = icon(R.drawable.ic_bolt, cAccent, 26)
         val batTv = TextView(this).apply {
             setTextColor(cAccent); textSize = 25f; setTypeface(typeface, Typeface.BOLD)
-            gravity = Gravity.CENTER; setSingleLine(true); maxLines = 1; setPadding(dp(10), 0, 0, 0); text = "—%"
+            gravity = Gravity.CENTER; setSingleLine(true); maxLines = 1; setPadding(0, 0, dp(10), 0); text = "—%"
         }
-        row.addView(modeTv); row.addView(ic); row.addView(batTv)
+        row.addView(batTv); row.addView(ic); row.addView(modeTv)
 
         updaters["drive"] = { st -> modeTv.text = st.text; modeTv.setTextColor(st.color) }
         updaters[c.id] = { st ->
@@ -428,21 +428,36 @@ class OverlayService : Service() {
         sliderTrack.addView(sliderFill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
         pop.addView(sliderTrack)
 
+        var canGoPast12 = false
+        var currentV = 0 // cache local para verificar no DOWN
+
         fun updateUI(v: Int) {
+            val color = if (v > 12) DockColors.RED else cAccent
             valTv.text = v.toString()
+            valTv.setTextColor(color)
             val hi = c.hi().coerceAtLeast(1)
             val r = v.toFloat() / hi
             val lp = sliderFill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt()
             sliderFill.layoutParams = lp
+            sliderFill.setBackgroundColor(color)
         }
 
         sliderTrack.setOnTouchListener { view, e ->
             armPopupTimer()
             val r = (e.x / view.width).coerceIn(0f, 1f)
-            val v = (r * c.hi()).toInt()
+            var v = (r * c.hi()).toInt()
+
+            if (e.action == MotionEvent.ACTION_DOWN) {
+                canGoPast12 = currentV >= 12
+            }
+
+            if (!canGoPast12) v = minOf(v, 12)
+
             updateUI(v)
+
             if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
                 onUserActivity()
+                currentV = v
                 io.execute { c.set(v); main.post { refreshAll() } }
             }
             true
@@ -464,8 +479,8 @@ class OverlayService : Service() {
         runCatching { wm.addView(pop, lp); volWin = pop }
 
         io.execute {
-            val cur = c.value()
-            main.post { updateUI(cur) }
+            val initial = c.value()
+            main.post { currentV = initial; updateUI(initial) }
         }
         onUserActivity()
     }
@@ -629,7 +644,7 @@ class OverlayService : Service() {
                             }
                             refreshAll()
                             // Update colors
-                            val curM = c.cur()
+                            val curM = m // Usa o modo clicado imediatamente p/ feedback visual
                             modeViews.forEach { (mo, t) -> t.setTextColor(if (mo == curM) c.colors[mo] ?: cAccent else cTxt) }
                         }
                     }
