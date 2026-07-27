@@ -385,8 +385,8 @@ class MaxAc(id: String, section: Int, label: String) : Control(id, section, labe
 
 object DockControls {
     val FAN = Level("fan", 2, "Veloc. ar-cond.", R.drawable.ic_fan, DockKeys.CAR_HVAC_FAN_SPEED, 7, DockKeys.CAR_HVAC_FAN_SPEED_RANGE, min = 1, picker = true)
-    val VENT_D = Level("ventD", 0, "Ventil. motorista", R.drawable.ic_seat, DockKeys.DRIVER_SEAT_VENT, 3, DockKeys.SEAT_VENT_MAX)
-    val VENT_P = Level("ventP", 3, "Ventil. passageiro", R.drawable.ic_seat, DockKeys.PASS_SEAT_VENT, 3, DockKeys.SEAT_VENT_MAX)
+    val VENT_D = Level("ventD", 0, "Ventil. motorista", R.drawable.ic_carseat_cooler, DockKeys.DRIVER_SEAT_VENT, 3, DockKeys.SEAT_VENT_MAX)
+    val VENT_P = Level("ventP", 3, "Ventil. passageiro", R.drawable.ic_carseat_cooler, DockKeys.PASS_SEAT_VENT, 3, DockKeys.SEAT_VENT_MAX)
     val DRIVE = Mode("drive", 1, "Modo", R.drawable.ic_car, DockKeys.CAR_EV_SETTING_POWER_MODEL_CONFIG,
         listOf(1, 3, 0),
         mapOf(0 to "HEV", 1 to "Prior.Ev", 3 to "EV"),
@@ -417,7 +417,7 @@ object DockControls {
         // ----- CENTRO (REcirulacao, temp interna, direcao da ventilacao, temp externa) -----
         Info("tempIn", 2, "Interna", R.drawable.ic_thermo, DockKeys.CAR_BASIC_INSIDE_TEMP),
         IconToggle("recirc", 2, "Recirculador", R.drawable.ic_recirc_closed, R.drawable.ic_recirc_open, DockKeys.CAR_HVAC_CYCLE_MODE, "0", "1"),
-        Info("tempOut", 2, "Externa", R.drawable.ic_thermo, DockKeys.CAR_BASIC_OUTSIDE_TEMP),
+        Info("tempOut", 2, "Externa", R.drawable.ic_external_thermo, DockKeys.CAR_BASIC_OUTSIDE_TEMP),
 
         // ----- DIREITA (passageiro + volume) -----
         Volume("vol", 3, "Volume rádio", R.drawable.ic_volume, DockKeys.MEDIA_VOLUME, 30, DockKeys.MEDIA_VOLUME_RANGE),

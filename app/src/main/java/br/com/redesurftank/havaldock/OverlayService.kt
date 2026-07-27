@@ -821,7 +821,7 @@ class OverlayService : Service() {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             setPadding(0, dp(14), 0, 0)
         }
-        val ventIcon = icon(R.drawable.ic_seat, cTxt, 24)
+        val ventIcon = icon(R.drawable.ic_carseat_cooler, cTxt, 24)
         val ventTv = TextView(this).apply {
             setTextColor(cTxt); textSize = 20f; setTypeface(typeface, Typeface.BOLD)
             gravity = Gravity.CENTER; minWidth = dp(34); setPadding(dp(8), 0, dp(8), 0)

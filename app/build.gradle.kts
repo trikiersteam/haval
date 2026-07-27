@@ -12,8 +12,8 @@ android {
         applicationId = "br.com.redesurftank.havaldock"
         minSdk = 28
         targetSdk = 28
-        versionCode = 27
-        versionName = "0.2.34"
+        versionCode = 28
+        versionName = "0.2.35"
     }
 
     signingConfigs {
