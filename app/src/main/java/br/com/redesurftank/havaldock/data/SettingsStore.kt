@@ -18,6 +18,7 @@ object SettingsStore {
     const val KEY_MODE = "visibility_mode"
     const val KEY_SECS = "auto_hide_secs"
     const val KEY_POPUP_SECS = "popup_secs"
+    const val KEY_BAR_HEIGHT = "bar_height"
     const val KEY_BOOT = "launch_on_boot"
 
     const val MODE_ALWAYS = "always"
@@ -30,12 +31,17 @@ object SettingsStore {
     const val MIN_POPUP_SECS = 0
     const val MAX_POPUP_SECS = 60
 
+    const val DEFAULT_BAR_HEIGHT = 75
+    const val MIN_BAR_HEIGHT = 50
+    const val MAX_BAR_HEIGHT = 120
+
     private lateinit var appCtx: Context
 
     val overlayEnabled = mutableStateOf(false)
     val visibilityMode = mutableStateOf(MODE_AUTO)
     val autoHideSecs = mutableIntStateOf(DEFAULT_SECS)
     val popupSecs = mutableIntStateOf(DEFAULT_POPUP_SECS)
+    val barHeight = mutableIntStateOf(DEFAULT_BAR_HEIGHT)
     val launchOnBoot = mutableStateOf(true)
 
     fun init(context: Context) {
@@ -45,6 +51,7 @@ object SettingsStore {
         visibilityMode.value = p.getString(KEY_MODE, MODE_AUTO) ?: MODE_AUTO
         autoHideSecs.intValue = p.getInt(KEY_SECS, DEFAULT_SECS)
         popupSecs.intValue = p.getInt(KEY_POPUP_SECS, DEFAULT_POPUP_SECS)
+        barHeight.intValue = p.getInt(KEY_BAR_HEIGHT, DEFAULT_BAR_HEIGHT)
         launchOnBoot.value = p.getBoolean(KEY_BOOT, true)
     }
 
@@ -70,6 +77,12 @@ object SettingsStore {
         prefs(appCtx).edit().putInt(KEY_POPUP_SECS, c).apply()
     }
 
+    fun setBarHeight(v: Int) {
+        val c = v.coerceIn(MIN_BAR_HEIGHT, MAX_BAR_HEIGHT)
+        barHeight.intValue = c
+        prefs(appCtx).edit().putInt(KEY_BAR_HEIGHT, c).apply()
+    }
+
     fun setLaunchOnBoot(v: Boolean) {
         launchOnBoot.value = v
         prefs(appCtx).edit().putBoolean(KEY_BOOT, v).apply()
@@ -89,6 +102,9 @@ object SettingsStore {
 
     fun popupSecs(context: Context): Int =
         prefs(context).getInt(KEY_POPUP_SECS, DEFAULT_POPUP_SECS)
+
+    fun barHeight(context: Context): Int =
+        prefs(context).getInt(KEY_BAR_HEIGHT, DEFAULT_BAR_HEIGHT)
 
     fun prefs(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

@@ -148,7 +148,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 Spacer(Modifier.height(14.dp))
-                Text("Visibilidade", color = Color.White, fontSize = 16.sp)
+                Text("Visibilidade da Barra", color = Color.White, fontSize = 16.sp)
                 Spacer(Modifier.height(8.dp))
                 Segmented(
                     options = listOf("Sempre visível" to SettingsStore.MODE_ALWAYS, "Auto-ocultar" to SettingsStore.MODE_AUTO),
@@ -174,6 +174,16 @@ class MainActivity : ComponentActivity() {
                         Text(if (pSecs == 0) "Menu ficará visível até o clique." else "Auto-ocultar menus após inatividade.", color = Muted, fontSize = 13.sp)
                     }
                     Stepper("$pSecs s") { d -> SettingsStore.setPopupSecs(pSecs + d) }
+                }
+
+                Spacer(Modifier.height(14.dp))
+                val bHeight by SettingsStore.barHeight
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Altura da barra", color = Color.White, fontSize = 16.sp)
+                        Text("Ajuste a altura da barra inferior.", color = Muted, fontSize = 13.sp)
+                    }
+                    Stepper("$bHeight dp") { d -> SettingsStore.setBarHeight(bHeight + d) }
                 }
             }
 
@@ -225,6 +235,22 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
+                }
+            }
+
+            // ---- dimensões da tela ----
+            SectionCard("Dimensões da Tela") {
+                val dm = resources.displayMetrics
+                val wPx = dm.widthPixels
+                val hPx = dm.heightPixels
+                val density = dm.density
+                val wDp = (wPx / density).toInt()
+                val hDp = (hPx / density).toInt()
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    DimensionRow("Resolução (Pixels)", "${wPx}px x ${hPx}px")
+                    DimensionRow("Resolução (DP)", "${wDp}dp x ${hDp}dp")
+                    DimensionRow("Densidade", "${density}x (${dm.densityDpi} dpi)")
                 }
             }
 
@@ -349,6 +375,14 @@ class MainActivity : ComponentActivity() {
                 )
             }
             Box(Modifier.fillMaxWidth().padding(top = 4.dp).height(0.5.dp).background(Color.White.copy(alpha = 0.05f)))
+        }
+    }
+
+    @Composable
+    private fun DimensionRow(label: String, value: String) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, color = Muted, fontSize = 14.sp, modifier = Modifier.weight(1f))
+            Text(value, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
     }
 

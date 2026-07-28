@@ -81,7 +81,7 @@ class OverlayService : Service() {
     private var lastProjection: String? = null  // última projeção vista em foco (p/ mostrar o logo certo na central)
     private var lastCentralApp: String? = null  // último app NÃO-projeção no topo do D0 (p/ voltar a ele)
 
-    private val barHeightPx by lazy { dp(BAR_DP) }
+    private val barHeightPx: Int get() = dp(SettingsStore.barHeight(this))
     private val handleHeightPx by lazy { dp(HANDLE_DP) }
     private val trackPx by lazy { dp(30) }
 
@@ -101,6 +101,17 @@ class OverlayService : Service() {
     }
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == SettingsStore.KEY_MODE || key == SettingsStore.KEY_SECS) applyVisibility()
+        if (key == SettingsStore.KEY_BAR_HEIGHT) {
+            params.height = barHeightPx
+            if (!hidden) runCatching { wm.updateViewLayout(root, params) }
+            broadcastBarState()
+            main.post {
+                updaters.clear()
+                bar.removeAllViews()
+                buildOverlayContent()
+                refreshAll()
+            }
+        }
     }
     // Outro app (ex.: haval-radio) pede o estado atual da barra; respondemos com um broadcast.
     private val requestReceiver = object : BroadcastReceiver() {
@@ -168,18 +179,7 @@ class OverlayService : Service() {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(cBarBg)
         }
-        // linha ciano no topo
-        bar.addView(View(this).apply { setBackgroundColor(cAccent) },
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(2)))
-
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(40), 0, dp(40), 0)
-        }
-        bar.addView(content, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
-        buildSections(content)
+        buildOverlayContent()
 
         root.addView(bar, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
@@ -192,6 +192,21 @@ class OverlayService : Service() {
             Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = dp(6) })
 
         wm.addView(root, params)
+    }
+
+    private fun buildOverlayContent() {
+        // linha ciano no topo
+        bar.addView(View(this).apply { setBackgroundColor(cAccent) },
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(2)))
+
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(40), 0, dp(40), 0)
+        }
+        bar.addView(content, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        buildSections(content)
     }
 
     private fun buildSections(content: LinearLayout) {
@@ -238,7 +253,8 @@ class OverlayService : Service() {
 
     private fun col() = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
-        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(76)).apply { marginStart = dp(22) }
+        val h = SettingsStore.barHeight(this@OverlayService) - 8
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(h)).apply { marginStart = dp(22) }
         setPadding(dp(4), dp(4), dp(4), dp(4))
     }
 
@@ -246,7 +262,8 @@ class OverlayService : Service() {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
             val ms = if (c.id == "tempP") 42 else 22
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(76)).apply { marginStart = dp(ms) }
+            val h = SettingsStore.barHeight(this@OverlayService) - 8
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(h)).apply { marginStart = dp(ms) }
             isClickable = true
         }
         val tv = TextView(this).apply {
@@ -360,7 +377,8 @@ class OverlayService : Service() {
     private fun tileBattery(c: Battery): View {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(76)).apply { marginStart = dp(22) }
+            val h = SettingsStore.barHeight(this@OverlayService) - 8
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(h)).apply { marginStart = dp(22) }
             setPadding(dp(8), 0, dp(8), 0); isClickable = true
         }
         val modeTv = TextView(this).apply {
@@ -385,7 +403,8 @@ class OverlayService : Service() {
     private fun tileInfo(c: Info): View {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; isClickable = false
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(76)).apply { marginStart = dp(22) }
+            val h = SettingsStore.barHeight(this@OverlayService) - 8
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(h)).apply { marginStart = dp(22) }
             setPadding(dp(8), 0, dp(8), 0)
         }
         val ic = icon(c.icon, cTxt, 32)
@@ -755,6 +774,7 @@ class OverlayService : Service() {
                 onUserActivity(); armPopupTimer()
                 io.execute {
                     val isOn = VehicleClient.getData(DockKeys.CAR_HVAC_POWER_MODE) == "1"
+                    val next = !isOn
                     if (isOn) {
                         VehicleClient.set(DockKeys.CAR_HVAC_POWER_MODE, "0")
                         VehicleClient.set(DockKeys.CAR_HVAC_FAN_SPEED, "0")
@@ -763,7 +783,10 @@ class OverlayService : Service() {
                         VehicleClient.set(DockKeys.CAR_HVAC_AUTO_ENABLE, "0")
                         VehicleClient.set(DockKeys.CAR_HVAC_FAN_SPEED, "2")
                     }
-                    main.post { refreshAll() }
+                    main.post { 
+                        this@apply.setColorFilter(if (next) DockColors.GREEN else cTxt)
+                        refreshAll() 
+                    }
                 }
             }
         }
@@ -780,6 +803,7 @@ class OverlayService : Service() {
                 onUserActivity(); armPopupTimer()
                 io.execute {
                     val acOn = VehicleClient.getData(DockKeys.CAR_HVAC_AC_ENABLE) == "1"
+                    val nextAc = !acOn
                     if (acOn) {
                         VehicleClient.set(DockKeys.CAR_HVAC_AC_ENABLE, "0")
                     } else {
@@ -789,7 +813,11 @@ class OverlayService : Service() {
                         VehicleClient.set(DockKeys.CAR_HVAC_AUTO_ENABLE, "0")
                         VehicleClient.set(DockKeys.CAR_HVAC_FAN_SPEED, "2")
                     }
-                    main.post { refreshAll() }
+                    main.post { 
+                        this@apply.setColorFilter(if (nextAc) DockColors.GREEN else cTxt)
+                        if (nextAc) pwrIcon.setColorFilter(DockColors.GREEN)
+                        refreshAll() 
+                    }
                 }
             }
         }
@@ -866,7 +894,7 @@ class OverlayService : Service() {
         pop.addView(rowFan)
 
         fun updateFanUI(v: Int) {
-            fanTv.text = v.toString()
+            fanTv.text = if (v < 0) "_" else v.toString()
             val lo = fan.min; val hi = fan.hi().coerceAtLeast(lo + 1)
             val r = (v - lo).toFloat() / (hi - lo)
             val lp = fanFill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt()
@@ -935,7 +963,7 @@ class OverlayService : Service() {
         pop.addView(rowVent)
 
         fun updateVentUI(v: Int) {
-            ventTv.text = v.toString()
+            ventTv.text = if (v < 0) "_" else v.toString()
             val hi = vent.hi().coerceAtLeast(1)
             val r = v.toFloat() / hi
             val lp = ventFill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt()
@@ -1049,7 +1077,7 @@ class OverlayService : Service() {
         pop.addView(sliderTrack)
 
         fun updateUI(v: Int) {
-            valTv.text = v.toString()
+            valTv.text = if (v < 0) "_" else v.toString()
             val lo = c.min; val hi = c.hi().coerceAtLeast(lo + 1)
             val r = (v - lo).toFloat() / (hi - lo)
             val lp = sliderFill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt()
@@ -1237,11 +1265,12 @@ class OverlayService : Service() {
 
     // Avisa apps que reservam o rodapé (haval-radio) qual a altura ocupada agora.
     private fun broadcastBarState() {
+        val h = if (hidden) HANDLE_DP else SettingsStore.barHeight(this)
         runCatching {
             sendBroadcast(
                 Intent(ACTION_BAR_STATE)
                     .putExtra(EXTRA_VISIBLE, !hidden)
-                    .putExtra(EXTRA_HEIGHT_DP, if (hidden) HANDLE_DP else BAR_DP)
+                    .putExtra(EXTRA_HEIGHT_DP, h)
             )
         }
     }
@@ -1325,8 +1354,7 @@ class OverlayService : Service() {
     companion object {
         private const val NOTIF_ID = 42
 
-        /** Altura da barra (visível) e da alça (oculta), em dp. */
-        const val BAR_DP = 84
+        /** Altura da alça (oculta), em dp. */
         const val HANDLE_DP = 22
 
         /** Broadcast do estado da barra p/ outros apps (ex.: haval-radio) reservarem o rodapé. */
