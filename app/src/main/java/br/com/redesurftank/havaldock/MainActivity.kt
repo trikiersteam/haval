@@ -94,14 +94,22 @@ class MainActivity : ComponentActivity() {
         val boot by SettingsStore.launchOnBoot
 
         var monitorEnabled by remember { mutableStateOf(false) }
-        val debugValues = remember { mutableStateMapOf<String, String>() }
+        val debugValues = remember { mutableStateMapOf<String, MonitorValue>() }
 
         LaunchedEffect(monitorEnabled) {
             if (monitorEnabled) {
                 while (true) {
                     DockControls.DEBUG_VARIABLES.values.forEach { vars ->
                         vars.forEach { (label, key) ->
-                            debugValues[label] = VehicleClient.getData(key) ?: "—"
+                            val newVal = VehicleClient.getData(key) ?: "—"
+                            val old = debugValues[label]
+                            if (old == null || old.current != newVal) {
+                                debugValues[label] = MonitorValue(
+                                    current = newVal,
+                                    previous = old?.current,
+                                    lastChanged = System.currentTimeMillis()
+                                )
+                            }
                         }
                     }
                     delay(1500)
@@ -183,19 +191,25 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                             )
                             val items = vars.toList()
-                            val half = (items.size + 1) / 2
-                            val col1 = items.take(half)
-                            val col2 = items.drop(half)
+                            val chunk = (items.size + 2) / 3
+                            val col1 = items.take(chunk)
+                            val col2 = items.drop(chunk).take(chunk)
+                            val col3 = items.drop(chunk * 2)
 
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                 Column(Modifier.weight(1f)) {
                                     col1.forEach { (label, _) ->
-                                        MonitorRow(label, debugValues[label] ?: "—")
+                                        MonitorRow(label, debugValues[label])
                                     }
                                 }
                                 Column(Modifier.weight(1f)) {
                                     col2.forEach { (label, _) ->
-                                        MonitorRow(label, debugValues[label] ?: "—")
+                                        MonitorRow(label, debugValues[label])
+                                    }
+                                }
+                                Column(Modifier.weight(1f)) {
+                                    col3.forEach { (label, _) ->
+                                        MonitorRow(label, debugValues[label])
                                     }
                                 }
                             }
@@ -304,20 +318,33 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun MonitorRow(label: String, value: String) {
+    private fun MonitorRow(label: String, monitor: MonitorValue?) {
+        val value = monitor?.current ?: "—"
+        val previous = monitor?.previous
+        val lastChanged = monitor?.lastChanged ?: 0
+        val isRecent = System.currentTimeMillis() - lastChanged < 5000
+        val displayValue = if (isRecent && previous != null && previous != value) "$previous -> $value" else value
+        val color = if (isRecent && previous != null && previous != value) Color(0xFFFFC23C) else Color.White
+
         Column(Modifier.padding(vertical = 6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(label, color = Muted, fontSize = 12.sp, modifier = Modifier.weight(0.55f), maxLines = 1)
+                Text(label, color = Muted, fontSize = 11.sp, modifier = Modifier.weight(0.5f), maxLines = 1)
                 Text(
-                    value,
-                    color = Color.White,
-                    fontSize = 12.sp,
+                    displayValue,
+                    color = color,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(0.45f),
+                    modifier = Modifier.weight(0.5f),
                     maxLines = 1
                 )
             }
             Box(Modifier.fillMaxWidth().padding(top = 4.dp).height(0.5.dp).background(Color.White.copy(alpha = 0.05f)))
         }
     }
+
+    private data class MonitorValue(
+        val current: String,
+        val previous: String? = null,
+        val lastChanged: Long = 0
+    )
 }

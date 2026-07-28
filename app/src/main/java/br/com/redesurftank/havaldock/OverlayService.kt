@@ -31,6 +31,7 @@ import br.com.redesurftank.havaldock.data.Battery
 import br.com.redesurftank.havaldock.data.Control
 import br.com.redesurftank.havaldock.data.DockColors
 import br.com.redesurftank.havaldock.data.DockControls
+import br.com.redesurftank.havaldock.data.DockKeys
 import br.com.redesurftank.havaldock.data.HvacPanel
 import br.com.redesurftank.havaldock.data.IconToggle
 import br.com.redesurftank.havaldock.data.Info
@@ -249,7 +250,7 @@ class OverlayService : Service() {
             isClickable = true
         }
         val tv = TextView(this).apply {
-            setTextColor(cAccent); textSize = 25f; setTypeface(typeface, Typeface.BOLD); text = "—°"
+            setTextColor(cAccent); textSize = 32f; setTypeface(typeface, Typeface.BOLD); text = "—°"
             gravity = Gravity.CENTER; setPadding(dp(14), 0, dp(14), 0)
         }
         row.addView(tv)
@@ -260,18 +261,23 @@ class OverlayService : Service() {
 
     private fun tileLevel(c: Level): View {
         val v = col(); v.isClickable = true
-        v.addView(icon(c.icon, cTxt, 32)) // Aumentado
+        val ic = icon(c.icon, cTxt, 42) // Aumentado
         val track = makeTrack()
+        v.addView(ic)
         v.addView(track.first)
-        updaters[c.id] = { st -> setTrack(track.second, st.ratio) }
+        updaters[c.id] = { st ->
+            ic.setColorFilter(st.color)
+            setTrack(track.second, st.ratio)
+        }
         v.setOnClickListener { if (c.picker) { onUserActivity(); openLevel(c, v) } else act(c) { c.cycle() } }
         return v
     }
 
     private fun tileVolume(c: Volume): View {
         val v = col(); v.isClickable = true
-        v.addView(icon(c.icon, cTxt, 32)) // Aumentado
+        val ic = icon(c.icon, cTxt, 42) // Aumentado
         val track = makeTrack()
+        v.addView(ic)
         v.addView(track.first)
         updaters[c.id] = { st -> setTrack(track.second, st.ratio) }
         v.setOnClickListener { onUserActivity(); openVolume(c, v) }
@@ -284,7 +290,7 @@ class OverlayService : Service() {
     private fun textTile(c: Control, label: String, onFlip: () -> Unit): View {
         val v = col(); v.isClickable = true
         val tv = TextView(this).apply {
-            text = label; setTextColor(cMuted); textSize = 24f; setTypeface(typeface, Typeface.BOLD) // Aumentado
+            text = label; setTextColor(cMuted); textSize = 28f; setTypeface(typeface, Typeface.BOLD) // Aumentado
             gravity = Gravity.CENTER; maxLines = 1; setPadding(dp(6), 0, dp(6), 0)
         }
         val ul = View(this)
@@ -304,14 +310,11 @@ class OverlayService : Service() {
 
     private fun tileIconToggle(c: IconToggle): View {
         val v = col(); v.isClickable = true
-        val ic = icon(c.iconOff, cTxt, 46)   // recirc maior; ícone trocado por estado
+        val ic = icon(c.iconOff, cTxt, 52)   // recirc maior; ícone trocado por estado
         v.addView(ic)
-        val track = makeTrack()
-        v.addView(track.first)
         updaters[c.id] = { st ->
             if (st.icon != 0) ic.setImageResource(st.icon)
             ic.setColorFilter(if (st.on) cAccent else cTxt)
-            setTrack(track.second, if (st.on) 1f else 0f)
         }
         v.setOnClickListener { act(c) { c.flip() } }
         return v
@@ -326,12 +329,12 @@ class OverlayService : Service() {
             setPadding(dp(8), 0, dp(8), 0); isClickable = true
         }
         val modeTv = TextView(this).apply {
-            setTextColor(cAccent); textSize = 25f; setTypeface(typeface, Typeface.NORMAL)
+            setTextColor(cAccent); textSize = 30f; setTypeface(typeface, Typeface.NORMAL)
             gravity = Gravity.CENTER; setPadding(dp(12), 0, 0, 0); text = "—"
         }
-        val ic = icon(R.drawable.ic_bolt, cAccent, 26)
+        val ic = icon(R.drawable.ic_bolt, cAccent, 34)
         val batTv = TextView(this).apply {
-            setTextColor(cAccent); textSize = 25f; setTypeface(typeface, Typeface.BOLD)
+            setTextColor(cAccent); textSize = 30f; setTypeface(typeface, Typeface.BOLD)
             gravity = Gravity.CENTER; setSingleLine(true); maxLines = 1; setPadding(0, 0, dp(10), 0); text = "—%"
         }
         row.addView(batTv); row.addView(ic); row.addView(modeTv)
@@ -350,9 +353,9 @@ class OverlayService : Service() {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(76)).apply { marginStart = dp(22) }
             setPadding(dp(8), 0, dp(8), 0)
         }
-        val ic = icon(c.icon, cTxt, 24)
+        val ic = icon(c.icon, cTxt, 32)
         val tv = TextView(this).apply {
-            setTextColor(cTxt); textSize = 25f; setTypeface(typeface, Typeface.BOLD)
+            setTextColor(cTxt); textSize = 30f; setTypeface(typeface, Typeface.BOLD)
             gravity = Gravity.CENTER; setSingleLine(true); maxLines = 1; setPadding(dp(10), 0, 0, 0); text = "—°"
         }
         row.addView(ic); row.addView(tv)
@@ -362,7 +365,7 @@ class OverlayService : Service() {
 
     private fun tileRegen(c: Regen): View {
         val v = col(); v.isClickable = true
-        val ic = icon(c.icon, cAccent, 30) // Aumentado
+        val ic = icon(c.icon, cAccent, 40) // Aumentado
         v.addView(ic)
         val barsRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         val bars = Array(3) { View(this) }
@@ -495,6 +498,8 @@ class OverlayService : Service() {
         updaters.remove("fan_popup")
         updaters.remove("vent_popup")
         updaters.remove("auto_popup")
+        updaters.remove("pwr_popup")
+        updaters.remove("ac_popup")
         updaters.remove("air_popup")
     }
 
@@ -694,21 +699,79 @@ class OverlayService : Service() {
 
         val sliderW = dp(240); val sliderH = dp(32)
 
-        // --- Linha 1: AUTO ---
+        // --- Linha 1: Controles Rápidos (Power, AC, AUTO) ---
         val auto = DockControls.AUTO_CONTROL
         val rowAuto = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
             setPadding(0, 0, 0, dp(14))
         }
+
+        val btnW = dp(100); val btnH = dp(46)
+
+        // 1. Botão de Energia (Power)
+        val pwrIcon = ImageView(this).apply {
+            setImageResource(R.drawable.ic_fan)
+            background = pill(cCard, dp(14))
+            layoutParams = LinearLayout.LayoutParams(btnW, btnH)
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            isClickable = true
+            setOnClickListener {
+                onUserActivity(); armPopupTimer()
+                io.execute {
+                    val isOn = VehicleClient.getData(DockKeys.CAR_HVAC_POWER_MODE) == "1"
+                    if (isOn) {
+                        VehicleClient.set(DockKeys.CAR_HVAC_POWER_MODE, "0")
+                        VehicleClient.set(DockKeys.CAR_HVAC_FAN_SPEED, "0")
+                    } else {
+                        VehicleClient.set(DockKeys.CAR_HVAC_POWER_MODE, "1")
+                        VehicleClient.set(DockKeys.CAR_HVAC_AUTO_ENABLE, "0")
+                        VehicleClient.set(DockKeys.CAR_HVAC_FAN_SPEED, "2")
+                    }
+                    main.post { refreshAll() }
+                }
+            }
+        }
+        rowAuto.addView(pwrIcon)
+
+        // 2. Botão de Ar-Condicionado (AC)
+        val acIcon = ImageView(this).apply {
+            setImageResource(R.drawable.ic_snowflake_thermometer)
+            background = pill(cCard, dp(14))
+            layoutParams = LinearLayout.LayoutParams(btnW, btnH).apply { marginStart = dp(16) }
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            isClickable = true
+            setOnClickListener {
+                onUserActivity(); armPopupTimer()
+                io.execute {
+                    val acOn = VehicleClient.getData(DockKeys.CAR_HVAC_AC_ENABLE) == "1"
+                    if (acOn) {
+                        VehicleClient.set(DockKeys.CAR_HVAC_AC_ENABLE, "0")
+                    } else {
+                        VehicleClient.set(DockKeys.CAR_HVAC_AC_ENABLE, "1")
+                        // Garante que a ventilação ligue junto
+                        VehicleClient.set(DockKeys.CAR_HVAC_POWER_MODE, "1")
+                        VehicleClient.set(DockKeys.CAR_HVAC_AUTO_ENABLE, "0")
+                        VehicleClient.set(DockKeys.CAR_HVAC_FAN_SPEED, "2")
+                    }
+                    main.post { refreshAll() }
+                }
+            }
+        }
+        rowAuto.addView(acIcon)
+
+        // 3. Botão AUTO
         val autoBtn = TextView(this).apply {
             text = "AUTO"; setTextColor(cTxt); textSize = 18f; setTypeface(null, Typeface.BOLD)
-            background = pill(cCard, dp(14)); setPadding(dp(24), dp(8), dp(24), dp(8)); isClickable = true
+            background = pill(cCard, dp(14)); gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(btnW, btnH).apply { marginStart = dp(16) }
+            isClickable = true
             setOnClickListener {
                 onUserActivity(); armPopupTimer()
                 io.execute { auto.flip(); main.post { refreshAll() } }
             }
         }
-        rowAuto.addView(autoBtn); pop.addView(rowAuto)
+        rowAuto.addView(autoBtn)
+        pop.addView(rowAuto)
 
         // --- Linha 2: Temperatura ---
         val rowTemp = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
@@ -885,6 +948,18 @@ class OverlayService : Service() {
                 }
             }
         }
+        updaters["pwr_popup"] = { _ ->
+            io.execute {
+                val isOn = VehicleClient.getData(DockKeys.CAR_HVAC_POWER_MODE) == "1"
+                main.post { pwrIcon.setColorFilter(if (isOn) DockColors.GREEN else cTxt) }
+            }
+        }
+        updaters["ac_popup"] = { _ ->
+            io.execute {
+                val isOn = VehicleClient.getData(DockKeys.CAR_HVAC_AC_ENABLE) == "1"
+                main.post { acIcon.setColorFilter(if (isOn) DockColors.GREEN else cTxt) }
+            }
+        }
         updaters["air_popup"] = { _ ->
             io.execute { val cur = airflow.currentOption(); main.post { updateAirflowUI(cur) } }
         }
@@ -895,10 +970,14 @@ class OverlayService : Service() {
             val curV = vent.value()
             val isAuto = auto.isOn()
             val curA = airflow.currentOption()
+            val isPwrOn = VehicleClient.getData(DockKeys.CAR_HVAC_POWER_MODE) == "1"
+            val isAcOn = VehicleClient.getData(DockKeys.CAR_HVAC_AC_ENABLE) == "1"
             main.post {
                 updateTempUI(curT); updateFanUI(curF); updateVentUI(curV); updateAirflowUI(curA)
                 autoBtn.setTextColor(if (isAuto) cOnAccent else cTxt)
                 autoBtn.background = pill(if (isAuto) cAccent else cCard, dp(14))
+                pwrIcon.setColorFilter(if (isPwrOn) DockColors.GREEN else cTxt)
+                acIcon.setColorFilter(if (isAcOn) DockColors.GREEN else cTxt)
             }
         }
         onUserActivity()
@@ -1001,6 +1080,8 @@ class OverlayService : Service() {
                 updaters["fan_popup"]?.invoke(RenderState())
                 updaters["vent_popup"]?.invoke(RenderState())
                 updaters["auto_popup"]?.invoke(RenderState())
+                updaters["pwr_popup"]?.invoke(RenderState())
+                updaters["ac_popup"]?.invoke(RenderState())
                 updaters["air_popup"]?.invoke(RenderState())
             }
         }
@@ -1010,7 +1091,7 @@ class OverlayService : Service() {
 
     private fun projTile(): View {
         val v = col(); v.isClickable = true
-        val ic = ImageView(this).apply { layoutParams = LinearLayout.LayoutParams(dp(34), dp(34)) }
+        val ic = ImageView(this).apply { layoutParams = LinearLayout.LayoutParams(dp(42), dp(42)) }
         v.addView(ic)
         v.visibility = View.GONE   // só aparece quando há projeção conectada
         v.setOnClickListener { onProjClick() }

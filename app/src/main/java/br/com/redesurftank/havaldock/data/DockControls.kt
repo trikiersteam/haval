@@ -175,7 +175,9 @@ class Level(id: String, section: Int, label: String, @DrawableRes val icon: Int,
     fun hi() = rangeKey?.let { parseMax(VehicleClient.getData(it))?.toInt() } ?: max
     override fun render(): RenderState {
         val m = hi().coerceAtLeast(1)
-        return RenderState(ratio = value().coerceIn(0, m).toFloat() / m)
+        val v = value()
+        val color = if (v > 0) DockColors.GREEN else DockColors.WHITE
+        return RenderState(ratio = v.coerceIn(0, m).toFloat() / m, color = color)
     }
     /** Toque incrementa; ao chegar no máximo, volta pro mínimo (fan: 1..7→1; banco: 0..3→0). */
     fun cycle() {
