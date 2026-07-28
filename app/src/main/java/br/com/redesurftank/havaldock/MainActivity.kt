@@ -28,6 +28,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -184,6 +186,40 @@ class MainActivity : ComponentActivity() {
                         Text("Ajuste a altura da barra inferior.", color = Muted, fontSize = 13.sp)
                     }
                     Stepper("$bHeight dp") { d -> SettingsStore.setBarHeight(bHeight + d) }
+                }
+
+                Spacer(Modifier.height(14.dp))
+                val bOpacity by SettingsStore.barOpacity
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Opacidade da barra", color = Color.White, fontSize = 16.sp)
+                        Text("Muda a transparência do fundo.", color = Muted, fontSize = 13.sp)
+                    }
+                    Stepper("$bOpacity %") { d -> SettingsStore.setBarOpacity(bOpacity + d) }
+                }
+
+                Spacer(Modifier.height(14.dp))
+                val itemFrame by SettingsStore.itemFrameEnabled
+                RowSwitch("Moldura nos itens", "Agrupa os ícones em um balão arredondado.", itemFrame) {
+                    SettingsStore.setItemFrameEnabled(it)
+                }
+            }
+
+            // ---- posicionamento ----
+            SectionCard("Posicionamento das Seções") {
+                val dm = resources.displayMetrics
+                val screenWidthDp = dm.widthPixels / dm.density
+                
+                val sec0 by SettingsStore.sec0X
+                val sec1 by SettingsStore.sec1X
+                val sec2 by SettingsStore.sec2X
+                val sec3 by SettingsStore.sec3X
+
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SectionPosRow("Motorista", sec0, screenWidthDp) { SettingsStore.setSectionX(0, it) }
+                    SectionPosRow("Centro", sec1, screenWidthDp) { SettingsStore.setSectionX(1, it) }
+                    SectionPosRow("Bateria", sec2, screenWidthDp) { SettingsStore.setSectionX(2, it) }
+                    SectionPosRow("Passageiro", sec3, screenWidthDp) { SettingsStore.setSectionX(3, it) }
                 }
             }
 
@@ -350,6 +386,22 @@ class MainActivity : ComponentActivity() {
             OutlinedButton(onClick = { onStep(-1) }, modifier = Modifier.size(44.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("−", fontSize = 20.sp) }
             Text(value, color = AccentSoft, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             OutlinedButton(onClick = { onStep(1) }, modifier = Modifier.size(44.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("+", fontSize = 20.sp) }
+        }
+    }
+
+    @Composable
+    private fun SectionPosRow(label: String, value: Int, max: Float, onValueChange: (Int) -> Unit) {
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(label, color = Muted, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Text("${value}dp", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            }
+            Slider(
+                value = value.toFloat(),
+                onValueChange = { onValueChange(it.toInt()) },
+                valueRange = 0f..max,
+                colors = SliderDefaults.colors(thumbColor = Accent, activeTrackColor = Accent.copy(alpha = 0.4f))
+            )
         }
     }
 

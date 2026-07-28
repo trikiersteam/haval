@@ -62,6 +62,9 @@ class OverlayService : Service() {
     private lateinit var params: WindowManager.LayoutParams
     private lateinit var root: TouchFrame
     private lateinit var bar: LinearLayout
+    private lateinit var topLine: View
+    private val sectionLayouts = ArrayList<LinearLayout>()
+    private lateinit var contentLayout: FrameLayout
     private lateinit var handle: View
 
     private val updaters = HashMap<String, (RenderState) -> Unit>()
@@ -90,8 +93,21 @@ class OverlayService : Service() {
     private val cMuted = Color.parseColor("#828C9C")
     private val cCard = Color.parseColor("#121722")
     private val cLine = Color.parseColor("#23FFFFFF")
-    private val cBarBg = Color.parseColor("#F2070A0E")
     private val cOnAccent = Color.parseColor("#04161A")
+
+    private fun getBarColor(): Int {
+        val opacity = SettingsStore.opacity(this)
+        val alpha = (opacity * 255) / 100
+        return Color.argb(alpha, 7, 10, 14)
+    }
+
+    private fun getPopupColor(): Int {
+        return if (SettingsStore.isItemFrameEnabled(this)) {
+            Color.parseColor("#F2070A0E") // 95% fixo no modo bolha
+        } else {
+            getBarColor()
+        }
+    }
 
     private val hideRunnable = Runnable { hideBar() }
     private val closePopupsRunnable = Runnable { closeAllPopups() }
@@ -101,6 +117,15 @@ class OverlayService : Service() {
     }
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == SettingsStore.KEY_MODE || key == SettingsStore.KEY_SECS) applyVisibility()
+        if (key == SettingsStore.KEY_OPACITY) {
+            main.post { bar.setBackgroundColor(getBarColor()) }
+        }
+        if (key == SettingsStore.KEY_ITEM_FRAME) {
+            main.post { updateItemFrame() }
+        }
+        if (key != null && key.startsWith("sec") && key.endsWith("_x")) {
+            main.post { updateSectionsPosition() }
+        }
         if (key == SettingsStore.KEY_BAR_HEIGHT) {
             params.height = barHeightPx
             if (!hidden) runCatching { wm.updateViewLayout(root, params) }
@@ -177,7 +202,7 @@ class OverlayService : Service() {
 
         bar = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(cBarBg)
+            setBackgroundColor(getBarColor())
         }
         buildOverlayContent()
 
@@ -196,44 +221,65 @@ class OverlayService : Service() {
 
     private fun buildOverlayContent() {
         // linha ciano no topo
-        bar.addView(View(this).apply { setBackgroundColor(cAccent) },
+        topLine = View(this).apply { setBackgroundColor(cAccent) }
+        bar.addView(topLine,
             LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(2)))
 
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(40), 0, dp(40), 0)
+        contentLayout = FrameLayout(this).apply {
+            // No modo livre, o container ocupa a largura toda
+            setPadding(0, 0, 0, 0)
         }
-        bar.addView(content, LinearLayout.LayoutParams(
+        bar.addView(contentLayout, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
-        buildSections(content)
+        buildSections(contentLayout)
+        updateItemFrame()
+        updateSectionsPosition()
     }
 
-    private fun buildSections(content: LinearLayout) {
+    private fun updateSectionsPosition() {
+        sectionLayouts.forEachIndexed { i, sec ->
+            val lp = sec.layoutParams as FrameLayout.LayoutParams
+            lp.leftMargin = dp(SettingsStore.sectionX(this, i))
+            lp.gravity = Gravity.START or Gravity.CENTER_VERTICAL
+            sec.layoutParams = lp
+        }
+    }
+
+    private fun updateItemFrame() {
+        val enabled = SettingsStore.isItemFrameEnabled(this)
+        topLine.visibility = if (enabled) View.GONE else View.VISIBLE
+        bar.setBackgroundColor(if (enabled) Color.TRANSPARENT else getBarColor())
+        
+        if (enabled) {
+            sectionLayouts.forEach { sec ->
+                sec.background = pill(Color.parseColor("#F2070A0E"), dp(18))
+                sec.setPadding(dp(12), 0, dp(12), 0)
+            }
+        } else {
+            sectionLayouts.forEach { sec ->
+                sec.background = null
+                sec.setPadding(0, 0, 0, 0)
+            }
+        }
+    }
+
+    private fun buildSections(content: FrameLayout) {
+        sectionLayouts.clear()
         val secs = arrayOf(rowSection(), rowSection(), rowSection(), rowSection())
+        secs.forEach { 
+            sectionLayouts.add(it)
+            content.addView(it, FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT))
+        }
+        
         for (c in DockControls.ALL) {
             if (c.section < secs.size) secs[c.section].addView(tile(c))
         }
         secs[0].addView(projTile())
-        content.addView(secs[0])
-        content.addView(fixedSpacer(80))
-        content.addView(secs[1])
-        content.addView(fixedSpacer(90))
-        content.addView(secs[2])
-        content.addView(spacer())
-        content.addView(secs[3])
     }
 
     private fun rowSection() = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-    }
-
-    private fun spacer() = View(this).apply {
-        layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
-    }
-
-    private fun fixedSpacer(w: Int) = View(this).apply {
-        layoutParams = LinearLayout.LayoutParams(dp(w), 1)
     }
 
     private fun tile(c: Control): View = when (c) {
@@ -467,7 +513,7 @@ class OverlayService : Service() {
         armPopupTimer()
         val pop = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            background = pill(cBarBg, dp(18)); setPadding(dp(16), dp(12), dp(16), dp(12))
+            background = pill(getPopupColor(), dp(18)); setPadding(dp(16), dp(12), dp(16), dp(12))
         }
 
         val valTv = TextView(this).apply {
@@ -577,7 +623,7 @@ class OverlayService : Service() {
         armPopupTimer()
         val pop = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            background = pill(cBarBg, dp(18)); setPadding(dp(12), dp(10), dp(12), dp(10))
+            background = pill(getPopupColor(), dp(18)); setPadding(dp(12), dp(10), dp(12), dp(10))
         }
         val ivs = ArrayList<Pair<AirflowOption, ImageView>>()
         c.options.forEach { opt ->
@@ -623,7 +669,7 @@ class OverlayService : Service() {
         armPopupTimer()
         val pop = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
-            background = pill(cBarBg, dp(18)); setPadding(dp(12), dp(10), dp(12), dp(10))
+            background = pill(getPopupColor(), dp(18)); setPadding(dp(12), dp(10), dp(12), dp(10))
         }
 
         val row1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
@@ -749,7 +795,7 @@ class OverlayService : Service() {
         armPopupTimer()
         val pop = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
-            background = pill(cBarBg, dp(18)); setPadding(dp(16), dp(12), dp(16), dp(12))
+            background = pill(getPopupColor(), dp(18)); setPadding(dp(16), dp(12), dp(16), dp(12))
         }
 
         val sliderW = dp(240); val sliderH = dp(32)
@@ -1058,7 +1104,7 @@ class OverlayService : Service() {
         armPopupTimer()
         val pop = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            background = pill(cBarBg, dp(18)); setPadding(dp(16), dp(12), dp(16), dp(12))
+            background = pill(getPopupColor(), dp(18)); setPadding(dp(16), dp(12), dp(16), dp(12))
         }
 
         val valTv = TextView(this).apply {

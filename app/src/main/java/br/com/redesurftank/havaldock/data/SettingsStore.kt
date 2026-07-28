@@ -19,6 +19,12 @@ object SettingsStore {
     const val KEY_SECS = "auto_hide_secs"
     const val KEY_POPUP_SECS = "popup_secs"
     const val KEY_BAR_HEIGHT = "bar_height"
+    const val KEY_OPACITY = "bar_opacity"
+    const val KEY_ITEM_FRAME = "item_frame"
+    const val KEY_SEC0_X = "sec0_x"
+    const val KEY_SEC1_X = "sec1_x"
+    const val KEY_SEC2_X = "sec2_x"
+    const val KEY_SEC3_X = "sec3_x"
     const val KEY_BOOT = "launch_on_boot"
 
     const val MODE_ALWAYS = "always"
@@ -35,6 +41,10 @@ object SettingsStore {
     const val MIN_BAR_HEIGHT = 50
     const val MAX_BAR_HEIGHT = 120
 
+    const val DEFAULT_OPACITY = 95
+    const val MIN_OPACITY = 0
+    const val MAX_OPACITY = 100
+
     private lateinit var appCtx: Context
 
     val overlayEnabled = mutableStateOf(false)
@@ -42,6 +52,12 @@ object SettingsStore {
     val autoHideSecs = mutableIntStateOf(DEFAULT_SECS)
     val popupSecs = mutableIntStateOf(DEFAULT_POPUP_SECS)
     val barHeight = mutableIntStateOf(DEFAULT_BAR_HEIGHT)
+    val barOpacity = mutableIntStateOf(DEFAULT_OPACITY)
+    val itemFrameEnabled = mutableStateOf(false)
+    val sec0X = mutableIntStateOf(20)
+    val sec1X = mutableIntStateOf(320)
+    val sec2X = mutableIntStateOf(620)
+    val sec3X = mutableIntStateOf(920)
     val launchOnBoot = mutableStateOf(true)
 
     fun init(context: Context) {
@@ -52,6 +68,12 @@ object SettingsStore {
         autoHideSecs.intValue = p.getInt(KEY_SECS, DEFAULT_SECS)
         popupSecs.intValue = p.getInt(KEY_POPUP_SECS, DEFAULT_POPUP_SECS)
         barHeight.intValue = p.getInt(KEY_BAR_HEIGHT, DEFAULT_BAR_HEIGHT)
+        barOpacity.intValue = p.getInt(KEY_OPACITY, DEFAULT_OPACITY)
+        itemFrameEnabled.value = p.getBoolean(KEY_ITEM_FRAME, false)
+        sec0X.intValue = p.getInt(KEY_SEC0_X, 20)
+        sec1X.intValue = p.getInt(KEY_SEC1_X, 320)
+        sec2X.intValue = p.getInt(KEY_SEC2_X, 620)
+        sec3X.intValue = p.getInt(KEY_SEC3_X, 920)
         launchOnBoot.value = p.getBoolean(KEY_BOOT, true)
     }
 
@@ -83,6 +105,34 @@ object SettingsStore {
         prefs(appCtx).edit().putInt(KEY_BAR_HEIGHT, c).apply()
     }
 
+    fun setBarOpacity(v: Int) {
+        val c = v.coerceIn(MIN_OPACITY, MAX_OPACITY)
+        barOpacity.intValue = c
+        prefs(appCtx).edit().putInt(KEY_OPACITY, c).apply()
+    }
+
+    fun setItemFrameEnabled(v: Boolean) {
+        itemFrameEnabled.value = v
+        prefs(appCtx).edit().putBoolean(KEY_ITEM_FRAME, v).apply()
+    }
+
+    fun setSectionX(index: Int, v: Int) {
+        val key = when(index) {
+            0 -> KEY_SEC0_X
+            1 -> KEY_SEC1_X
+            2 -> KEY_SEC2_X
+            3 -> KEY_SEC3_X
+            else -> return
+        }
+        when(index) {
+            0 -> sec0X.intValue = v
+            1 -> sec1X.intValue = v
+            2 -> sec2X.intValue = v
+            3 -> sec3X.intValue = v
+        }
+        prefs(appCtx).edit().putInt(key, v).apply()
+    }
+
     fun setLaunchOnBoot(v: Boolean) {
         launchOnBoot.value = v
         prefs(appCtx).edit().putBoolean(KEY_BOOT, v).apply()
@@ -105,6 +155,26 @@ object SettingsStore {
 
     fun barHeight(context: Context): Int =
         prefs(context).getInt(KEY_BAR_HEIGHT, DEFAULT_BAR_HEIGHT)
+
+    fun opacity(context: Context): Int =
+        prefs(context).getInt(KEY_OPACITY, DEFAULT_OPACITY)
+
+    fun isItemFrameEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_ITEM_FRAME, false)
+
+    fun sectionX(context: Context, index: Int): Int {
+        val key = when(index) {
+            0 -> KEY_SEC0_X
+            1 -> KEY_SEC1_X
+            2 -> KEY_SEC2_X
+            3 -> KEY_SEC3_X
+            else -> return 0
+        }
+        val def = when(index) {
+            0 -> 20; 1 -> 320; 2 -> 620; 3 -> 920; else -> 0
+        }
+        return prefs(context).getInt(key, def)
+    }
 
     fun prefs(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

@@ -144,7 +144,7 @@ sealed class Control(val id: String, val section: Int, val label: String) {
     abstract fun render(): RenderState
 }
 
-/** Temperatura: exibida com setas ‹ ›; escreve o valor float direto (ex.: "22.5"). */
+/** Temperatura: escreve o valor float direto (ex.: "22.5"). */
 class Temp(id: String, section: Int, label: String, val key: String,
           val min: Double, val max: Double, val step: Double, val rangeKey: String?) :
     Control(id, section, label) {
