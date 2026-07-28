@@ -250,11 +250,46 @@ class OverlayService : Service() {
             isClickable = true
         }
         val tv = TextView(this).apply {
-            setTextColor(cAccent); textSize = 32f; setTypeface(typeface, Typeface.BOLD); text = "—°"
+            setTextColor(cAccent); textSize = 34f; setTypeface(typeface, Typeface.BOLD); text = "—°"
             gravity = Gravity.CENTER; setPadding(dp(14), 0, dp(14), 0)
         }
         row.addView(tv)
         updaters[c.id] = { st -> tv.text = st.text }
+
+        var startX = 0f
+        val threshold = dp(40).toFloat()
+        row.setOnTouchListener { _, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> { startX = event.x; false }
+                MotionEvent.ACTION_UP -> {
+                    val diff = event.x - startX
+                    if (kotlin.math.abs(diff) > threshold) {
+                        onUserActivity()
+                        io.execute {
+                            val fan = DockControls.FAN
+                            val cur = fan.value()
+                            if (diff > 0) { // Direita -> Aumenta
+                                VehicleClient.set(DockKeys.CAR_HVAC_POWER_MODE, "1")
+                                fan.setLevel(kotlin.math.min(cur + 1, fan.hi()))
+                            } else { // Esquerda -> Diminui
+                                if (cur <= 1) {
+                                    VehicleClient.set(DockKeys.CAR_HVAC_POWER_MODE, "0")
+                                    VehicleClient.set(DockKeys.CAR_HVAC_AC_ENABLE, "0")
+                                    VehicleClient.set(DockKeys.CAR_HVAC_FAN_SPEED, "0")
+                                } else {
+                                    fan.setLevel(cur - 1)
+                                }
+                            }
+                            main.post { refreshAll() }
+                        }
+                        true // Consome o gesto, impede o clique
+                    } else {
+                        false // Pequeno movimento ou clique, deixa o OnClickListener agir
+                    }
+                }
+                else -> false
+            }
+        }
         row.setOnClickListener { onUserActivity(); openTemp(c, row) }
         return row
     }
@@ -511,7 +546,8 @@ class OverlayService : Service() {
 
     private fun armPopupTimer() {
         main.removeCallbacks(closePopupsRunnable)
-        main.postDelayed(closePopupsRunnable, 5000)
+        val s = SettingsStore.popupSecs(this)
+        if (s > 0) main.postDelayed(closePopupsRunnable, s * 1000L)
     }
 
     // ---- popup de fluxo de ar (linha horizontal de ícones) ----

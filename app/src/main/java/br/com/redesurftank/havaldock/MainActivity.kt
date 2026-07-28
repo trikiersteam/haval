@@ -165,6 +165,16 @@ class MainActivity : ComponentActivity() {
                         Stepper("$secs s") { d -> SettingsStore.setAutoHideSecs(secs + d) }
                     }
                 }
+
+                Spacer(Modifier.height(14.dp))
+                val pSecs by SettingsStore.popupSecs
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Tempo do menu", color = Color.White, fontSize = 16.sp)
+                        Text(if (pSecs == 0) "Menu ficará visível até o clique." else "Auto-ocultar menus após inatividade.", color = Muted, fontSize = 13.sp)
+                    }
+                    Stepper("$pSecs s") { d -> SettingsStore.setPopupSecs(pSecs + d) }
+                }
             }
 
             // ---- boot ----
