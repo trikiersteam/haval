@@ -203,6 +203,12 @@ class MainActivity : ComponentActivity() {
                 RowSwitch("Moldura nos itens", "Agrupa os ícones em um balão arredondado.", itemFrame) {
                     SettingsStore.setItemFrameEnabled(it)
                 }
+                
+                Spacer(Modifier.height(14.dp))
+                val simulation by SettingsStore.simulationEnabled
+                RowSwitch("Modo Simulação", "Usa dados fictícios para testes sem o carro.", simulation) {
+                    SettingsStore.setSimulationEnabled(it)
+                }
             }
 
             // ---- posicionamento ----

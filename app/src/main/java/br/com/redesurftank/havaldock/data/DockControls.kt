@@ -1,6 +1,9 @@
 package br.com.redesurftank.havaldock.data
 
 import android.content.Context
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import androidx.annotation.DrawableRes
 import br.com.redesurftank.havaldock.R
 import java.util.Locale
@@ -122,7 +125,7 @@ object DockColors {
     const val GREEN = 0xFF36E05A.toInt()
     const val RED = 0xFFFF4D4D.toInt()
     const val AMBER = 0xFFFFC23C.toInt()
-    const val WHITE = 0xFFEEF4F8.toInt()
+    const val WHITE = 0xFFC0C8CB.toInt() //branco acinzentado
 }
 
 private fun parseMax(s: String?): Double? {
@@ -132,7 +135,7 @@ private fun parseMax(s: String?): Double? {
 
 /** Estado de render lido do veículo (campos usados variam por tipo de controle). */
 data class RenderState(
-    val text: String? = null,
+    val text: CharSequence? = null,
     val ratio: Float = 0f,
     val on: Boolean = false,
     val color: Int = DockColors.CYAN,
@@ -148,7 +151,11 @@ sealed class Control(val id: String, val section: Int, val label: String) {
 class Temp(id: String, section: Int, label: String, val key: String,
           val min: Double, val max: Double, val step: Double, val rangeKey: String?) :
     Control(id, section, label) {
-    override fun render() = RenderState(text = read()?.takeIf { it >= 0 }?.let { fmt(it) + "°" } ?: "—°")
+    override fun render(): RenderState {
+        val isOn = VehicleClient.getData(DockKeys.CAR_HVAC_POWER_MODE) == "1"
+        val color = if (isOn) DockColors.CYAN else DockColors.WHITE
+        return RenderState(text = read()?.takeIf { it >= 0 }?.let { fmt(it) + "°" } ?: "—°", color = color)
+    }
     fun read() = VehicleClient.getData(key)?.trim()?.toDoubleOrNull()
     fun fmt(v: Double) = String.format(Locale.US, "%.1f", v)
     fun hi() = rangeKey?.let { parseMax(VehicleClient.getData(it)) } ?: max
@@ -265,6 +272,14 @@ class Mode(id: String, section: Int, label: String, @DrawableRes val icon: Int,
 
     override fun render(): RenderState {
         val v = cur()
+        if (v == 1 || v == 3) {
+            val sb = SpannableStringBuilder("HEV")
+            sb.setSpan(ForegroundColorSpan(DockColors.WHITE), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            val evColor = if (v == 1) DockColors.GREEN else DockColors.CYAN
+            sb.setSpan(ForegroundColorSpan(evColor), 1, 3, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            return RenderState(text = sb, color = evColor)
+        }
+
         var txt = (labels[v] ?: "—").uppercase()
         if (v == 0) { // HEV
             if (curStrategy() == 1) {

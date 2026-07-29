@@ -21,6 +21,7 @@ object SettingsStore {
     const val KEY_BAR_HEIGHT = "bar_height"
     const val KEY_OPACITY = "bar_opacity"
     const val KEY_ITEM_FRAME = "item_frame"
+    const val KEY_SIMULATION = "simulation_mode"
     const val KEY_SEC0_X = "sec0_x"
     const val KEY_SEC1_X = "sec1_x"
     const val KEY_SEC2_X = "sec2_x"
@@ -54,6 +55,7 @@ object SettingsStore {
     val barHeight = mutableIntStateOf(DEFAULT_BAR_HEIGHT)
     val barOpacity = mutableIntStateOf(DEFAULT_OPACITY)
     val itemFrameEnabled = mutableStateOf(false)
+    val simulationEnabled = mutableStateOf(false)
     val sec0X = mutableIntStateOf(20)
     val sec1X = mutableIntStateOf(320)
     val sec2X = mutableIntStateOf(620)
@@ -70,6 +72,7 @@ object SettingsStore {
         barHeight.intValue = p.getInt(KEY_BAR_HEIGHT, DEFAULT_BAR_HEIGHT)
         barOpacity.intValue = p.getInt(KEY_OPACITY, DEFAULT_OPACITY)
         itemFrameEnabled.value = p.getBoolean(KEY_ITEM_FRAME, false)
+        simulationEnabled.value = p.getBoolean(KEY_SIMULATION, isEmulator())
         sec0X.intValue = p.getInt(KEY_SEC0_X, 20)
         sec1X.intValue = p.getInt(KEY_SEC1_X, 320)
         sec2X.intValue = p.getInt(KEY_SEC2_X, 620)
@@ -114,6 +117,11 @@ object SettingsStore {
     fun setItemFrameEnabled(v: Boolean) {
         itemFrameEnabled.value = v
         prefs(appCtx).edit().putBoolean(KEY_ITEM_FRAME, v).apply()
+    }
+
+    fun setSimulationEnabled(v: Boolean) {
+        simulationEnabled.value = v
+        prefs(appCtx).edit().putBoolean(KEY_SIMULATION, v).apply()
     }
 
     fun setSectionX(index: Int, v: Int) {
@@ -161,6 +169,19 @@ object SettingsStore {
 
     fun isItemFrameEnabled(context: Context): Boolean =
         prefs(context).getBoolean(KEY_ITEM_FRAME, false)
+
+    fun isSimulationEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_SIMULATION, isEmulator())
+
+    private fun isEmulator(): Boolean =
+        android.os.Build.FINGERPRINT.startsWith("generic")
+                || android.os.Build.FINGERPRINT.startsWith("unknown")
+                || android.os.Build.MODEL.contains("google_sdk")
+                || android.os.Build.MODEL.contains("Emulator")
+                || android.os.Build.MODEL.contains("Android SDK built for x86")
+                || android.os.Build.MANUFACTURER.contains("Genymotion")
+                || (android.os.Build.BRAND.startsWith("generic") && android.os.Build.DEVICE.startsWith("generic"))
+                || "google_sdk" == android.os.Build.PRODUCT
 
     fun sectionX(context: Context, index: Int): Int {
         val key = when(index) {

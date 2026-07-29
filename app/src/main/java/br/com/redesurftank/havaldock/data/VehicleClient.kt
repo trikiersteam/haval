@@ -1,6 +1,7 @@
 package br.com.redesurftank.havaldock.data
 
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import com.beantechs.intelligentvehiclecontrol.IIntelligentVehicleControlService
@@ -47,6 +48,26 @@ object VehicleClient {
 
     @Volatile private var shizukuHooked = false
 
+    private fun isSimulation(): Boolean = SettingsStore.simulationEnabled.value
+
+    private val mockData = synchronized(lock) {
+        linkedMapOf(
+            DockKeys.CAR_HVAC_DRIVER_TEMPERATURE to "22.0",
+            DockKeys.CAR_HVAC_PASS_TEMPERATURE to "22.0",
+            DockKeys.CAR_HVAC_FAN_SPEED to "2",
+            DockKeys.CAR_HVAC_POWER_MODE to "1",
+            DockKeys.CAR_HVAC_AC_ENABLE to "1",
+            DockKeys.CAR_HVAC_AUTO_ENABLE to "0",
+            DockKeys.CAR_HVAC_CYCLE_MODE to "0",
+            DockKeys.CAR_HVAC_BLOWER_MODE to "0",
+            DockKeys.CAR_EV_INFO_CUR_BATTERY_POWER_PERCENTAGE to "85",
+            DockKeys.CAR_EV_SETTING_POWER_MODEL_CONFIG to "3",
+            DockKeys.MEDIA_VOLUME to "10",
+            DockKeys.CAR_BASIC_INSIDE_TEMP to "24",
+            DockKeys.CAR_BASIC_OUTSIDE_TEMP to "28"
+        )
+    }
+
     private val deathRecipient = IBinder.DeathRecipient {
         // o binder já morreu (o link se desfaz sozinho); só zeramos o cache e reconectamos
         Log.w(TAG, "binder do veículo morreu — reconectando")
@@ -85,6 +106,7 @@ object VehicleClient {
     }.getOrDefault(false)
 
     fun ensureConnected(): Boolean {
+        if (isSimulation()) return true
         var justConnected = false
         synchronized(lock) {
             if (service != null) return true
@@ -104,12 +126,26 @@ object VehicleClient {
         return true
     }
 
-    fun getData(key: String): String? = runCatching {
-        ensureConnected(); service?.fetchData(key)
-    }.onFailure { Log.e(TAG, "getData $key", it) }.getOrNull()
+    fun getData(key: String): String? {
+        if (isSimulation()) return synchronized(lock) { mockData[key] }
+        return runCatching {
+            ensureConnected(); service?.fetchData(key)
+        }.onFailure { Log.e(TAG, "getData $key", it) }.getOrNull()
+    }
 
     /** Escreve uma propriedade (ação de set padrão do SDK). */
     fun set(key: String, value: String) {
+        if (isSimulation()) {
+            synchronized(lock) {
+                mockData[key] = value
+                registrations.forEach { (listener, keys) ->
+                    if (key in keys) {
+                        runCatching { listener.onDataChanged(key, value) }
+                    }
+                }
+            }
+            return
+        }
         // chaves de HVAC abririam o painel do ar (com.beantechs.hvac) -> suprime em volta da escrita
         val hvac = HvacPanel.isHvacKey(key)
         if (hvac) HvacPanel.beforeWrite()

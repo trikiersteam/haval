@@ -317,7 +317,10 @@ class OverlayService : Service() {
             gravity = Gravity.CENTER; setPadding(dp(14), 0, dp(14), 0)
         }
         row.addView(tv)
-        updaters[c.id] = { st -> tv.text = st.text }
+        updaters[c.id] = { st -> 
+            tv.text = st.text
+            tv.setTextColor(st.color)
+        }
 
         var startX = 0f
         val threshold = dp(40).toFloat()
@@ -438,9 +441,14 @@ class OverlayService : Service() {
         }
         row.addView(batTv); row.addView(ic); row.addView(modeTv)
 
-        updaters["drive"] = { st -> modeTv.text = st.text; modeTv.setTextColor(st.color) }
+        updaters["drive"] = { st -> 
+            modeTv.text = st.text
+            modeTv.setTextColor(st.color)
+            ic.setColorFilter(st.color) // Raio segue a cor do modo drive
+        }
         updaters[c.id] = { st ->
-            ic.setColorFilter(st.color); batTv.text = st.text; batTv.setTextColor(st.color)
+            batTv.text = st.text
+            batTv.setTextColor(st.color)
         }
         row.setOnClickListener { onUserActivity(); openMode(DockControls.DRIVE, row) }
         return row
@@ -459,7 +467,10 @@ class OverlayService : Service() {
             gravity = Gravity.CENTER; setSingleLine(true); maxLines = 1; setPadding(dp(10), 0, 0, 0); text = "—°"
         }
         row.addView(ic); row.addView(tv)
-        updaters[c.id] = { st -> tv.text = st.text }
+        updaters[c.id] = { st -> 
+            tv.text = st.text
+            tv.setTextColor(st.color)
+        }
         return row
     }
 
@@ -566,20 +577,11 @@ class OverlayService : Service() {
             true
         }
 
-        val lp = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
-            PixelFormat.TRANSLUCENT,
-        ).apply {
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = barHeightPx + dp(8)
-            val loc = IntArray(2); anchor.getLocationOnScreen(loc)
-            @Suppress("DEPRECATION")
-            x = (loc[0] + anchor.width / 2) - (wm.defaultDisplay.width / 2)
+        runCatching { 
+            wm.addView(pop, createPopupParams(anchor))
+            handleOutsideTouch(pop)
+            volWin = pop 
         }
-        runCatching { wm.addView(pop, lp); volWin = pop }
 
         io.execute {
             val initial = c.value()
@@ -639,20 +641,11 @@ class OverlayService : Service() {
             ivs.add(opt to iv); pop.addView(iv)
         }
 
-        val lp = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
-            PixelFormat.TRANSLUCENT,
-        ).apply {
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = barHeightPx + dp(8)
-            val loc = IntArray(2); anchor.getLocationOnScreen(loc)
-            @Suppress("DEPRECATION")
-            x = (loc[0] + anchor.width / 2) - (wm.defaultDisplay.width / 2)
+        runCatching { 
+            wm.addView(pop, createPopupParams(anchor))
+            handleOutsideTouch(pop)
+            airflowWin = pop 
         }
-        runCatching { wm.addView(pop, lp); airflowWin = pop }
         // destaca o modo atual em ciano (IPC fora da main thread)
         io.execute {
             val cur = c.currentOption()
@@ -761,20 +754,11 @@ class OverlayService : Service() {
         pop.addView(row1)
         pop.addView(row2)
 
-        val lp = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
-            PixelFormat.TRANSLUCENT,
-        ).apply {
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = barHeightPx + dp(8)
-            val loc = IntArray(2); anchor.getLocationOnScreen(loc)
-            @Suppress("DEPRECATION")
-            x = (loc[0] + anchor.width / 2) - (wm.defaultDisplay.width / 2)
+        runCatching { 
+            wm.addView(pop, createPopupParams(anchor))
+            handleOutsideTouch(pop)
+            modeWin = pop 
         }
-        runCatching { wm.addView(pop, lp); modeWin = pop }
 
         io.execute {
             val curM = c.cur(); val curS = c.curHevSocInt(); val curSt = c.curStrategy()
@@ -1028,20 +1012,11 @@ class OverlayService : Service() {
             true
         }
 
-        val lp = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
-            PixelFormat.TRANSLUCENT,
-        ).apply {
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = barHeightPx + dp(8)
-            val loc = IntArray(2); anchor.getLocationOnScreen(loc)
-            @Suppress("DEPRECATION")
-            x = (loc[0] + anchor.width / 2) - (wm.defaultDisplay.width / 2)
+        runCatching { 
+            wm.addView(pop, createPopupParams(anchor))
+            handleOutsideTouch(pop)
+            tempWin = pop 
         }
-        runCatching { wm.addView(pop, lp); tempWin = pop }
 
         updaters["fan_popup"] = { _ ->
             io.execute { val v = fan.value(); main.post { updateFanUI(v) } }
@@ -1143,20 +1118,11 @@ class OverlayService : Service() {
             true
         }
 
-        val lp = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
-            PixelFormat.TRANSLUCENT,
-        ).apply {
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = barHeightPx + dp(8)
-            val loc = IntArray(2); anchor.getLocationOnScreen(loc)
-            @Suppress("DEPRECATION")
-            x = (loc[0] + anchor.width / 2) - (wm.defaultDisplay.width / 2)
+        runCatching { 
+            wm.addView(pop, createPopupParams(anchor))
+            handleOutsideTouch(pop)
+            levelWin = pop 
         }
-        runCatching { wm.addView(pop, lp); levelWin = pop }
 
         io.execute {
             val cur = c.value()
@@ -1166,6 +1132,35 @@ class OverlayService : Service() {
     }
 
     private fun closeLevel() { levelWin?.let { v -> runCatching { wm.removeView(v) } }; levelWin = null }
+
+    private fun createPopupParams(anchor: View): WindowManager.LayoutParams {
+        return WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            y = barHeightPx + dp(8)
+            val loc = IntArray(2)
+            anchor.getLocationOnScreen(loc)
+            @Suppress("DEPRECATION")
+            x = (loc[0] + anchor.width / 2) - (wm.defaultDisplay.width / 2)
+        }
+    }
+
+    private fun handleOutsideTouch(pop: View) {
+        pop.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_OUTSIDE) {
+                closeAllPopups()
+                true
+            } else false
+        }
+    }
 
     // ---- ações / refresh ----
 
