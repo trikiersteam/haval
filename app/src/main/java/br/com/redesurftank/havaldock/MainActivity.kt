@@ -206,7 +206,7 @@ class MainActivity : ComponentActivity() {
                 
                 Spacer(Modifier.height(14.dp))
                 val simulation by SettingsStore.simulationEnabled
-                RowSwitch("Modo Simulação", "Usa dados fictícios para testes sem o carro.", simulation) {
+                RowSwitch("Modo Simulação", "Usa dados fictícios para testes sem o carro.", simulation, enabled = false) {
                     SettingsStore.setSimulationEnabled(it)
                 }
             }
@@ -353,13 +353,13 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun RowSwitch(name: String, desc: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    private fun RowSwitch(name: String, desc: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(name, color = Color.White, fontSize = 16.sp)
+                Text(name, color = if (enabled) Color.White else Muted, fontSize = 16.sp)
                 Text(desc, color = Muted, fontSize = 13.sp)
             }
-            Switch(checked = checked, onCheckedChange = onChange)
+            Switch(checked = checked, onCheckedChange = onChange, enabled = enabled)
         }
     }
 
