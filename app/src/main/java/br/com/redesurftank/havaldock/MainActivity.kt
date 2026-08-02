@@ -230,7 +230,7 @@ class MainActivity : ComponentActivity() {
                 
                 Spacer(Modifier.height(14.dp))
                 val simulation by SettingsStore.simulationEnabled
-                RowSwitch("Modo Simulação", "Usa dados fictícios para testes sem o carro (Desativado).", simulation, enabled = false) {
+                RowSwitch("Modo Simulação", "Ativado automaticamente em ambiente de desenvolvimento.", simulation, enabled = false) {
                     SettingsStore.setSimulationEnabled(it)
                 }
             }

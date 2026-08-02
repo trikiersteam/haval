@@ -12,8 +12,11 @@ android {
         applicationId = "br.com.redesurftank.havaldock"
         minSdk = 28
         targetSdk = 28
-        versionCode = 39
-        versionName = "0.2.46"
+        versionCode = 40
+        versionName = "0.2.47"
+
+        val isDev = file("../dev_marker").exists()
+        buildConfigField("boolean", "DEV_ENVIRONMENT", isDev.toString())
     }
 
     signingConfigs {

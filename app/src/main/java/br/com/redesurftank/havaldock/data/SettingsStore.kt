@@ -3,6 +3,7 @@ package br.com.redesurftank.havaldock.data
 import android.content.Context
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import br.com.redesurftank.havaldock.BuildConfig
 
 /**
  * Preferências do app (persistidas localmente). Estados observáveis pelo Compose (tela de Configs).
@@ -78,7 +79,7 @@ object SettingsStore {
         barHeight.intValue = p.getInt(KEY_BAR_HEIGHT, DEFAULT_BAR_HEIGHT)
         barOpacity.intValue = p.getInt(KEY_OPACITY, DEFAULT_OPACITY)
         itemFrameEnabled.value = p.getBoolean(KEY_ITEM_FRAME, false)
-        simulationEnabled.value = p.getBoolean(KEY_SIMULATION, isEmulator())
+        simulationEnabled.value = BuildConfig.DEV_ENVIRONMENT
         sec0X.intValue = p.getInt(KEY_SEC0_X, 20)
         sec1X.intValue = p.getInt(KEY_SEC1_X, 320)
         sec2X.intValue = p.getInt(KEY_SEC2_X, 620)

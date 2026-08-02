@@ -1,43 +1,48 @@
-# Plano de Publicação - Ajustes de Configuração e Lançamento v0.2.44
+# Proteção Automática do Modo Simulação (Ambiente de Dev)
 
-Este plano detalha os ajustes finais na interface de configurações e a preparação para a publicação da versão v0.2.44 no GitHub.
+O objetivo é automatizar completamente o "Modo Simulação" baseado na presença de um arquivo marcador local. Se o marcador existir (na sua máquina), o modo liga sozinho. Se não existir (versão final/carro), ele desliga sozinho. O usuário não poderá alterar isso manualmente pela interface.
 
-## Alterações Propostas
+## Estratégia Técnica
 
-### Interface de Configurações (`MainActivity.kt`)
+1.  **Marcador Local**: Arquivo `dev_marker` na raiz do projeto (ignorado pelo Git).
+2.  **Injeção no Build**: O Gradle verificará o arquivo e injetará a variável `BuildConfig.DEV_ENVIRONMENT`.
+3.  **Controle Centralizado**: O `SettingsStore` usará essa variável para forçar o estado da simulação.
+4.  **UI Bloqueada**: O switch na `MainActivity` servirá apenas como um indicador visual (ligado ou desligado), mas ficará sempre desabilitado para clique.
 
-#### [MODIFY] [MainActivity.kt](file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/MainActivity.kt)
-- **Tipo de Visualização**: Remover a opção "Balões" do seletor segmentado.
-- **Habilitação Condicional**:
-    - Adicionar suporte a `enabled` no componente `Stepper`.
-    - Desabilitar os itens "Altura da barra", "Opacidade da barra" e "Moldura nos itens" quando o modo visual não for "Barra".
-    - Quando desabilitados, as cores dos textos serão alteradas para `Muted`.
-- **Modo Simulação**: Desabilitar o switch e garantir que ele permaneça desligado.
+## Mudanças Propostas
 
-### Armazenamento de Configurações (`SettingsStore.kt`)
+### 1. Infraestrutura e Git
 
-#### [MODIFY] [SettingsStore.kt](file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/data/SettingsStore.kt)
-- Garantir que `simulationEnabled` seja iniciado como `false`.
-- Adicionar lógica para garantir que o modo visual seja alterado para "Barra" caso estivesse em "Balões" (prevenção).
+#### [MODIFY] [.gitignore](file:///Users/rodrigo/StudioProjects/haval/.gitignore)
+- Adicionar `dev_marker` para garantir que ele nunca suba para o repositório.
 
-### Publicação (`app/build.gradle.kts` e Git)
+#### [NEW] `dev_marker`
+- Criar este arquivo vazio na raiz para ativar o modo na sua máquina agora.
 
 #### [MODIFY] [build.gradle.kts](file:///Users/rodrigo/StudioProjects/haval/app/build.gradle.kts)
-- Incrementar `versionCode` para `37`.
-- Incrementar `versionName` para `0.2.44`.
+- Adicionar a verificação: `val isDev = file("../dev_marker").exists()`.
+- Definir `buildConfigField("boolean", "DEV_ENVIRONMENT", isDev.toString())`.
 
-#### Git
-- Adicionar todos os arquivos modificados.
-- Realizar commit com mensagem: `fix: ajustes de configuração, desativação do modo simulação e lançamento v0.2.44`.
-- Criar tag `v0.2.44`.
-- Realizar push para o repositório principal e push das tags.
+### 2. Lógica e UI
+
+#### [MODIFY] [SettingsStore.kt](file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/data/SettingsStore.kt)
+- No `init`, definir `simulationEnabled.value = BuildConfig.DEV_ENVIRONMENT`.
+- O método `setSimulationEnabled` será mantido mas não terá efeito prático pois a UI estará travada.
+
+#### [MODIFY] [MainActivity.kt](file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/MainActivity.kt)
+- O switch de "Modo Simulação" terá `enabled = false`.
+- A descrição será atualizada para: `"Ativado automaticamente em ambiente de desenvolvimento."`
 
 ## Plano de Verificação
 
-### Verificação Manual
-1. Abrir a tela de configurações.
-2. Verificar se a opção "Balões" desapareceu.
-3. Mudar o tipo de visualização para "Dashboard" e verificar se "Altura da barra", "Opacidade da barra" e "Moldura nos itens" ficam cinzas e bloqueados.
-4. Mudar para "Barra" e verificar se eles voltam a ficar ativos.
-5. Verificar se o "Modo Simulação" está desabilitado e desligado.
-6. Confirmar se a versão exibida no rodapé é `0.2.44`.
+### Verificação em Ambiente Dev (Sua máquina)
+1. Rodar o build.
+2. O switch de Simulação na tela de configurações deve aparecer **Ligado** (Azul/Verde) mas **Bloqueado** (Cinza/Desabilitado).
+
+### Verificação de Segurança (Simulada)
+1. Apagar o arquivo `dev_marker`.
+2. Rodar o build.
+3. O switch deve aparecer **Desligado** e **Bloqueado**.
+
+> [!IMPORTANT]
+> Após essa mudança, qualquer build gerado via CI (GitHub Actions) ou em outras máquinas sem o marcador será automaticamente uma versão de "Produção" (Simulação OFF).
