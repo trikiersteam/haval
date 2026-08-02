@@ -236,20 +236,22 @@ class MainActivity : ComponentActivity() {
             }
 
             // ---- posicionamento ----
-            SectionCard("Posicionamento das Seções") {
-                val dm = resources.displayMetrics
-                val screenWidthDp = dm.widthPixels / dm.density
-                
-                val sec0 by SettingsStore.sec0X
-                val sec1 by SettingsStore.sec1X
-                val sec2 by SettingsStore.sec2X
-                val sec3 by SettingsStore.sec3X
+            if (visualMode == SettingsStore.VISUAL_BAR) {
+                SectionCard("Posicionamento das Seções") {
+                    val dm = resources.displayMetrics
+                    val screenWidthDp = dm.widthPixels / dm.density
 
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SectionPosRow("Motorista", sec0, screenWidthDp) { SettingsStore.setSectionX(0, it) }
-                    SectionPosRow("Centro", sec1, screenWidthDp) { SettingsStore.setSectionX(1, it) }
-                    SectionPosRow("Bateria", sec2, screenWidthDp) { SettingsStore.setSectionX(2, it) }
-                    SectionPosRow("Passageiro", sec3, screenWidthDp) { SettingsStore.setSectionX(3, it) }
+                    val sec0 by SettingsStore.sec0X
+                    val sec1 by SettingsStore.sec1X
+                    val sec2 by SettingsStore.sec2X
+                    val sec3 by SettingsStore.sec3X
+
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        SectionPosRow("Motorista", sec0, screenWidthDp) { SettingsStore.setSectionX(0, it) }
+                        SectionPosRow("Centro", sec1, screenWidthDp) { SettingsStore.setSectionX(1, it) }
+                        SectionPosRow("Bateria", sec2, screenWidthDp) { SettingsStore.setSectionX(2, it) }
+                        SectionPosRow("Passageiro", sec3, screenWidthDp) { SettingsStore.setSectionX(3, it) }
+                    }
                 }
             }
 
