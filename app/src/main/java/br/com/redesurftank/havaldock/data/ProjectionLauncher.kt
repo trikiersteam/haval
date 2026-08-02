@@ -57,7 +57,10 @@ object ProjectionLauncher {
     }
 
     /** CarPlay conectado (processo rodando), mesmo em background. */
-    fun carPlayConnected(): Boolean = !ShizukuShell.exec("pidof", CARPLAY_PKG).isNullOrBlank()
+    fun carPlayConnected(): Boolean {
+        if (SettingsStore.simulationEnabled.value) return true
+        return !ShizukuShell.exec("pidof", CARPLAY_PKG).isNullOrBlank()
+    }
 
     /**
      * Traz a projeção pro foco no Display 0. Flag de cold-start aceito pelo contrato do Impulse

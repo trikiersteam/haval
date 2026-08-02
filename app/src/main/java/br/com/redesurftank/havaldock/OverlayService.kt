@@ -14,6 +14,7 @@ import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
+import androidx.core.content.res.ResourcesCompat
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -53,6 +54,15 @@ import java.util.concurrent.Executors
  * Toolbar inferior como overlay (TYPE_APPLICATION_OVERLAY), só na faixa de baixo, visual v2
  * (estilo do app de referência). Lê/escreve via [VehicleClient]; IPC sempre fora da main thread.
  */
+/**
+ * PREVIEW VERSION - Dashboard HMI Clima Implementation
+ * 
+ * Serviço de Overlay que gerencia a Toolbar inferior e o Dashboard estendido.
+ * 
+ * Este serviço é responsável por renderizar a interface de usuário por cima de outras aplicações
+ * utilizando o WindowManager. Ele se comunica com o veículo através do [VehicleClient] para
+ * leitura e escrita de variáveis de sistema (Climatização, Condução, Áudio, etc.).
+ */
 class OverlayService : Service() {
 
     private val main = Handler(Looper.getMainLooper())
@@ -61,46 +71,67 @@ class OverlayService : Service() {
     private lateinit var wm: WindowManager
     private lateinit var params: WindowManager.LayoutParams
     private lateinit var root: TouchFrame
-    private lateinit var bar: LinearLayout
-    private lateinit var topLine: View
+    
+    // Elementos da Barra Compacta
+    private var bar: LinearLayout? = null
+    private var topLine: View? = null
     private val sectionLayouts = ArrayList<LinearLayout>()
-    private lateinit var contentLayout: FrameLayout
+    private var contentLayout: FrameLayout? = null
+    
+    // Alça de controle de visibilidade (Mini pill)
     private lateinit var handle: View
 
+    /** Mapa de funções de atualização de UI, indexado pelo ID do controle. */
     private val updaters = HashMap<String, (RenderState) -> Unit>()
+    
+    // Referências para janelas de popups ativos
     private var volWin: View? = null
     private var airflowWin: View? = null
     private var levelWin: View? = null
     private var modeWin: View? = null
     private var tempWin: View? = null
+    
+    /** Estado de ocultação da interface. */
     private var hidden = false
 
-    // botão de atalho de projeção (CarPlay/AA): aparece quando há projeção conectada
+    // Gerenciamento de Projeção (CarPlay / Android Auto)
     private var projView: View? = null
     private var projIcon: ImageView? = null
-    private var projConnected: String? = null   // pacote da projeção conectada (ou null)
-    private var projForeground = false          // projeção está em foco no Display 0
-    private var projShownState: String? = null  // estado do ícone atual ("car" ou o pacote)
-    private var lastProjection: String? = null  // última projeção vista em foco (p/ mostrar o logo certo na central)
-    private var lastCentralApp: String? = null  // último app NÃO-projeção no topo do D0 (p/ voltar a ele)
+    private var projConnected: String? = null   // pacote da projeção conectada
+    private var projForeground = false          // projeção em foco
+    private var projShownState: String? = null  // estado do ícone
+    private var lastProjection: String? = null  // última projeção vista
+    private var lastCentralApp: String? = null  // último app não-projeção
 
+    // Medidas e Cores
     private val barHeightPx: Int get() = dp(SettingsStore.barHeight(this))
     private val handleHeightPx by lazy { dp(HANDLE_DP) }
     private val trackPx by lazy { dp(30) }
 
     private val cAccent = DockColors.CYAN
-    private val cTxt = DockColors.WHITE
-    private val cMuted = Color.parseColor("#828C9C")
-    private val cCard = Color.parseColor("#121722")
-    private val cLine = Color.parseColor("#23FFFFFF")
-    private val cOnAccent = Color.parseColor("#04161A")
+    private val cTxt = DockColors.ON_SURFACE
+    private val cMuted = DockColors.ON_SURFACE_MUTED
+    private val cCard = DockColors.SURFACE
+    private val cLine = DockColors.OUTLINE
+    private val cOnAccent = Color.BLACK
+    private val cTrack = DockColors.TRACK
+    private val cSurfaceSelected = DockColors.SURFACE_SELECTED
+    private val cSurfaceRaised = DockColors.SURFACE_RAISED
 
+    /** Fonte customizada Chakra Petch carregada em tempo de execução. */
+    private val typeface by lazy { ResourcesCompat.getFont(this, R.font.font_family_clima) }
+
+    /** Referência para o layout do Dashboard quando ativo. */
+    private var dashboard: View? = null
+
+    /** Retorna a cor de fundo da barra baseada na opacidade configurada. */
     private fun getBarColor(): Int {
         val opacity = SettingsStore.opacity(this)
         val alpha = (opacity * 255) / 100
         return Color.argb(alpha, 7, 10, 14)
     }
 
+    /** Retorna a cor para o fundo de popups. */
     private fun getPopupColor(): Int {
         return if (SettingsStore.isItemFrameEnabled(this)) {
             Color.parseColor("#F2070A0E") // 95% fixo no modo bolha
@@ -109,16 +140,29 @@ class OverlayService : Service() {
         }
     }
 
+    /** Timer para auto-ocultar a barra principal. */
     private val hideRunnable = Runnable { hideBar() }
+    
+    /** Timer para fechar popups de controle por inatividade. */
     private val closePopupsRunnable = Runnable { closeAllPopups() }
 
+    /** Listener de dados do veículo: atualiza a UI quando uma variável monitorada muda. */
     private val listener = object : IListener.Stub() {
-        override fun onDataChanged(key: String?, value: String?) { main.post { refreshAll() } }
+        override fun onDataChanged(key: String?, value: String?) {
+            main.post {
+                refreshAll()
+                if (SettingsStore.visualMode.value == SettingsStore.VISUAL_BALLOONS) {
+                    showBalloonForKey(key)
+                }
+            }
+        }
     }
+
+    /** Observa mudanças nas configurações locais e recria ou atualiza o overlay se necessário. */
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == SettingsStore.KEY_MODE || key == SettingsStore.KEY_SECS) applyVisibility()
         if (key == SettingsStore.KEY_OPACITY) {
-            main.post { bar.setBackgroundColor(getBarColor()) }
+            main.post { bar?.setBackgroundColor(getBarColor()) }
         }
         if (key == SettingsStore.KEY_ITEM_FRAME) {
             main.post { updateItemFrame() }
@@ -126,19 +170,17 @@ class OverlayService : Service() {
         if (key != null && key.startsWith("sec") && key.endsWith("_x")) {
             main.post { updateSectionsPosition() }
         }
-        if (key == SettingsStore.KEY_BAR_HEIGHT) {
-            params.height = barHeightPx
-            if (!hidden) runCatching { wm.updateViewLayout(root, params) }
-            broadcastBarState()
-            main.post {
-                updaters.clear()
-                bar.removeAllViews()
-                buildOverlayContent()
-                refreshAll()
+        if (key == SettingsStore.KEY_BAR_HEIGHT || key == SettingsStore.KEY_VISUAL_MODE) {
+            if (key == SettingsStore.KEY_BAR_HEIGHT) params.height = barHeightPx
+            if (!hidden) main.post {
+                if (::root.isInitialized) runCatching { wm.removeView(root) }
+                buildOverlay()
             }
+            broadcastBarState()
         }
     }
-    // Outro app (ex.: haval-radio) pede o estado atual da barra; respondemos com um broadcast.
+
+    /** Escuta requisições de estado de outros apps do ecossistema. */
     private val requestReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) { broadcastBarState() }
     }
@@ -150,17 +192,18 @@ class OverlayService : Service() {
         startForeground(NOTIF_ID, buildNotification())
         wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         buildOverlay()
+        
         SettingsStore.prefs(this).registerOnSharedPreferenceChangeListener(prefsListener)
         registerRequestReceiver()
         broadcastBarState()
-        // re-lê o snapshot toda vez que a conexão com o veículo (re)estabelece — ex.: o Shizuku/serviço
-        // sobe depois da barra no boot, ou o binder morre e reconecta. Substitui o antigo hack de
-        // refreshAll() com postDelayed, que só mascarava a corrida.
+        
+        // Conexão e sincronização com o barramento do veículo
         VehicleClient.addConnectionListener(onVehicleConnected)
         io.execute { runCatching { VehicleClient.registerListener(DockControls.MONITORED, listener) } }
-        HvacPanel.ensureEnabled()   // rede de segurança: garante o painel do ar habilitado
+        
+        HvacPanel.ensureEnabled()
         refreshAll()
-        main.postDelayed(projPoll, 1200)   // detecção da projeção (CarPlay/AA)
+        main.postDelayed(projPoll, 1200)
     }
 
     private val onVehicleConnected: () -> Unit = { refreshAll() }
@@ -175,20 +218,37 @@ class OverlayService : Service() {
         main.removeCallbacks(closePopupsRunnable)
         main.removeCallbacks(projPoll)
         closeAllPopups()
+        
         runCatching { SettingsStore.prefs(this).unregisterOnSharedPreferenceChangeListener(prefsListener) }
         runCatching { unregisterReceiver(requestReceiver) }
-        // barra saiu de cena: avisa quem reserva o rodapé p/ liberar o espaço
+        
+        // Notifica o sistema de que a barra foi removida
         runCatching { sendBroadcast(Intent(ACTION_BAR_STATE).putExtra(EXTRA_VISIBLE, false).putExtra(EXTRA_HEIGHT_DP, 0)) }
+        
         VehicleClient.removeConnectionListener(onVehicleConnected)
         io.execute { runCatching { VehicleClient.unregisterListener(listener) } }
         runCatching { wm.removeView(root) }
     }
 
-    // ---- overlay ----
+    // ---- Construção da Interface ----
 
+    /**
+     * Constrói e exibe a janela principal do overlay.
+     * Define as dimensões e parâmetros do WindowManager com base no modo visual.
+     */
     private fun buildOverlay() {
+        val visualMode = SettingsStore.visualMode.value
+        if (visualMode == SettingsStore.VISUAL_BALLOONS) {
+            return
+        }
+
+        val isDash = visualMode == SettingsStore.VISUAL_DASHBOARD
+        val h = if (hidden) handleHeightPx else (if (isDash) 720 else barHeightPx)
+        val w = if (hidden) dp(100) else (if (isDash) (1792 - 160) else WindowManager.LayoutParams.MATCH_PARENT)
+        val g = if (hidden) (Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL) else (Gravity.BOTTOM or (if (isDash) Gravity.END else Gravity.START))
+
         params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT, barHeightPx,
+            w, h,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
@@ -196,46 +256,58 @@ class OverlayService : Service() {
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT,
-        ).apply { gravity = Gravity.BOTTOM }
+        ).apply { gravity = g }
 
         root = TouchFrame(this, { onUserActivity() }, { hideBar(manual = true) }, { showBar() })
-
-        bar = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(getBarColor())
-        }
-        buildOverlayContent()
-
-        root.addView(bar, FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        updaters.clear()
 
         handle = View(this).apply {
             background = pill(Color.parseColor("#40FFFFFF"), dp(2))
-            visibility = View.GONE; setOnClickListener { showBar() }
+            visibility = if (hidden) View.VISIBLE else View.GONE
+            setOnClickListener { showBar() }
         }
+
+        if (isDash) {
+            buildDashboard()
+            dashboard?.visibility = if (hidden) View.GONE else View.VISIBLE
+        } else {
+            val b = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setBackgroundColor(getBarColor())
+                visibility = if (hidden) View.GONE else View.VISIBLE
+            }
+            bar = b
+            buildOverlayContent()
+            root.addView(b, FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        }
+
         root.addView(handle, FrameLayout.LayoutParams(dp(100), dp(4),
             Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = dp(6) })
 
         wm.addView(root, params)
+        refreshAll()
+        io.execute { refreshProjection() }
     }
 
+    /** Constrói o conteúdo interno da barra compacta (seções e itens). */
     private fun buildOverlayContent() {
-        // linha ciano no topo
-        topLine = View(this).apply { setBackgroundColor(cAccent) }
-        bar.addView(topLine,
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(2)))
+        // Linha decorativa de topo
+        val top = View(this).apply { setBackgroundColor(cAccent) }
+        topLine = top
+        bar?.addView(top, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(2)))
 
-        contentLayout = FrameLayout(this).apply {
-            // No modo livre, o container ocupa a largura toda
-            setPadding(0, 0, 0, 0)
-        }
-        bar.addView(contentLayout, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
-        buildSections(contentLayout)
+        // Container para as seções de controles
+        val c = FrameLayout(this).apply { setPadding(0, 0, 0, 0) }
+        contentLayout = c
+        bar?.addView(c, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        
+        buildSections(c)
         updateItemFrame()
         updateSectionsPosition()
     }
 
+    /** Posiciona as seções horizontais com base nos offsets configurados. */
     private fun updateSectionsPosition() {
         sectionLayouts.forEachIndexed { i, sec ->
             val lp = sec.layoutParams as FrameLayout.LayoutParams
@@ -245,10 +317,11 @@ class OverlayService : Service() {
         }
     }
 
+    /** Aplica o visual de 'bolha/moldura' nos itens se a opção estiver ligada. */
     private fun updateItemFrame() {
         val enabled = SettingsStore.isItemFrameEnabled(this)
-        topLine.visibility = if (enabled) View.GONE else View.VISIBLE
-        bar.setBackgroundColor(if (enabled) Color.TRANSPARENT else getBarColor())
+        topLine?.visibility = if (enabled) View.GONE else View.VISIBLE
+        bar?.setBackgroundColor(if (enabled) Color.TRANSPARENT else getBarColor())
         
         if (enabled) {
             sectionLayouts.forEach { sec ->
@@ -263,6 +336,7 @@ class OverlayService : Service() {
         }
     }
 
+    /** Organiza os controles monitorados em seções dentro da barra compacta. */
     private fun buildSections(content: FrameLayout) {
         sectionLayouts.clear()
         val secs = arrayOf(rowSection(), rowSection(), rowSection(), rowSection())
@@ -276,6 +350,21 @@ class OverlayService : Service() {
             if (c.section < secs.size) secs[c.section].addView(tile(c))
         }
         secs[0].addView(projTile())
+
+        // Adiciona atalho para Dashboard se estiver no modo barra
+        if (SettingsStore.visualMode.value == SettingsStore.VISUAL_BAR) {
+            val dashBtn = icon(R.drawable.ic_car, dp(24), Color.WHITE).apply {
+                setPadding(dp(12), 0, dp(12), 0)
+                setOnClickListener {
+                    SettingsStore.setVisualMode(SettingsStore.VISUAL_DASHBOARD)
+                    OverlayService.stop(this@OverlayService)
+                    OverlayService.start(this@OverlayService)
+                }
+            }
+            content.addView(dashBtn, FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.MATCH_PARENT,
+                Gravity.END or Gravity.CENTER_VERTICAL).apply { marginEnd = dp(10) })
+        }
     }
 
     private fun rowSection() = LinearLayout(this).apply {
@@ -675,14 +764,14 @@ class OverlayService : Service() {
 
         // Botão Inteligente
         val intelBtn = TextView(this).apply {
-            text = "INTELIGENTE"; setTextColor(cTxt); textSize = 13f; setTypeface(null, Typeface.BOLD)
+            text = "INTELIGENTE"; setTextColor(cTxt); textSize = 13f; setTypeface(typeface, Typeface.BOLD)
             background = pill(cCard, dp(14)); setPadding(dp(12), dp(6), dp(12), dp(6)); isClickable = true
         }
         row2.addView(intelBtn)
 
         // Label do SOC
         val socLabel = TextView(this).apply {
-            setTextColor(cTxt); textSize = 15f; setTypeface(null, Typeface.BOLD)
+            setTextColor(cTxt); textSize = 15f; setTypeface(typeface, Typeface.BOLD)
             setPadding(dp(12), 0, dp(8), 0); text = "—%"
         }
         row2.addView(socLabel)
@@ -730,7 +819,7 @@ class OverlayService : Service() {
 
         c.order.forEach { m ->
             val tv = TextView(this).apply {
-                text = (c.labels[m] ?: "—").uppercase(); setTextColor(cTxt); textSize = 15f; setTypeface(null, Typeface.BOLD)
+                text = (c.labels[m] ?: "—").uppercase(); setTextColor(cTxt); textSize = 15f; setTypeface(typeface, Typeface.BOLD)
                 setPadding(dp(16), dp(10), dp(16), dp(10)); isClickable = true
                 setOnClickListener {
                     onUserActivity(); armPopupTimer()
@@ -855,7 +944,7 @@ class OverlayService : Service() {
 
         // 3. Botão AUTO
         val autoBtn = TextView(this).apply {
-            text = "AUTO"; setTextColor(cTxt); textSize = 18f; setTypeface(null, Typeface.BOLD)
+            text = "AUTO"; setTextColor(cTxt); textSize = 18f; setTypeface(typeface, Typeface.BOLD)
             background = pill(cCard, dp(14)); gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(btnW, btnH).apply { marginStart = dp(16) }
             isClickable = true
@@ -1173,6 +1262,25 @@ class OverlayService : Service() {
         }
     }
 
+    private fun showBalloonForKey(key: String?) {
+        when (key) {
+            DockKeys.CAR_HVAC_DRIVER_TEMPERATURE, DockKeys.CAR_HVAC_PASS_TEMPERATURE -> {
+                val c = if (key == DockKeys.CAR_HVAC_DRIVER_TEMPERATURE)
+                    DockControls.ALL.find { it.id == "tempD" } as? Temp
+                else
+                    DockControls.ALL.find { it.id == "tempP" } as? Temp
+                c?.let { openTemp(it, root /* dummy anchor */) }
+            }
+            DockKeys.MEDIA_VOLUME -> {
+                val c = DockControls.ALL.find { it.id == "vol" } as? Volume
+                c?.let { openVolume(it, root) }
+            }
+            DockKeys.CAR_HVAC_FAN_SPEED -> {
+                openLevel(DockControls.FAN, root)
+            }
+        }
+    }
+
     private fun refreshAll() {
         if (hidden) return
         io.execute {
@@ -1181,13 +1289,26 @@ class OverlayService : Service() {
             val snap = controls.map { it.id to it.render() }
             main.post {
                 snap.forEach { (id, st) -> updaters[id]?.invoke(st) }
-                // Garante que os popups abertos também atualizem
+                // Garante que os popups e dashboard também atualizem
                 updaters["fan_popup"]?.invoke(RenderState())
                 updaters["vent_popup"]?.invoke(RenderState())
                 updaters["auto_popup"]?.invoke(RenderState())
                 updaters["pwr_popup"]?.invoke(RenderState())
                 updaters["ac_popup"]?.invoke(RenderState())
                 updaters["air_popup"]?.invoke(RenderState())
+                
+                // Dashboard Airflow Icons
+                DockControls.AIRFLOW_OPTIONS.forEach { opt ->
+                    updaters["air_${opt.label}"]?.invoke(RenderState())
+                }
+                updaters["proj"]?.invoke(RenderState())
+                updaters["header_info"]?.invoke(RenderState())
+                
+                // Dashboard dynamic updates
+                updaters.filter { it.key.startsWith("quick_") }.forEach { it.value(RenderState()) }
+                updaters.filter { it.key.startsWith("dash_air_") }.forEach { it.value(RenderState()) }
+                updaters.filter { it.key.startsWith("hev_") }.forEach { it.value(RenderState()) }
+                updaters["dash_proj"]?.invoke(RenderState())
             }
         }
     }
@@ -1234,6 +1355,10 @@ class OverlayService : Service() {
     private fun updateProjTile(conn: String?, fg: Boolean) {
         projConnected = conn
         projForeground = fg
+
+        // Sempre atualiza o atalho do Dashboard se ele existir
+        updaters["dash_proj"]?.invoke(RenderState())
+
         val v = projView ?: return
         val ic = projIcon ?: return
         if (conn == null) {   // nada conectado -> esconde
@@ -1285,11 +1410,665 @@ class OverlayService : Service() {
         if (SettingsStore.mode(this) == SettingsStore.MODE_AUTO)
             main.postDelayed(hideRunnable, SettingsStore.secs(this) * 1000L)
     }
+    private fun buildDashboard() {
+        val rootLayout = FrameLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+            setBackgroundColor(Color.TRANSPARENT)
+        }
+        dashboard = rootLayout
+        root.removeAllViews()
+        root.addView(rootLayout)
+
+        val dashWidth = 1792 - 160 // Reserva 1 polegada à esquerda
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            background = null // Painel externo transparente, cards individuais têm fundo
+            setPadding(dp(20), dp(10), dp(20), dp(20))
+        }
+        rootLayout.addView(panel, FrameLayout.LayoutParams(dashWidth, 720 - dp(60), Gravity.BOTTOM or Gravity.END))
+
+        // Header
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(40), 0, dp(40), 0)
+        }
+        val tvBrand = TextView(this).apply { text = "CLIMA"; textSize = 18f; setTextColor(cTxt); setTypeface(typeface, Typeface.BOLD); letterSpacing = 0.1f }
+        header.addView(tvBrand)
+        
+        header.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+        
+        val tvTime = TextView(this).apply { text = "--:--"; textSize = 12f; setTextColor(cTxt); setTypeface(typeface, Typeface.BOLD); setPadding(dp(24), 0, 0, 0) }
+        header.addView(tvTime)
+        
+        updaters["header_info"] = {
+            tvTime.text = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+        }
+        
+        rootLayout.addView(header, FrameLayout.LayoutParams(dashWidth, dp(60), Gravity.TOP or Gravity.END))
+
+        // Colunas (Grade de 12 colunas simplificada: 4-4-4)
+        val col1 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
+        panel.addView(col1, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
+        
+        panel.addView(gapView(12, true)) // Gap entre colunas
+
+        val col2 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
+        panel.addView(col2, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
+        
+        panel.addView(gapView(12, true)) // Gap entre colunas
+
+        val col3 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
+        panel.addView(col3, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
+
+        // Coluna 1: Motorista
+        col1.addView(createDashboardCard("", createHvacQuickControls("D")))
+        col1.addView(gapView(12))
+        col1.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempD" } as Temp)))
+        col1.addView(gapView(12))
+        col1.addView(createDashboardCard("FLUXO DE AR", createAirflowSelection("D")))
+        col1.addView(gapView(12))
+        col1.addView(createDashboardCard("", createLevelControl(DockControls.FAN, R.drawable.ic_fan)))
+        col1.addView(gapView(12))
+        col1.addView(createDashboardCard("", createLevelControl(DockControls.VENT_D, R.drawable.ic_carseat_cooler)))
+
+        // Coluna 2: Veículo (Centro)
+        col2.addView(createDashboardCard("", createBatteryCard(DockControls.ALL.find { it.id == "bat" } as Battery)))
+        col2.addView(gapView(12))
+        col2.addView(createDashboardCard("MODO DE CONDUÇÃO", createDriveModeSelection(DockControls.DRIVE)))
+        col2.addView(gapView(12))
+        col2.addView(createDashboardCard("", createAmbientTempCard()))
+        col2.addView(gapView(12))
+        col2.addView(createDashboardCard("VOLUME", createVolumeControl(DockControls.ALL.find { it.id == "vol" } as Volume)))
+
+        // Coluna 3: Passageiro
+        col3.addView(createDashboardCard("", createHvacQuickControls("P")))
+        col3.addView(gapView(12))
+        col3.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempP" } as Temp)))
+        col3.addView(gapView(12))
+        col3.addView(createDashboardCard("FLUXO DE AR", createAirflowSelection("P")))
+        col3.addView(gapView(12))
+        col3.addView(createDashboardCard("", createLevelControl(DockControls.FAN, R.drawable.ic_fan)))
+        col3.addView(gapView(12))
+        col3.addView(createDashboardCard("", createLevelControl(DockControls.VENT_P, R.drawable.ic_carseat_cooler)))
+
+        // Botão Fechar (Handoff mostra o X no topo direito)
+        val closeBtn = TextView(this).apply {
+            text = "✕"; textSize = 28f; setTextColor(cMuted); gravity = Gravity.CENTER
+            isClickable = true; setOnClickListener { closeDashboard() }
+        }
+        rootLayout.addView(closeBtn, FrameLayout.LayoutParams(dp(50), dp(50), Gravity.TOP or Gravity.END).apply { 
+            topMargin = dp(10); rightMargin = dp(10) 
+        })
+    }
+
+    private fun closeDashboard() {
+        onUserActivity()
+        SettingsStore.setVisualMode(SettingsStore.VISUAL_BAR)
+    }
+
+    private fun createDashboardCard(title: String, content: View, active: Boolean = false): View {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val bg = if (active) cSurfaceSelected else cCard
+            background = pill(bg, dp(28), stroke = if (active) cAccent else cLine)
+            val topP = if (title.isEmpty()) dp(20) else dp(16)
+            setPadding(dp(24), topP, dp(24), dp(20))
+        }
+        if (title.isNotEmpty()) {
+            val tvTitle = TextView(this).apply {
+                text = title.uppercase(); textSize = 13f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD)
+                letterSpacing = 0.2f
+                setPadding(0, 0, 0, dp(12))
+            }
+            card.addView(tvTitle)
+        }
+        card.addView(content)
+        return card
+    }
+
+    private fun createTempControl(c: Temp): View {
+        val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }
+        
+        val tv = TextView(this).apply {
+            textSize = 54f; setTextColor(DockColors.CYAN); setTypeface(typeface, Typeface.BOLD); text = "--°C"
+            setPadding(0, 0, 0, dp(12)); gravity = Gravity.CENTER
+        }
+        layout.addView(tv)
+        
+        val sliderW = dp(280); val sliderH = dp(14)
+        val totalW = dp(380)
+        val container = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(totalW, dp(44))
+        }
+        
+        fun btn(txt: String, dir: Int) = TextView(this).apply {
+            text = txt; textSize = 24f; setTextColor(cTxt); gravity = Gravity.CENTER
+            setTypeface(typeface, Typeface.NORMAL)
+            background = pill(cSurfaceRaised, dp(22), stroke = cLine)
+            isClickable = true
+            setOnClickListener { onUserActivity(); io.execute { c.nudge(dir); main.post { refreshAll() } } }
+        }
+
+        container.addView(btn("−", -1), FrameLayout.LayoutParams(dp(44), dp(44), Gravity.START or Gravity.CENTER_VERTICAL))
+        
+        val track = FrameLayout(this).apply {
+            background = pill(cTrack, dp(7))
+        }
+        container.addView(track, FrameLayout.LayoutParams(sliderW, sliderH, Gravity.CENTER))
+        
+        val fill = View(this).apply { 
+            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, 
+                intArrayOf(DockColors.CYAN, DockColors.WHITE, DockColors.ORANGE)).apply {
+                cornerRadius = dp(7).toFloat()
+            }
+        }
+        track.addView(fill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
+
+        container.addView(btn("+", 1), FrameLayout.LayoutParams(dp(44), dp(44), Gravity.END or Gravity.CENTER_VERTICAL))
+        
+        layout.addView(container)
+
+        fun updateUI(v: Double) {
+            val r = ((v - c.min) / (c.hi() - c.min)).toFloat()
+            tv.text = "${c.fmt(v)}°C"; tv.setTextColor(DockColors.CYAN)
+            val lp = fill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt()
+            fill.layoutParams = lp
+        }
+
+        val touchArea = View(this).apply { isClickable = true }
+        container.addView(touchArea, FrameLayout.LayoutParams(sliderW, dp(44), Gravity.CENTER))
+        
+        touchArea.setOnTouchListener { _, e ->
+            val r = (e.x / sliderW).coerceIn(0f, 1f)
+            val v = (Math.round((c.min + r * (c.hi() - c.min)) / c.step) * c.step).coerceIn(c.min, c.hi())
+            updateUI(v)
+            if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
+                onUserActivity(); io.execute { c.select(v); main.post { refreshAll() } }
+            }
+            true
+        }
+        updaters[c.id] = { _ -> updateUI(c.read() ?: c.min) }
+        return layout
+    }
+
+    private fun createLevelControl(c: Level, iconRes: Int? = null): View {
+        val totalW = dp(380)
+        val sliderW = dp(240) // Reduzido um pouco para caber o ícone
+        val container = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(totalW, dp(44))
+        }
+        
+        if (iconRes != null) {
+            val iv = icon(iconRes, dp(24), cMuted)
+            container.addView(iv, FrameLayout.LayoutParams(dp(24), dp(24), Gravity.START or Gravity.CENTER_VERTICAL).apply { marginStart = dp(4) })
+        }
+        
+        val (indicator, updateVisual) = createLevelIndicator(c)
+        container.addView(indicator, FrameLayout.LayoutParams(sliderW, dp(20), Gravity.CENTER))
+
+        fun btn(txt: String, action: Int) = TextView(this).apply {
+            text = txt; textSize = 24f; setTextColor(cTxt); gravity = Gravity.CENTER
+            setTypeface(typeface, Typeface.NORMAL)
+            background = pill(cSurfaceRaised, dp(22), stroke = cLine)
+            isClickable = true
+            setOnClickListener { 
+                onUserActivity()
+                val next = (c.value() + action).coerceIn(c.min, c.hi())
+                updateVisual(next)
+                io.execute { c.setLevel(next); main.post { refreshAll() } } 
+            }
+        }
+
+        // Ajusta as posições dos botões considerando o ícone se houver
+        val btnOffset = if (iconRes != null) dp(40) else 0
+        container.addView(btn("−", -1), FrameLayout.LayoutParams(dp(44), dp(44), Gravity.START or Gravity.CENTER_VERTICAL).apply { marginStart = dp(10) + btnOffset })
+        
+        val touchArea = View(this).apply { isClickable = true }
+        container.addView(touchArea, FrameLayout.LayoutParams(sliderW, dp(44), Gravity.CENTER))
+        
+        touchArea.setOnTouchListener { _, e ->
+            val r = (e.x / sliderW).coerceIn(0f, 1f)
+            val v = (Math.round(r * c.hi())).toInt().coerceIn(c.min, c.hi())
+            
+            updateVisual(v) // Feedback em tempo real
+            
+            if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
+                onUserActivity(); io.execute { c.setLevel(v); main.post { refreshAll() } }
+            }
+            true
+        }
+
+        container.addView(btn("+", 1), FrameLayout.LayoutParams(dp(44), dp(44), Gravity.END or Gravity.CENTER_VERTICAL).apply { marginEnd = dp(10) })
+        return container
+    }
+
+    private fun createLevelIndicator(c: Level): Pair<View, (Int) -> Unit> {
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        val hi = c.hi().coerceAtLeast(1)
+        val bars = Array(hi) { View(this) }
+        
+        fun updateVisual(v: Int) {
+            bars.forEachIndexed { i, b -> b.background = pill(if (i < v) DockColors.CYAN else cTrack, dp(4)) }
+        }
+
+        bars.forEachIndexed { i, b ->
+            b.background = pill(cTrack, dp(4))
+            row.addView(b, LinearLayout.LayoutParams(0, dp(14), 1f).apply { if (i > 0) marginStart = dp(8) })
+        }
+        
+        updaters[c.id] = { _ -> updateVisual(c.value()) }
+        updateVisual(c.value())
+        
+        return Pair(row, ::updateVisual)
+    }
+
+
+    private fun createHvacQuickControls(side: String): View {
+        val totalW = dp(380)
+        val layout = LinearLayout(this).apply { 
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(totalW, dp(44))
+        }
+        
+        fun quickBtn(label: String, key: String, onV: String = "1", offV: String = "0") = TextView(this).apply {
+            text = label; textSize = 11f; setTextColor(cMuted); gravity = Gravity.CENTER
+            setTypeface(typeface, Typeface.BOLD); letterSpacing = 0.1f
+            background = pill(cSurfaceRaised, dp(18), stroke = cLine)
+            
+            fun update() {
+                val isOn = VehicleClient.getData(key) == onV
+                background = pill(if (isOn) cSurfaceSelected else cSurfaceRaised, dp(18), stroke = if (isOn) cAccent else cLine)
+                setTextColor(if (isOn) DockColors.CYAN else cMuted)
+            }
+            
+            setOnClickListener { 
+                onUserActivity()
+                val next = if (VehicleClient.getData(key) == onV) offV else onV
+                io.execute { VehicleClient.set(key, next); main.post { refreshAll() } }
+            }
+            
+            updaters["quick_${side}_$key"] = { update() }
+            update()
+        }
+
+        val btnW = dp(110)
+        layout.addView(quickBtn("POWER", DockKeys.CAR_HVAC_POWER_MODE), LinearLayout.LayoutParams(btnW, dp(38)).apply { marginEnd = dp(8) })
+        layout.addView(quickBtn("A/C", DockKeys.CAR_HVAC_AC_ENABLE), LinearLayout.LayoutParams(btnW, dp(38)).apply { marginStart = dp(4); marginEnd = dp(4) })
+        layout.addView(quickBtn("AUTO", DockKeys.CAR_HVAC_AUTO_ENABLE), LinearLayout.LayoutParams(btnW, dp(38)).apply { marginStart = dp(8) })
+        
+        return layout
+    }
+
+    private fun createBatteryCard(c: Battery): View {
+        val layout = LinearLayout(this).apply { 
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(4), 0, 0)
+        }
+        val topRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val icon = icon(R.drawable.ic_bolt, dp(20), DockColors.GREEN)
+        topRow.addView(icon)
+        val label = TextView(this).apply {
+            text = "BATERIA"; textSize = 11f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD)
+            letterSpacing = 0.2f; setPadding(dp(8), 0, 0, 0)
+        }
+        topRow.addView(label, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        val valueTxt = TextView(this).apply {
+            textSize = 14f; setTextColor(cTxt); setTypeface(typeface, Typeface.BOLD); text = "0%"
+        }
+        topRow.addView(valueTxt)
+        layout.addView(topRow)
+
+        val track = FrameLayout(this).apply {
+            background = pill(cTrack, dp(15))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(15)).apply { topMargin = dp(12) }
+        }
+        val fill = View(this).apply { 
+            background = pill(DockColors.GREEN, dp(15))
+        }
+        track.addView(fill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
+        layout.addView(track)
+
+        updaters[c.id] = { st ->
+            val v = (st.text?.toString()?.replace("%", "")?.toIntOrNull() ?: 0).coerceIn(0, 100)
+            valueTxt.text = "$v%"
+            
+            val range = VehicleClient.getData(DockKeys.CAR_EV_INFO_ELECTRIC_MODE_REMAIN_ODOMETER) ?: "--"
+            label.text = "BATERIA - Autonomia $range KM"
+
+            val lp = fill.layoutParams as FrameLayout.LayoutParams
+            track.post {
+                lp.width = (track.width * (v / 100f)).toInt()
+                fill.layoutParams = lp
+            }
+        }
+        return layout
+    }
+
+    private fun createDriveModeSelection(c: Mode): View {
+        val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }
+        
+        val modeRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        val options = listOf(0 to "HEV", 1 to "Prioridade EV", 3 to "EV")
+        val tiles = options.map { (mode, label) ->
+            val tile = createModeTile(mode, label, c)
+            modeRow.addView(tile, LinearLayout.LayoutParams(0, dp(110), 1f).apply { 
+                marginStart = dp(6); marginEnd = dp(6)
+            })
+            tile
+        }
+        layout.addView(modeRow)
+        
+        layout.addView(gapView(16))
+        val hevSub = createHevSubCard(c)
+        layout.addView(hevSub)
+        
+        updaters[c.id] = { _ ->
+            val curMode = c.cur()
+            // Atualiza todos os tiles quando o modo muda
+            options.forEachIndexed { i, (mode, _) ->
+                val active = curMode == mode
+                val tile = tiles[i] as LinearLayout
+                val icon = tile.getChildAt(0) as ImageView
+                val tvLabel = tile.getChildAt(1) as TextView
+                
+                tile.background = pill(if (active) cSurfaceSelected else cSurfaceRaised, dp(16), stroke = if (active) DockColors.GREEN else cLine)
+                icon.setColorFilter(if (active) DockColors.GREEN else cMuted)
+                tvLabel.setTextColor(if (active) cTxt else cMuted)
+            }
+            
+            // Habilita/Desabilita o sub-card HEV
+            val isHev = curMode == 0
+            hevSub.alpha = if (isHev) 1f else 0.4f
+            hevSub.isEnabled = isHev
+        }
+        return layout
+    }
+
+    private fun createHevSubCard(c: Mode): View {
+        val layout = LinearLayout(this).apply { 
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            background = pill(cCard, dp(16), stroke = cLine)
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+        }
+
+        val intelBtn = TextView(this).apply {
+            text = "INTELIGENTE"; textSize = 10f; setTextColor(cMuted); gravity = Gravity.CENTER
+            setTypeface(typeface, Typeface.BOLD); letterSpacing = 0.05f
+            background = pill(cCard, dp(12), stroke = cLine)
+            isClickable = true
+            
+            fun update() {
+                val active = c.curStrategy() == 1
+                background = pill(if (active) cSurfaceSelected else cCard, dp(12), stroke = if (active) DockColors.AMBER else cLine)
+                setTextColor(if (active) DockColors.AMBER else cMuted)
+            }
+
+            setOnClickListener { 
+                if (!layout.isEnabled) return@setOnClickListener
+                onUserActivity()
+                io.execute { c.select(0, strategy = 1); main.post { refreshAll() } }
+            }
+            
+            updaters["hev_strategy_1"] = { update() }
+            update()
+        }
+        layout.addView(intelBtn, LinearLayout.LayoutParams(dp(110), dp(32)))
+
+        val sliderArea = LinearLayout(this).apply { 
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), 0, 0, 0)
+        }
+        
+        val socLabel = TextView(this).apply {
+            textSize = 12f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD)
+            text = "SAVE 40%"; minWidth = dp(75)
+        }
+        sliderArea.addView(socLabel)
+
+        val sliderW = dp(160); val sliderH = dp(10)
+        val track = FrameLayout(this).apply {
+            background = pill(cTrack, dp(5))
+            layoutParams = LinearLayout.LayoutParams(sliderW, sliderH).apply { marginStart = dp(8) }
+        }
+        val fill = View(this).apply { 
+            background = pill(DockColors.AMBER, dp(5))
+        }
+        track.addView(fill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
+        sliderArea.addView(track)
+
+        fun updateSliderUI(soc: Int) {
+            val isSave = c.curStrategy() == 2
+            socLabel.text = "SAVE $soc%"
+            socLabel.setTextColor(if (isSave) cTxt else cMuted)
+            
+            val r = (soc - c.minSoc).toFloat() / (c.maxSoc - c.minSoc)
+            val lp = fill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt()
+            fill.layoutParams = lp
+            fill.background = pill(if (isSave) DockColors.AMBER else cMuted, dp(5))
+        }
+
+        track.setOnTouchListener { _, e ->
+            if (!layout.isEnabled) return@setOnTouchListener true
+            val r = (e.x / sliderW).coerceIn(0f, 1f)
+            val soc = c.minSoc + (r * (c.maxSoc - c.minSoc)).toInt()
+            updateSliderUI(soc)
+            if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
+                onUserActivity()
+                // Força a mudança para a estratégia 2 (SAVE) ao interagir com a barra
+                io.execute { c.select(0, strategy = 2, soc = soc); main.post { refreshAll() } }
+            }
+            true
+        }
+
+        layout.addView(sliderArea)
+        
+        updaters["hev_sub_card"] = {
+            updateSliderUI(c.curHevSocInt())
+            val isSave = c.curStrategy() == 2
+            sliderArea.alpha = if (isSave) 1f else 0.4f
+        }
+        
+        return layout
+    }
+
+    private fun createModeTile(mode: Int, label: String, c: Mode): View {
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
+            isClickable = true
+        }
+        val icon = icon(if (mode == 0) R.drawable.ic_recirc_open else R.drawable.ic_bolt, dp(32), cMuted)
+        layout.addView(icon)
+        val tvLabel = TextView(this).apply {
+            text = label.uppercase(); textSize = 11f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD)
+            setPadding(0, dp(8), 0, 0)
+        }
+        layout.addView(tvLabel)
+
+        layout.setOnClickListener { onUserActivity(); io.execute { c.select(mode); main.post { refreshAll() } } }
+        return layout
+    }
+
+    private fun createAmbientTempCard(): View {
+        val layout = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        
+        val internal = createTempInfo(R.drawable.ic_thermo, DockColors.ORANGE, "INTERNA", "tempIn")
+        layout.addView(internal, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        
+        val recirc = createRecirculationButton(DockControls.ALL.find { it.id == "recirc" } as IconToggle)
+        layout.addView(recirc, LinearLayout.LayoutParams(dp(64), dp(64)).apply { marginStart = dp(12); marginEnd = dp(12) })
+
+        val external = createTempInfo(R.drawable.ic_external_thermo, DockColors.CYAN, "EXTERNA", "tempOut")
+        layout.addView(external, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        
+        return layout
+    }
+
+    private fun createRecirculationButton(c: IconToggle): View {
+        val container = FrameLayout(this).apply {
+            background = pill(cSurfaceRaised, dp(14), stroke = cLine)
+            isClickable = true
+        }
+        val img = icon(R.drawable.ic_recirc_closed, dp(24), cMuted)
+        container.addView(img, FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER))
+
+        container.setOnClickListener { onUserActivity(); io.execute { c.flip(); main.post { refreshAll() } } }
+
+        updaters[c.id] = { st ->
+            val on = st.on
+            img.setImageResource(if (on) R.drawable.ic_recirc_closed else R.drawable.ic_recirc_open)
+            img.setColorFilter(if (on) DockColors.CYAN else cMuted)
+            container.background = pill(if (on) cSurfaceSelected else cSurfaceRaised, dp(14), stroke = if (on) cAccent else cLine)
+        }
+        return container
+    }
+
+    private fun createTempInfo(res: Int, color: Int, label: String, id: String): View {
+        val layout = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val img = icon(res, dp(24), color)
+        layout.addView(img)
+        
+        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, 0, 0) }
+        val tvVal = TextView(this).apply { text = "--,−°"; textSize = 18f; setTextColor(cTxt); setTypeface(typeface, Typeface.BOLD) }
+        val tvLabel = TextView(this).apply { text = label; textSize = 10f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD) }
+        col.addView(tvVal); col.addView(tvLabel)
+        layout.addView(col)
+
+        updaters[id] = { st ->
+            tvVal.text = st.text?.toString() ?: "--°"
+        }
+        return layout
+    }
+
+
+    private fun createAirflowSelection(side: String): View {
+        val totalW = dp(380)
+        val layout = LinearLayout(this).apply { 
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(totalW, dp(54))
+        }
+        
+        val options = DockControls.AIRFLOW_OPTIONS
+        val icons = ArrayList<ImageView>()
+        
+        options.forEachIndexed { i, opt ->
+            val iv = icon(opt.icon, cMuted, 28).apply {
+                setPadding(dp(12), dp(10), dp(12), dp(10))
+                background = pill(cSurfaceRaised, dp(14), stroke = cLine)
+                isClickable = true
+                
+                setOnClickListener {
+                    onUserActivity()
+                    io.execute { DockControls.AIRFLOW_CONTROL.select(opt); main.post { refreshAll() } }
+                }
+            }
+            icons.add(iv)
+            layout.addView(iv, LinearLayout.LayoutParams(0, dp(48), 1f).apply { 
+                if (i > 0) marginStart = dp(8)
+            })
+            
+            updaters["dash_air_${side}_${opt.label}"] = {
+                val isCur = DockControls.AIRFLOW_CONTROL.currentOption() == opt
+                iv.background = pill(if (isCur) cSurfaceSelected else cSurfaceRaised, dp(14), stroke = if (isCur) cAccent else cLine)
+                iv.setColorFilter(if (isCur) DockColors.CYAN else cMuted)
+            }
+        }
+        return layout
+    }
+
+    private fun createVolumeControl(c: Volume): View {
+        val layout = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        
+        // Atalho de Projeção Dinâmico no Dashboard
+        val projArea = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginEnd = dp(8) }
+            visibility = View.GONE
+            isClickable = true
+            setOnClickListener { onProjClick() }
+        }
+        val projImg = ImageView(this).apply { layoutParams = FrameLayout.LayoutParams(dp(32), dp(32), Gravity.CENTER) }
+        projArea.addView(projImg)
+        layout.addView(projArea)
+
+        updaters["dash_proj"] = { _ ->
+            val conn = projConnected
+            val fg = projForeground
+            if (conn == null) {
+                projArea.visibility = View.GONE
+            } else {
+                projArea.visibility = View.VISIBLE
+                when {
+                    fg -> { projImg.setImageResource(R.drawable.ic_car); projImg.setColorFilter(cTxt) }
+                    conn == ProjectionLauncher.AA_PKG -> { projImg.setImageResource(R.drawable.ic_androidauto); projImg.clearColorFilter() }
+                    else -> { projImg.setImageResource(R.drawable.ic_carplay); projImg.clearColorFilter() }
+                }
+            }
+        }
+
+        layout.addView(icon(c.icon, cMuted, 28))
+        val sliderW = dp(180); val sliderH = dp(14)
+        val track = FrameLayout(this).apply {
+            background = pill(cTrack, dp(7))
+            layoutParams = LinearLayout.LayoutParams(sliderW, sliderH).apply { marginStart = dp(12) }
+        }
+        val fill = View(this).apply { background = pill(DockColors.CYAN, dp(7)) }
+        track.addView(fill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
+        layout.addView(track)
+        
+        var canGoPast12 = false
+        var currentV = 0
+
+        fun updateUI(v: Int) {
+            val color = if (v > 12) DockColors.RED else DockColors.CYAN
+            val r = v.toFloat() / c.hi()
+            val lp = fill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt(); fill.layoutParams = lp
+            fill.background = pill(color, dp(7))
+        }
+
+        track.setOnTouchListener { _, e ->
+            val r = (e.x / sliderW).coerceIn(0f, 1f)
+            var v = (r * c.hi()).toInt()
+
+            if (e.action == MotionEvent.ACTION_DOWN) {
+                canGoPast12 = currentV >= 12
+            }
+
+            if (!canGoPast12) v = minOf(v, 12)
+
+            updateUI(v)
+            if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
+                onUserActivity()
+                currentV = v
+                io.execute { c.set(v); main.post { refreshAll() } }
+            }
+            true
+        }
+        updaters[c.id] = { _ -> 
+            val v = c.value()
+            currentV = v
+            updateUI(v)
+        }
+        return layout
+    }
+
+    private fun gapView(size: Int, horizontal: Boolean = false): View = View(this).apply {
+        layoutParams = if (horizontal) LinearLayout.LayoutParams(dp(size), 1) else LinearLayout.LayoutParams(1, dp(size))
+    }
+
     private fun showBar() {
         main.removeCallbacks(hideRunnable)
         if (hidden) {
-            hidden = false; bar.visibility = View.VISIBLE; handle.visibility = View.GONE
-            params.height = barHeightPx; runCatching { wm.updateViewLayout(root, params) }
+            hidden = false
+            bar?.visibility = View.VISIBLE
+            dashboard?.visibility = View.VISIBLE
+            handle.visibility = View.GONE
+            
+            val visualMode = SettingsStore.visualMode.value
+            val isDash = visualMode == SettingsStore.VISUAL_DASHBOARD
+            params.width = if (isDash) (1792 - 160) else WindowManager.LayoutParams.MATCH_PARENT
+            params.height = if (isDash) 720 else barHeightPx
+            params.gravity = Gravity.BOTTOM or (if (isDash) Gravity.END else Gravity.START)
+            
+            runCatching { wm.updateViewLayout(root, params) }
             broadcastBarState()
             refreshAll()
         }
@@ -1299,8 +2078,16 @@ class OverlayService : Service() {
         // gesto (manual) esconde em qualquer modo; o timer só esconde no modo auto
         if (!manual && SettingsStore.mode(this) != SettingsStore.MODE_AUTO) return
         closeAllPopups()
-        hidden = true; bar.visibility = View.GONE; handle.visibility = View.VISIBLE
-        params.height = handleHeightPx; runCatching { wm.updateViewLayout(root, params) }
+        hidden = true
+        bar?.visibility = View.GONE
+        dashboard?.visibility = View.GONE
+        handle.visibility = View.VISIBLE
+        
+        params.width = dp(100)
+        params.height = handleHeightPx
+        params.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+        
+        runCatching { wm.updateViewLayout(root, params) }
         broadcastBarState()
     }
 
@@ -1337,12 +2124,13 @@ class OverlayService : Service() {
         return Color.argb(a, r, g, b)
     }
 
-    private fun pill(fill: Int, radius: Int, topOnly: Boolean = false): GradientDrawable =
+    private fun pill(fill: Int, radius: Int, topOnly: Boolean = false, stroke: Int? = null): GradientDrawable =
         GradientDrawable().apply {
             setColor(fill)
             if (topOnly) cornerRadii = floatArrayOf(
                 radius.toFloat(), radius.toFloat(), radius.toFloat(), radius.toFloat(), 0f, 0f, 0f, 0f)
             else cornerRadius = radius.toFloat()
+            stroke?.let { setStroke(dp(1), it) }
         }
 
     private fun buildNotification(): Notification {

@@ -1,0 +1,11 @@
+- [ ] Atualizar `DockColors` com os novos tokens do Handoff
+- [ ] Refatorar `createDashboardCard` para o novo estilo de bordas e raios
+- [ ] Implementar os novos cards da coluna central:
+    - [ ] `createBatteryCard` (Barra verde horizontal)
+    - [ ] `createDriveModeSelection` (Tiles HEV/EV com bordas)
+    - [ ] `createRecirculationCard`
+    - [ ] `createAmbientTempCard` (Interna/Externa)
+- [ ] Atualizar `createTempControl` com o gradiente de temperatura
+- [ ] Reestruturar `buildDashboard` para a grade de 12 colunas (4-4-4)
+- [ ] Ajustar espaçamentos e paddings globais conforme o Handoff
+- [ ] Verificação final e testes

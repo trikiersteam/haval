@@ -139,6 +139,28 @@ class MainActivity : ComponentActivity() {
             }
 
             // ---- barra ----
+            SectionCard("Interface Visual") {
+                val visualMode by SettingsStore.visualMode
+                Text("Tipo de Visualização", color = Color.White, fontSize = 16.sp)
+                Text("Escolha entre a barra compacta ou o painel completo.", color = Muted, fontSize = 13.sp)
+                Spacer(Modifier.height(12.dp))
+                Segmented(
+                    options = listOf(
+                        "Barra" to SettingsStore.VISUAL_BAR,
+                        "Dashboard" to SettingsStore.VISUAL_DASHBOARD,
+                        "Balões" to SettingsStore.VISUAL_BALLOONS
+                    ),
+                    selected = visualMode
+                ) {
+                    SettingsStore.setVisualMode(it)
+                    // Reinicia o serviço para aplicar a mudança de layout se necessário
+                    if (SettingsStore.overlayEnabled.value) {
+                        OverlayService.stop(this@MainActivity)
+                        OverlayService.start(this@MainActivity)
+                    }
+                }
+            }
+
             SectionCard("Barra inferior") {
                 RowSwitch("Barra ligada", "Mostra a toolbar por cima da central.", overlayEnabled) { on ->
                     if (on) {
@@ -206,7 +228,7 @@ class MainActivity : ComponentActivity() {
                 
                 Spacer(Modifier.height(14.dp))
                 val simulation by SettingsStore.simulationEnabled
-                RowSwitch("Modo Simulação", "Usa dados fictícios para testes sem o carro.", simulation, enabled = false) {
+                RowSwitch("Modo Simulação", "Usa dados fictícios para testes sem o carro.", simulation, enabled = true) {
                     SettingsStore.setSimulationEnabled(it)
                 }
             }

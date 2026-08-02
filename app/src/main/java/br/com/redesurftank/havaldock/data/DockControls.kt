@@ -119,13 +119,24 @@ object DockKeys {
     const val MEDIA_VOLUME_RANGE = "sys.settings.audio.media_volume_range"
 }
 
-/** Cores do tema v2 (ARGB int — sem dependência de android no data layer). */
+/** Cores do tema v2 (Tokens do Handoff Lovable). */
 object DockColors {
-    const val CYAN = 0xFF2DE0F0.toInt()
-    const val GREEN = 0xFF36E05A.toInt()
+    const val SCREEN = 0xFF091017.toInt()
+    const val SURFACE = 0xFF171F28.toInt()
+    const val SURFACE_RAISED = 0xFF242F3B.toInt()
+    const val SURFACE_SELECTED = 0xFF204A5C.toInt()
+    const val OUTLINE = 0xFF414F5D.toInt()
+    
+    const val CYAN = 0xFF36CAF1.toInt()
+    const val GREEN = 0xFF52E492.toInt()
+    const val ORANGE = 0xFFFE8F5B.toInt()
     const val RED = 0xFFFF4D4D.toInt()
     const val AMBER = 0xFFFFC23C.toInt()
-    const val WHITE = 0xFFC0C8CB.toInt() //branco acinzentado
+    
+    const val ON_SURFACE = 0xFFF2F5F9.toInt()
+    const val ON_SURFACE_MUTED = 0xFF89939E.toInt()
+    const val TRACK = 0xFF24303E.toInt()
+    const val WHITE = 0xFFC0C8CB.toInt()
 }
 
 private fun parseMax(s: String?): Double? {

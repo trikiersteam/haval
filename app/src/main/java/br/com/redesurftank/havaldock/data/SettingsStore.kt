@@ -27,6 +27,7 @@ object SettingsStore {
     const val KEY_SEC2_X = "sec2_x"
     const val KEY_SEC3_X = "sec3_x"
     const val KEY_BOOT = "launch_on_boot"
+    const val KEY_VISUAL_MODE = "visual_mode"
 
     const val MODE_ALWAYS = "always"
     const val MODE_AUTO = "auto"
@@ -46,6 +47,10 @@ object SettingsStore {
     const val MIN_OPACITY = 0
     const val MAX_OPACITY = 100
 
+    const val VISUAL_BAR = "bar"
+    const val VISUAL_DASHBOARD = "dashboard"
+    const val VISUAL_BALLOONS = "balloons"
+
     private lateinit var appCtx: Context
 
     val overlayEnabled = mutableStateOf(false)
@@ -61,6 +66,7 @@ object SettingsStore {
     val sec2X = mutableIntStateOf(620)
     val sec3X = mutableIntStateOf(920)
     val launchOnBoot = mutableStateOf(true)
+    val visualMode = mutableStateOf(VISUAL_BAR)
 
     fun init(context: Context) {
         appCtx = context.applicationContext
@@ -78,6 +84,7 @@ object SettingsStore {
         sec2X.intValue = p.getInt(KEY_SEC2_X, 620)
         sec3X.intValue = p.getInt(KEY_SEC3_X, 920)
         launchOnBoot.value = p.getBoolean(KEY_BOOT, true)
+        visualMode.value = p.getString(KEY_VISUAL_MODE, VISUAL_BAR) ?: VISUAL_BAR
     }
 
     fun setOverlayEnabled(v: Boolean) {
@@ -144,6 +151,11 @@ object SettingsStore {
     fun setLaunchOnBoot(v: Boolean) {
         launchOnBoot.value = v
         prefs(appCtx).edit().putBoolean(KEY_BOOT, v).apply()
+    }
+
+    fun setVisualMode(v: String) {
+        visualMode.value = v
+        prefs(appCtx).edit().putString(KEY_VISUAL_MODE, v).apply()
     }
 
     fun isLaunchOnBoot(context: Context): Boolean =
