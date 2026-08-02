@@ -1,44 +1,33 @@
-# Remodelagem do Dashboard — Design Lovable (Clima)
+# Monitoramento de Economia e Consumo (Versão Simplificada)
 
-Este plano descreve a atualização completa do visual do Dashboard para seguir as especificações de design extraídas do protótipo Lovable, mantendo a compatibilidade com o Android 9 da central multimídia (1792x720px).
-
-## User Review Required
-
-> [!IMPORTANT]
-> A nova tipografia sugerida (**Chakra Petch**) não está presente no projeto. Usaremos **Roboto Condensed** e **Roboto Mono** como alternativas nativas de alta legibilidade, a menos que você forneça os arquivos `.ttf`.
-
-> [!NOTE]
-> O layout passará de uma estrutura de colunas simples para um sistema de grade mais fiel ao "Handoff", com proporções e raios de borda específicos.
+Este plano descreve a implementação simplificada dos indicadores de eficiência e consumo da viagem no Dashboard, utilizando componentes nativos (Views) para garantir máxima estabilidade e baixo consumo de recursos.
 
 ## Proposed Changes
-
-### [Data & Styling]
-
-#### [MODIFY] [DockControls.kt](file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/data/DockControls.kt)
-- Atualizar `DockColors` com os novos tokens: `SURFACE` (#171F28), `SURFACE_RAISED` (#242F3B), `OUTLINE` (#414F5D), `CYAN` (#36CAF1), etc.
 
 ### [UI Components]
 
 #### [MODIFY] [OverlayService.kt](file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/OverlayService.kt)
-- **Grid de 12 Colunas**: Implementar a distribuição de espaço usando `layout_weight` para simular a grade de 12 colunas (4 para motorista, 4 para centro, 4 para passageiro).
-- **Novos Cartões (Outer Panels)**:
-    - Atualizar `createDashboardCard` para usar `radiusCard` (28dp) e a cor `clima_surface`.
-    - Implementar bordas (`stroke`) nos cards ativos.
-- **Componentes Internos**:
-    - **Temperatura**: Usar o gradiente `CYAN → WHITE → ORANGE` na barra de progresso.
-    - **Ventilação/Bancos**: Usar os novos raios de controle e cores de "track" inativa.
-    - **Coluna Central**: Criar métodos específicos para os novos cards compactos:
-        - `createBatteryCard()`: Barra de progresso horizontal verde.
-        - `createDriveModeSelection()`: Três tiles (`HEV`, `Prioridade EV`, `EV`) com bordas de seleção.
-        - `createRecirculationCard()`: Estilo pílula com ícone destacado.
-        - `createAmbientTempCard()`: Exibição dupla (Interna/Externa) com ícones coloridos.
+
+- **Variáveis de Estado**:
+    - Adicionar `private var maxEconomicLevel = 0f` para rastrear o maior valor desde o início do serviço.
+
+- **Componente de Nível de Economia**:
+    - Adicionar um novo card dentro da seção de Bateria para exibir o `Economic Level`.
+    - Formato: `Valor Atual (Max: Maior Valor)`.
+    - Cores dinâmicas no valor: Verde (>= 70), Amarelo (40-69), Vermelho (< 40).
+
+- **Componente de Consumo da Viagem**:
+    - Adicionar um card logo abaixo do nível de economia com dois campos:
+        - **Energia**: Valor de `CAR_EV_INFO_CYCLE_ENERGY_CONSUME_INFO` + " KW".
+        - **Combustível**: Valor de `CAR_EV_INFO_CYCLE_FUEL_CONSUME_INFO` + " Litros".
+
+- **Integração e Atualização**:
+    - Inserir estes componentes no final do método `createBatteryCard`.
+    - Atualizar os valores em tempo real através do `updaters`.
 
 ## Verification Plan
 
-### Automated Tests
-- Verificar se as constantes de cores e dimensões estão sendo aplicadas corretamente via logs.
-
 ### Manual Verification
-- Validar o alinhamento na tela de 1792x720px.
-- Confirmar se o recuo de 1 polegada (160px) à esquerda permanece funcional.
-- Testar a legibilidade dos novos valores de temperatura (mais largos e destacados).
+- **Economic Level**: Verificar se o "Max" atualiza corretamente conforme valores maiores são recebidos.
+- **Consumo**: Validar a exibição correta dos valores de KW e Litros.
+- **Estabilidade**: Confirmar que a navegação e interação no Dashboard permanecem fluidas.

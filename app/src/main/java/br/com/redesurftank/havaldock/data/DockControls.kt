@@ -202,10 +202,24 @@ class Level(id: String, section: Int, label: String, @DrawableRes val icon: Int,
         val m = hi().coerceAtLeast(1)
         val v = value()
         val next = if (v >= m) min else (v + 1).coerceAtLeast(min)
-        VehicleClient.set(key, next.toString())
+        setLevel(next)
     }
     /** Escolha direta de nível (usada pelo popup). */
-    fun setLevel(v: Int) = VehicleClient.set(key, v.coerceIn(min, hi().coerceAtLeast(min)).toString())
+    fun setLevel(v: Int) {
+        val target = v.coerceIn(min, hi().coerceAtLeast(min))
+        if (id == "fan") {
+            if (target == 0) {
+                VehicleClient.set(DockKeys.CAR_HVAC_POWER_MODE, "0")
+                VehicleClient.set(DockKeys.CAR_HVAC_AC_ENABLE, "0")
+                VehicleClient.set(key, "0")
+            } else {
+                VehicleClient.set(DockKeys.CAR_HVAC_POWER_MODE, "1")
+                VehicleClient.set(key, target.toString())
+            }
+        } else {
+            VehicleClient.set(key, target.toString())
+        }
+    }
 }
 
 /** Volume: ícone + sublinhado; abre popup vertical com −/+ e arraste. */
@@ -214,7 +228,12 @@ class Volume(id: String, section: Int, label: String, @DrawableRes val icon: Int
     Control(id, section, label) {
     fun value() = VehicleClient.getData(key)?.trim()?.toIntOrNull() ?: 0
     fun hi() = (rangeKey?.let { parseMax(VehicleClient.getData(it))?.toInt() } ?: max).coerceAtLeast(1)
-    override fun render() = RenderState(ratio = value().coerceIn(0, hi()).toFloat() / hi(), text = value().toString())
+    override fun render(): RenderState {
+        val v = value()
+        val h = hi()
+        val iconRes = if (v == 0) R.drawable.volume_variant_off else icon
+        return RenderState(ratio = v.coerceIn(0, h).toFloat() / h, text = v.toString(), icon = iconRes)
+    }
     fun set(v: Int) = VehicleClient.set(key, v.coerceIn(0, hi()).toString())
 }
 
@@ -350,18 +369,19 @@ class Regen(id: String, section: Int, label: String, @DrawableRes val icon: Int,
     }
 }
 
-/** Bateria: percentual com cor dinâmica (Verde >= 90, Ciano 35-89, Ambar <= 34). */
+/** Bateria: percentual com cor dinâmica. */
 class Battery(id: String, section: Int, label: String, @DrawableRes val icon: Int, val key: String) :
     Control(id, section, label) {
     private fun value() = VehicleClient.getData(key)?.trim()?.toIntOrNull() ?: 0
     override fun render(): RenderState {
         val v = value()
-        val color = when {
-            v >= 90 -> DockColors.GREEN
-            v >= 35 -> DockColors.CYAN
-            else -> DockColors.AMBER
+        val (color, iconRes) = when {
+            v > 75 -> DockColors.CYAN to R.drawable.battery_charging_high
+            v >= 35 -> DockColors.GREEN to R.drawable.battery_charging_medium
+            v > 15 -> DockColors.AMBER to R.drawable.battery_charging_low
+            else -> DockColors.RED to R.drawable.battery_charging_outline
         }
-        return RenderState(text = "$v%", color = color, icon = icon)
+        return RenderState(text = "$v%", color = color, icon = iconRes)
     }
 }
 
@@ -412,10 +432,10 @@ class MaxAc(id: String, section: Int, label: String) : Control(id, section, labe
 }
 
 object DockControls {
-    val FAN = Level("fan", 2, "Veloc. ar-cond.", R.drawable.ic_fan, DockKeys.CAR_HVAC_FAN_SPEED, 7, DockKeys.CAR_HVAC_FAN_SPEED_RANGE, min = 1, picker = true)
+    val FAN = Level("fan", 2, "Veloc. ar-cond.", R.drawable.ic_fan, DockKeys.CAR_HVAC_FAN_SPEED, 7, DockKeys.CAR_HVAC_FAN_SPEED_RANGE, min = 0, picker = true)
     val VENT_D = Level("ventD", 0, "Ventil. motorista", R.drawable.ic_carseat_cooler, DockKeys.DRIVER_SEAT_VENT, 3, DockKeys.SEAT_VENT_MAX)
     val VENT_P = Level("ventP", 3, "Ventil. passageiro", R.drawable.ic_carseat_cooler, DockKeys.PASS_SEAT_VENT, 3, DockKeys.SEAT_VENT_MAX)
-    val DRIVE = Mode("drive", 1, "Modo", R.drawable.ic_car, DockKeys.CAR_EV_SETTING_POWER_MODEL_CONFIG,
+    val DRIVE = Mode("drive", 1, "Modo", R.drawable.ic_bolt, DockKeys.CAR_EV_SETTING_POWER_MODEL_CONFIG,
         listOf(1, 3, 0),
         mapOf(0 to "HEV", 1 to "Prior.Ev", 3 to "EV"),
         mapOf(0 to DockColors.AMBER, 1 to DockColors.GREEN, 3 to DockColors.CYAN),

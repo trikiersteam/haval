@@ -1,0 +1,3 @@
+- `[x]` Ajustar tamanhos de fonte em `createTempInfo` (Val: 22f, Label: 9f)
+- `[x]` Desativar `includeFontPadding` nos TextViews de temperatura
+- `[x]` Validar alinhamento no card de recirculação
