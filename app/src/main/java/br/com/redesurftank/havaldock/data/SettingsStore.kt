@@ -84,7 +84,8 @@ object SettingsStore {
         sec2X.intValue = p.getInt(KEY_SEC2_X, 620)
         sec3X.intValue = p.getInt(KEY_SEC3_X, 920)
         launchOnBoot.value = p.getBoolean(KEY_BOOT, true)
-        visualMode.value = p.getString(KEY_VISUAL_MODE, VISUAL_BAR) ?: VISUAL_BAR
+        val mode = p.getString(KEY_VISUAL_MODE, VISUAL_BAR) ?: VISUAL_BAR
+        visualMode.value = if (mode == VISUAL_BALLOONS) VISUAL_BAR else mode
     }
 
     fun setOverlayEnabled(v: Boolean) {

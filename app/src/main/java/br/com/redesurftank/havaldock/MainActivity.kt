@@ -91,6 +91,7 @@ class MainActivity : ComponentActivity() {
         val shizukuReady = VehicleClient.isShizukuReady()
 
         val overlayEnabled by SettingsStore.overlayEnabled
+        val visualMode by SettingsStore.visualMode
         val mode by SettingsStore.visibilityMode
         val secs by SettingsStore.autoHideSecs
         val boot by SettingsStore.launchOnBoot
@@ -140,15 +141,13 @@ class MainActivity : ComponentActivity() {
 
             // ---- barra ----
             SectionCard("Interface Visual") {
-                val visualMode by SettingsStore.visualMode
                 Text("Tipo de Visualização", color = Color.White, fontSize = 16.sp)
                 Text("Escolha entre a barra compacta ou o painel completo.", color = Muted, fontSize = 13.sp)
                 Spacer(Modifier.height(12.dp))
                 Segmented(
                     options = listOf(
                         "Barra" to SettingsStore.VISUAL_BAR,
-                        "Dashboard" to SettingsStore.VISUAL_DASHBOARD,
-                        "Balões" to SettingsStore.VISUAL_BALLOONS
+                        "Dashboard" to SettingsStore.VISUAL_DASHBOARD
                     ),
                     selected = visualMode
                 ) {
@@ -201,34 +200,35 @@ class MainActivity : ComponentActivity() {
                 }
 
                 Spacer(Modifier.height(14.dp))
+                val isBarMode = visualMode == SettingsStore.VISUAL_BAR
                 val bHeight by SettingsStore.barHeight
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Altura da barra", color = Color.White, fontSize = 16.sp)
+                        Text("Altura da barra", color = if (isBarMode) Color.White else Muted, fontSize = 16.sp)
                         Text("Ajuste a altura da barra inferior.", color = Muted, fontSize = 13.sp)
                     }
-                    Stepper("$bHeight dp") { d -> SettingsStore.setBarHeight(bHeight + d) }
+                    Stepper("$bHeight dp", enabled = isBarMode) { d -> SettingsStore.setBarHeight(bHeight + d) }
                 }
 
                 Spacer(Modifier.height(14.dp))
                 val bOpacity by SettingsStore.barOpacity
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Opacidade da barra", color = Color.White, fontSize = 16.sp)
+                        Text("Opacidade da barra", color = if (isBarMode) Color.White else Muted, fontSize = 16.sp)
                         Text("Muda a transparência do fundo.", color = Muted, fontSize = 13.sp)
                     }
-                    Stepper("$bOpacity %") { d -> SettingsStore.setBarOpacity(bOpacity + d) }
+                    Stepper("$bOpacity %", enabled = isBarMode) { d -> SettingsStore.setBarOpacity(bOpacity + d) }
                 }
 
                 Spacer(Modifier.height(14.dp))
                 val itemFrame by SettingsStore.itemFrameEnabled
-                RowSwitch("Moldura nos itens", "Agrupa os ícones em um balão arredondado.", itemFrame) {
+                RowSwitch("Moldura nos itens", "Agrupa os ícones em um balão arredondado.", itemFrame, enabled = isBarMode) {
                     SettingsStore.setItemFrameEnabled(it)
                 }
                 
                 Spacer(Modifier.height(14.dp))
                 val simulation by SettingsStore.simulationEnabled
-                RowSwitch("Modo Simulação", "Usa dados fictícios para testes sem o carro.", simulation, enabled = true) {
+                RowSwitch("Modo Simulação", "Usa dados fictícios para testes sem o carro (Desativado).", simulation, enabled = false) {
                     SettingsStore.setSimulationEnabled(it)
                 }
             }
@@ -409,11 +409,11 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun Stepper(value: String, onStep: (Int) -> Unit) {
+    private fun Stepper(value: String, enabled: Boolean = true, onStep: (Int) -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedButton(onClick = { onStep(-1) }, modifier = Modifier.size(44.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("−", fontSize = 20.sp) }
-            Text(value, color = AccentSoft, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            OutlinedButton(onClick = { onStep(1) }, modifier = Modifier.size(44.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("+", fontSize = 20.sp) }
+            OutlinedButton(onClick = { onStep(-1) }, enabled = enabled, modifier = Modifier.size(44.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("−", fontSize = 20.sp) }
+            Text(value, color = if (enabled) AccentSoft else Muted, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            OutlinedButton(onClick = { onStep(1) }, enabled = enabled, modifier = Modifier.size(44.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("+", fontSize = 20.sp) }
         }
     }
 

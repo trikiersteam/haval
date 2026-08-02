@@ -1,3 +1,4 @@
-- `[x]` Ajustar tamanhos de fonte em `createTempInfo` (Val: 22f, Label: 9f)
-- `[x]` Desativar `includeFontPadding` nos TextViews de temperatura
-- `[x]` Validar alinhamento no card de recirculação
+- `[x]` Atualizar `SettingsStore.kt`: Desligar simulação por padrão
+- `[x]` Atualizar `MainActivity.kt`: Remover "Balões" e adicionar habilitação condicional nos controles
+- `[x]` Atualizar `app/build.gradle.kts`: Versão 0.2.44 (code 37)
+- `[ ]` Versionar e Publicar no GitHub (Commit, Tag, Push)

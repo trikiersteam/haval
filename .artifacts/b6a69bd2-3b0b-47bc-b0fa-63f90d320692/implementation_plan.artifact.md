@@ -1,24 +1,43 @@
-# Refatoração do Layout dos Modos de Condução
+# Plano de Publicação - Ajustes de Configuração e Lançamento v0.2.44
 
-O objetivo é ajustar o layout dos botões de seleção de modo (HEV, Prioridade EV e EV) para uma disposição horizontal (ícone seguido de texto) e reduzir a altura total do componente para torná-lo mais compacto no dashboard.
+Este plano detalha os ajustes finais na interface de configurações e a preparação para a publicação da versão v0.2.44 no GitHub.
 
-## Mudanças Propostas
+## Alterações Propostas
 
-### Overlay Service
+### Interface de Configurações (`MainActivity.kt`)
 
-#### [MODIFY] [OverlayService.kt](file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/OverlayService.kt)
+#### [MODIFY] [MainActivity.kt](file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/MainActivity.kt)
+- **Tipo de Visualização**: Remover a opção "Balões" do seletor segmentado.
+- **Habilitação Condicional**:
+    - Adicionar suporte a `enabled` no componente `Stepper`.
+    - Desabilitar os itens "Altura da barra", "Opacidade da barra" e "Moldura nos itens" quando o modo visual não for "Barra".
+    - Quando desabilitados, as cores dos textos serão alteradas para `Muted`.
+- **Modo Simulação**: Desabilitar o switch e garantir que ele permaneça desligado.
 
-- **`createModeTile`**:
-    - Alterar `orientation` de `VERTICAL` para `HORIZONTAL`.
-    - Reduzir o tamanho do ícone de `dp(32)` para `dp(24)`.
-    - Remover o padding superior do texto e adicionar um padding à esquerda (`dp(8)`) para afastá-lo do ícone.
-- **`createDriveModeSelection`**:
-    - Reduzir a altura dos tiles no `modeRow` de `dp(110)` para `dp(50)`.
-    - Ajustar as margens entre os botões para `dp(4)` para otimizar o espaço.
+### Armazenamento de Configurações (`SettingsStore.kt`)
+
+#### [MODIFY] [SettingsStore.kt](file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/data/SettingsStore.kt)
+- Garantir que `simulationEnabled` seja iniciado como `false`.
+- Adicionar lógica para garantir que o modo visual seja alterado para "Barra" caso estivesse em "Balões" (prevenção).
+
+### Publicação (`app/build.gradle.kts` e Git)
+
+#### [MODIFY] [build.gradle.kts](file:///Users/rodrigo/StudioProjects/haval/app/build.gradle.kts)
+- Incrementar `versionCode` para `37`.
+- Incrementar `versionName` para `0.2.44`.
+
+#### Git
+- Adicionar todos os arquivos modificados.
+- Realizar commit com mensagem: `fix: ajustes de configuração, desativação do modo simulação e lançamento v0.2.44`.
+- Criar tag `v0.2.44`.
+- Realizar push para o repositório principal e push das tags.
 
 ## Plano de Verificação
 
 ### Verificação Manual
-- Abrir o dashboard e confirmar que os botões de modo agora são horizontais e mais baixos.
-- Verificar se o ícone e o texto estão devidamente alinhados no centro vertical do botão.
-- Confirmar que a borda de seleção continua envolvendo o botão corretamente com a cor do modo ativo.
+1. Abrir a tela de configurações.
+2. Verificar se a opção "Balões" desapareceu.
+3. Mudar o tipo de visualização para "Dashboard" e verificar se "Altura da barra", "Opacidade da barra" e "Moldura nos itens" ficam cinzas e bloqueados.
+4. Mudar para "Barra" e verificar se eles voltam a ficar ativos.
+5. Verificar se o "Modo Simulação" está desabilitado e desligado.
+6. Confirmar se a versão exibida no rodapé é `0.2.44`.
