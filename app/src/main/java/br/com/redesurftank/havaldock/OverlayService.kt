@@ -51,13 +51,11 @@ import com.beantechs.intelligentvehiclecontrol.sdk.IListener
 import java.util.concurrent.Executors
 
 /**
- * Toolbar inferior como overlay (TYPE_APPLICATION_OVERLAY), só na faixa de baixo, visual v2
- * (estilo do app de referência). Lê/escreve via [VehicleClient]; IPC sempre fora da main thread.
- */
-/**
  * PREVIEW VERSION - Dashboard HMI Clima Implementation
  * 
+ * Toolbar inferior como overlay (TYPE_APPLICATION_OVERLAY), visual v2 (HMI Clima).
  * Serviço de Overlay que gerencia a Toolbar inferior e o Dashboard estendido.
+ * Lê/escreve via [VehicleClient]; IPC sempre fora da main thread.
  * 
  * Este serviço é responsável por renderizar a interface de usuário por cima de outras aplicações
  * utilizando o WindowManager. Ele se comunica com o veículo através do [VehicleClient] para
