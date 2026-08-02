@@ -1,4 +1,4 @@
 - `[x]` Atualizar `SettingsStore.kt`: Desligar simulação por padrão
 - `[x]` Atualizar `MainActivity.kt`: Remover "Balões" e adicionar habilitação condicional nos controles
 - `[x]` Atualizar `app/build.gradle.kts`: Versão 0.2.44 (code 37)
-- `[ ]` Versionar e Publicar no GitHub (Commit, Tag, Push)
+- `[x]` Versionar e Publicar no GitHub (Commit, Tag, Push)

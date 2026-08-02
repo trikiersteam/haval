@@ -1,31 +1,33 @@
-# Atualização da Escala Cromática da Bateria
+# Lançamento v0.2.44: Ajustes de Configuração e Estabilização
 
-Concluímos a troca da escala de cores da bateria para alinhar com o novo padrão visual onde o **Azul (Ciano)** representa o nível máximo de eficiência/carga e o **Verde** representa o nível bom/médio.
+Preparamos o app para publicação oficial, focando na estabilização dos modos visuais e na desativação de ferramentas de teste para o usuário final.
 
-## Mudanças Realizadas
+## O que mudou
 
-### 1. Inversão na Lógica de Cores (`DockControls.kt`)
-Atualizamos a classe `Battery` para refletir a nova escala:
-- **Excelente (> 75%)**: Alterado de Verde para **Ciano (Azul)**.
-- **Bom (35% - 75%)**: Alterado de Ciano para **Verde**.
-- **Alerta (16% - 34%)**: Mantido como Âmbar.
-- **Crítico (<= 15%)**: Mantido como Vermelho (Outline).
+### 1. Refinamento da Interface de Configurações
+- **Modos Visuais**: Removemos a opção "Balões", mantendo o foco em "Barra" e "Dashboard".
+- **Habilitação Inteligente**: Os controles de "Altura da barra", "Opacidade da barra" e "Moldura nos itens" agora são desabilitados automaticamente quando o Dashboard está selecionado, pois essas configurações afetam exclusivamente a barra inferior.
+- **Feedback Visual**: Itens desabilitados agora aparecem em tom cinza (Muted), indicando claramente que não podem ser alterados no modo atual.
 
-### 2. Sincronização no Dashboard (`OverlayService.kt`)
-- Atualizamos os estados iniciais do cartão de bateria no dashboard.
-- O ícone e a barra de preenchimento agora iniciam em **Verde** (representando o estado "Bom"), aguardando a atualização em tempo real que aplicará a cor correta baseada na carga.
+### 2. Estabilização e Produção
+- **Modo Simulação**: Desativamos permanentemente o switch de "Modo Simulação" e garantimos que ele inicie desligado, evitando que o usuário final entre acidentalmente em modo de teste.
+- **Migração Automática**: Se um usuário estivesse usando o modo "Balões", o app o migrará automaticamente para o modo "Barra" ao iniciar.
+
+### 3. Publicação e Versionamento
+- **Versão**: Atualizado para **0.2.44** (Build 37).
+- **GitHub**: Realizado o commit das alterações, criação da tag `v0.2.44` e push para o repositório oficial.
 
 ## Como Testar
 
-1.  **Modo Simulação**:
-    - No arquivo `VehicleClient.kt`, altere o valor de bateria simulado.
-    - Com **85%**, a barra e o ícone devem ficar **Ciano (Azul)**.
-    - Com **50%**, a barra e o ícone devem ficar **Verdes**.
-    - Com **20%**, devem ficar **Âmbar**.
-    - Com **10%**, devem ficar **Vermelhos**.
+1.  Abra a tela de Configurações.
+2.  Observe que a opção "Balões" não existe mais no seletor de "Tipo de Visualização".
+3.  Alterne para "Dashboard": as opções de ajuste da barra devem ficar cinzas e bloqueadas.
+4.  Alterne para "Barra": as opções devem voltar a ficar ativas (cor branca).
+5.  Confirme que o "Modo Simulação" está cinza e desligado.
+6.  Verifique no rodapé que a versão exibida é a `0.2.44`.
 
-> [!NOTE]
-> Essa mudança traz consistência com os outros indicadores do dashboard (como o de Economia), onde o Azul agora sinaliza o melhor estado possível do sistema.
+> [!IMPORTANT]
+> Estas mudanças garantem que o usuário tenha uma experiência sem erros de configuração e que o app se comporte de forma previsível em ambiente real.
 
-render_diffs(file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/data/DockControls.kt)
-render_diffs(file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/OverlayService.kt)
+render_diffs(file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/MainActivity.kt)
+render_diffs(file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/data/SettingsStore.kt)

@@ -178,29 +178,31 @@ class MainActivity : ComponentActivity() {
                     selected = mode
                 ) { SettingsStore.setVisibilityMode(it) }
 
-                if (mode == SettingsStore.MODE_AUTO) {
+                val isBarMode = visualMode == SettingsStore.VISUAL_BAR
+                val isAutoMode = mode == SettingsStore.MODE_AUTO
+
+                if (isAutoMode) {
                     Spacer(Modifier.height(14.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Ocultar após", color = Color.White, fontSize = 16.sp)
+                            Text("Ocultar após", color = if (isBarMode) Color.White else Muted, fontSize = 16.sp)
                             Text("Reinicia a cada toque na barra.", color = Muted, fontSize = 13.sp)
                         }
-                        Stepper("$secs s") { d -> SettingsStore.setAutoHideSecs(secs + d) }
+                        Stepper("$secs s", enabled = isBarMode) { d -> SettingsStore.setAutoHideSecs(secs + d) }
+                    }
+
+                    Spacer(Modifier.height(14.dp))
+                    val pSecs by SettingsStore.popupSecs
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Tempo do menu", color = if (isBarMode) Color.White else Muted, fontSize = 16.sp)
+                            Text(if (pSecs == 0) "Menu ficará visível até o clique." else "Auto-ocultar menus após inatividade.", color = Muted, fontSize = 13.sp)
+                        }
+                        Stepper("$pSecs s", enabled = isBarMode) { d -> SettingsStore.setPopupSecs(pSecs + d) }
                     }
                 }
 
                 Spacer(Modifier.height(14.dp))
-                val pSecs by SettingsStore.popupSecs
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Tempo do menu", color = Color.White, fontSize = 16.sp)
-                        Text(if (pSecs == 0) "Menu ficará visível até o clique." else "Auto-ocultar menus após inatividade.", color = Muted, fontSize = 13.sp)
-                    }
-                    Stepper("$pSecs s") { d -> SettingsStore.setPopupSecs(pSecs + d) }
-                }
-
-                Spacer(Modifier.height(14.dp))
-                val isBarMode = visualMode == SettingsStore.VISUAL_BAR
                 val bHeight by SettingsStore.barHeight
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
