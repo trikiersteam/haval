@@ -18,6 +18,9 @@ import androidx.core.content.res.ResourcesCompat
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.RelativeSizeSpan
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -146,6 +149,14 @@ class OverlayService : Service() {
     /** Timer para fechar popups de controle por inatividade. */
     private val closePopupsRunnable = Runnable { closeAllPopups() }
 
+    /** Timer para atualizar o relógio do dashboard. */
+    private val clockTicker = object : Runnable {
+        override fun run() {
+            updaters["header_info"]?.invoke(RenderState())
+            main.postDelayed(this, 10000L)
+        }
+    }
+
     /** Listener de dados do veículo: atualiza a UI quando uma variável monitorada muda. */
     private val listener = object : IListener.Stub() {
         override fun onDataChanged(key: String?, value: String?) {
@@ -204,6 +215,7 @@ class OverlayService : Service() {
         HvacPanel.ensureEnabled()
         refreshAll()
         main.postDelayed(projPoll, 1200)
+        main.post(clockTicker)
     }
 
     private val onVehicleConnected: () -> Unit = { refreshAll() }
@@ -217,6 +229,7 @@ class OverlayService : Service() {
         main.removeCallbacks(hideRunnable)
         main.removeCallbacks(closePopupsRunnable)
         main.removeCallbacks(projPoll)
+        main.removeCallbacks(clockTicker)
         closeAllPopups()
         
         runCatching { SettingsStore.prefs(this).unregisterOnSharedPreferenceChangeListener(prefsListener) }
@@ -1299,6 +1312,7 @@ class OverlayService : Service() {
                 }
                 updaters["proj"]?.invoke(RenderState())
                 updaters["header_info"]?.invoke(RenderState())
+                updaters["tempD_sync"]?.invoke(RenderState())
                 
                 // Dashboard dynamic updates
                 updaters.filter { it.key.startsWith("quick_") }.forEach { it.value(RenderState()) }
@@ -1428,16 +1442,15 @@ class OverlayService : Service() {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(40), 0, dp(40), 0)
         }
-        val tvBrand = TextView(this).apply { text = "CLIMA"; textSize = 18f; setTextColor(cTxt); setTypeface(typeface, Typeface.BOLD); letterSpacing = 0.1f }
-        header.addView(tvBrand)
-
-        header.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
-
-        val tvTime = TextView(this).apply { text = "--:--"; textSize = 12f; setTextColor(cTxt); setTypeface(typeface, Typeface.BOLD); setPadding(dp(24), 0, 0, 0) }
-        header.addView(tvTime)
+        val tvHeader = TextView(this).apply {
+            textSize = 18f; setTextColor(cTxt); setTypeface(typeface, Typeface.BOLD)
+            letterSpacing = 0.05f
+        }
+        header.addView(tvHeader)
 
         updaters["header_info"] = {
-            tvTime.text = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+            val sdf = java.text.SimpleDateFormat("HH:mm  -  EEEE, dd 'DE' MMMM 'DE' yyyy", java.util.Locale("pt", "BR"))
+            tvHeader.text = sdf.format(java.util.Date()).uppercase()
         }
 
         rootLayout.addView(header, FrameLayout.LayoutParams(dashWidth, dp(60), Gravity.TOP or Gravity.END))
@@ -1512,11 +1525,44 @@ class OverlayService : Service() {
     private fun createTempControl(c: Temp): View {
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }
 
+        val topArea = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        }
+
         val tv = TextView(this).apply {
             textSize = 54f; setTextColor(DockColors.CYAN); setTypeface(typeface, Typeface.BOLD); text = "--°C"
             setPadding(0, 0, 0, dp(12)); gravity = Gravity.CENTER
         }
-        layout.addView(tv)
+        topArea.addView(tv, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+
+        if (c.id == "tempD") {
+            val syncBtn = TextView(this).apply {
+                text = "SYNC"; textSize = 11f; setTextColor(cMuted); gravity = Gravity.CENTER
+                setTypeface(typeface, Typeface.BOLD); letterSpacing = 0.1f
+                background = pill(cSurfaceRaised, dp(14), stroke = cLine)
+                isClickable = true
+
+                fun update() {
+                    val isOn = VehicleClient.getData(DockKeys.CAR_HVAC_SYNC_ENABLE) == "1"
+                    background = pill(if (isOn) cSurfaceSelected else cSurfaceRaised, dp(14), stroke = if (isOn) cAccent else cLine)
+                    setTextColor(if (isOn) DockColors.CYAN else cMuted)
+                }
+
+                setOnClickListener {
+                    onUserActivity()
+                    val cur = VehicleClient.getData(DockKeys.CAR_HVAC_SYNC_ENABLE) == "1"
+                    val next = if (cur) "0" else "1"
+                    io.execute { VehicleClient.set(DockKeys.CAR_HVAC_SYNC_ENABLE, next); main.post { refreshAll() } }
+                }
+
+                updaters["tempD_sync"] = { update() }
+                update()
+            }
+            topArea.addView(syncBtn, FrameLayout.LayoutParams(dp(60), dp(32), Gravity.START or Gravity.CENTER_VERTICAL).apply {
+                topMargin = dp(-10) // Ajuste para alinhar melhor com o número grande
+            })
+        }
+        layout.addView(topArea)
 
         val sliderW = dp(280); val sliderH = dp(14)
         val totalW = dp(380)
@@ -1553,7 +1599,13 @@ class OverlayService : Service() {
 
         fun updateUI(v: Double) {
             val r = ((v - c.min) / (c.hi() - c.min)).toFloat()
-            tv.text = "${c.fmt(v)}°C"; tv.setTextColor(DockColors.CYAN)
+            val text = "${c.fmt(v)}°C"
+            val sb = SpannableStringBuilder(text)
+            if (text.endsWith("°C")) {
+                sb.setSpan(RelativeSizeSpan(0.7f), text.length - 2, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            tv.text = sb
+            tv.setTextColor(DockColors.CYAN)
             val lp = fill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt()
             fill.layoutParams = lp
         }

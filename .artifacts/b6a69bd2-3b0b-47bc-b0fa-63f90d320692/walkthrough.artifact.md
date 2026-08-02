@@ -1,27 +1,21 @@
-# Lançamento v0.2.46: Melhoria na Organização das Configurações
+# Refinamento Estético: Unidades de Temperatura
 
-Refinamos a tela de configurações para ocultar grupos de opções que não são aplicáveis ao modo de visualização selecionado, mantendo a interface limpa e intuitiva.
+Ajustamos a exibição da temperatura no dashboard para que o valor numérico mantenha seu destaque visual, enquanto a unidade (°C) assume um tamanho mais discreto e elegante.
 
 ## O que mudou
 
-### 1. Visibilidade Condicional do Posicionamento
-- **Filtro Inteligente**: O grupo "Posicionamento das Seções" agora é ocultado automaticamente quando o "Tipo de Visualização" é **Dashboard**.
-- **Contexto**: Como o posicionamento manual é uma funcionalidade exclusiva da **Barra Inferior**, removê-lo quando o Dashboard está ativo evita confusão e economiza espaço na tela de configurações.
-
-### 2. Publicação e Versionamento
-- **Versão**: Atualizado para **0.2.46** (Build 39).
-- **GitHub**: Realizado o commit das alterações, criação da tag `v0.2.46` e push para o repositório oficial.
+### 1. Destaque Seletivo com Spans
+- **Número Grande**: Restauramos o tamanho do valor da temperatura para **54sp**, garantindo excelente legibilidade à distância.
+- **Unidade Reduzida**: Utilizamos `SpannableStringBuilder` para aplicar um `RelativeSizeSpan` de **0.7x** especificamente no sufixo "°C". Isso torna a unidade aproximadamente 30% menor que o número, seguindo padrões modernos de design de interfaces automotivas.
+- **Hierarquia Visual**: Esta técnica cria uma hierarquia clara, onde o dado principal (a temperatura) é o foco, e a unidade é apenas um complemento informativo.
 
 ## Como Testar
 
-1.  Abra a tela de Configurações.
-2.  Com o "Tipo de Visualização" em **Barra**:
-    - Verifique se o grupo "Posicionamento das Seções" está visível no final da lista.
-3.  Mude o "Tipo de Visualização" para **Dashboard**:
-    - Observe que o grupo "Posicionamento das Seções" desaparece instantaneamente.
-4.  Confirme no rodapé que a versão exibida é a `0.2.46`.
+1.  Abra o dashboard.
+2.  Observe os valores de temperatura nos cartões laterais.
+3.  O número (ex: **22.5**) deve aparecer em tamanho grande e negrito, enquanto o **°C** ao lado deve estar visivelmente menor e alinhado ao topo/centro da linha de base do texto.
 
 > [!TIP]
-> Essa mudança torna a configuração do app muito mais focada: você só vê o que realmente pode ajustar para o modo que escolheu usar.
+> Esta abordagem resolve o problema de "esmagamento" do layout quando tentávamos reduzir o tamanho de todo o texto, mantendo a área de toque e o alinhamento central perfeitos.
 
-render_diffs(file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/MainActivity.kt)
+render_diffs(file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/OverlayService.kt)

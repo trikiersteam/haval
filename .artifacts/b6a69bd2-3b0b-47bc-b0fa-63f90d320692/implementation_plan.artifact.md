@@ -1,48 +1,29 @@
-# Proteção Automática do Modo Simulação (Ambiente de Dev)
+# Adição do Botão SYNC e Ajuste de Tamanho da Temperatura
 
-O objetivo é automatizar completamente o "Modo Simulação" baseado na presença de um arquivo marcador local. Se o marcador existir (na sua máquina), o modo liga sozinho. Se não existir (versão final/carro), ele desliga sozinho. O usuário não poderá alterar isso manualmente pela interface.
-
-## Estratégia Técnica
-
-1.  **Marcador Local**: Arquivo `dev_marker` na raiz do projeto (ignorado pelo Git).
-2.  **Injeção no Build**: O Gradle verificará o arquivo e injetará a variável `BuildConfig.DEV_ENVIRONMENT`.
-3.  **Controle Centralizado**: O `SettingsStore` usará essa variável para forçar o estado da simulação.
-4.  **UI Bloqueada**: O switch na `MainActivity` servirá apenas como um indicador visual (ligado ou desligado), mas ficará sempre desabilitado para clique.
+Este plano detalha a inclusão do botão de sincronização (SYNC) no controle de temperatura do motorista e a redução do tamanho da fonte da temperatura para melhor equilíbrio visual.
 
 ## Mudanças Propostas
 
-### 1. Infraestrutura e Git
+### Overlay Service
 
-#### [MODIFY] [.gitignore](file:///Users/rodrigo/StudioProjects/haval/.gitignore)
-- Adicionar `dev_marker` para garantir que ele nunca suba para o repositório.
+#### [MODIFY] [OverlayService.kt](file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/OverlayService.kt)
 
-#### [NEW] `dev_marker`
-- Criar este arquivo vazio na raiz para ativar o modo na sua máquina agora.
+**1. Refatoração do `createTempControl`**
+- Adicionar um parâmetro opcional `id: String` ou `side: String` para identificar se é o controle do motorista.
+- Reduzir o `textSize` do valor da temperatura de **54f** para **43f** (~20% de redução).
+- Criar um `FrameLayout` no topo do card para conter tanto o valor da temperatura (centralizado) quanto o novo botão SYNC (alinhado à esquerda).
 
-#### [MODIFY] [build.gradle.kts](file:///Users/rodrigo/StudioProjects/haval/app/build.gradle.kts)
-- Adicionar a verificação: `val isDev = file("../dev_marker").exists()`.
-- Definir `buildConfigField("boolean", "DEV_ENVIRONMENT", isDev.toString())`.
-
-### 2. Lógica e UI
-
-#### [MODIFY] [SettingsStore.kt](file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/data/SettingsStore.kt)
-- No `init`, definir `simulationEnabled.value = BuildConfig.DEV_ENVIRONMENT`.
-- O método `setSimulationEnabled` será mantido mas não terá efeito prático pois a UI estará travada.
-
-#### [MODIFY] [MainActivity.kt](file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/MainActivity.kt)
-- O switch de "Modo Simulação" terá `enabled = false`.
-- A descrição será atualizada para: `"Ativado automaticamente em ambiente de desenvolvimento."`
+**2. Implementação do Botão SYNC**
+- O botão terá o texto "SYNC", fonte `10f` ou `11f` (conforme padrão de legendas), estilo negrito.
+- Estilo "pill" com borda e fundo dinâmico:
+    - **Ligado**: Fundo Azul (`SURFACE_SELECTED`), Borda Ciano, Texto Ciano.
+    - **Desligado**: Fundo Padrão (`SURFACE_RAISED`), Borda Linha, Texto Mudo.
+- Ação: Alternar o valor de `DockKeys.CAR_HVAC_SYNC_ENABLE` entre "1" e "0".
 
 ## Plano de Verificação
 
-### Verificação em Ambiente Dev (Sua máquina)
-1. Rodar o build.
-2. O switch de Simulação na tela de configurações deve aparecer **Ligado** (Azul/Verde) mas **Bloqueado** (Cinza/Desabilitado).
-
-### Verificação de Segurança (Simulada)
-1. Apagar o arquivo `dev_marker`.
-2. Rodar o build.
-3. O switch deve aparecer **Desligado** e **Bloqueado**.
-
-> [!IMPORTANT]
-> Após essa mudança, qualquer build gerado via CI (GitHub Actions) ou em outras máquinas sem o marcador será automaticamente uma versão de "Produção" (Simulação OFF).
+### Verificação Manual
+- Abrir o dashboard.
+- Confirmar que o botão SYNC aparece **apenas** no card de temperatura do motorista e está alinhado à esquerda.
+- Testar o clique no SYNC e verificar se o estado visual muda e se o comando é enviado ao carro.
+- Validar se o texto da temperatura ficou mais proporcional ao card com o novo tamanho reduzido.

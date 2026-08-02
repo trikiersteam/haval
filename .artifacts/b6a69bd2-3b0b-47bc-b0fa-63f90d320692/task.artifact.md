@@ -1,6 +1,4 @@
-- `[x]` Adicionar `dev_marker` ao `.gitignore`
-- `[x]` Criar arquivo `dev_marker` local
-- `[x]` Injetar `DEV_ENVIRONMENT` no `build.gradle.kts`
-- `[x]` Vincular `simulationEnabled` ao ambiente de dev em `SettingsStore.kt`
-- `[x]` Travar UI do modo simulação em `MainActivity.kt`
-- `[ ]` Publicar versão v0.2.47 (Commit, Tag, Push)
+- `[x]` Atualizar `createTempControl` para suportar o botão SYNC
+- `[x]` Reduzir tamanho da fonte da temperatura (54f -> 43f)
+- `[x]` Implementar lógica visual e de clique do botão SYNC
+- `[x]` Validar alinhamento e funcionamento no Dashboard
