@@ -1,6 +1,6 @@
-# Adição do Botão SYNC e Ajuste de Tamanho da Temperatura
+# Refatoração do Cartão de Bateria e Economia
 
-Este plano detalha a inclusão do botão de sincronização (SYNC) no controle de temperatura do motorista e a redução do tamanho da fonte da temperatura para melhor equilíbrio visual.
+O objetivo é otimizar o espaço no cartão de bateria, movendo as informações de Economia para a mesma linha da Autonomia e dando maior destaque visual ao percentual de carga (SOC).
 
 ## Mudanças Propostas
 
@@ -8,22 +8,26 @@ Este plano detalha a inclusão do botão de sincronização (SYNC) no controle d
 
 #### [MODIFY] [OverlayService.kt](file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/OverlayService.kt)
 
-**1. Refatoração do `createTempControl`**
-- Adicionar um parâmetro opcional `id: String` ou `side: String` para identificar se é o controle do motorista.
-- Reduzir o `textSize` do valor da temperatura de **54f** para **43f** (~20% de redução).
-- Criar um `FrameLayout` no topo do card para conter tanto o valor da temperatura (centralizado) quanto o novo botão SYNC (alinhado à esquerda).
+**1. Reestruturação da Linha Superior (`topRow`)**
+- Manter o ícone da bateria.
+- Manter o texto "BATERIA" (fixo, alinhado à esquerda).
+- Criar um novo container horizontal (`infoContainer`) com `weight = 1f`.
+- Dentro deste container, colocar:
+    - `autonomiaTv`: Texto da autonomia (ex: "450 KM").
+    - `ecoTv`: O texto de Economia (Min/Max), movido da linha inferior.
+- Estes textos terão um tamanho menor (ex: `10sp`) para caberem lado a lado.
 
-**2. Implementação do Botão SYNC**
-- O botão terá o texto "SYNC", fonte `10f` ou `11f` (conforme padrão de legendas), estilo negrito.
-- Estilo "pill" com borda e fundo dinâmico:
-    - **Ligado**: Fundo Azul (`SURFACE_SELECTED`), Borda Ciano, Texto Ciano.
-    - **Desligado**: Fundo Padrão (`SURFACE_RAISED`), Borda Linha, Texto Mudo.
-- Ação: Alternar o valor de `DockKeys.CAR_HVAC_SYNC_ENABLE` entre "1" e "0".
+**2. Destaque do SOC**
+- Aumentar o `textSize` do `valueTxt` (percentual de bateria) de **14sp** para **22sp** (seguindo o padrão de outros valores importantes no Dashboard).
+- Garantir que ele tenha um padding à esquerda para não "colar" nas outras informações.
+
+**3. Remoção de Linha Redundante**
+- Eliminar o `ecoRow` original, ganhando espaço vertical no cartão.
 
 ## Plano de Verificação
 
 ### Verificação Manual
-- Abrir o dashboard.
-- Confirmar que o botão SYNC aparece **apenas** no card de temperatura do motorista e está alinhado à esquerda.
-- Testar o clique no SYNC e verificar se o estado visual muda e se o comando é enviado ao carro.
-- Validar se o texto da temperatura ficou mais proporcional ao card com o novo tamanho reduzido.
+- Abrir o dashboard e confirmar que a linha superior agora contém: `[Ícone] BATERIA [Autonomia | Economia] [SOC%]`.
+- Verificar se o percentual da bateria está visivelmente maior e mais fácil de ler.
+- Validar se o texto de Economia (Min/Max) cabe corretamente ao lado da Autonomia.
+- Confirmar que as cores dinâmicas continuam sendo aplicadas corretamente em todos os elementos.

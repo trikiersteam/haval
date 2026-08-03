@@ -105,6 +105,8 @@ class OverlayService : Service() {
     private var lastCentralApp: String? = null  // último app não-projeção
 
     private var maxEconomicLevel = 0.0f
+    private var minEconomicLevel = 100.0f
+    private var firstEcoValue = true
 
     // Medidas e Cores
     private val barHeightPx: Int get() = dp(SettingsStore.barHeight(this))
@@ -257,8 +259,8 @@ class OverlayService : Service() {
 
         val isDash = visualMode == SettingsStore.VISUAL_DASHBOARD
         val h = if (hidden) handleHeightPx else (if (isDash) 720 else barHeightPx)
-        val w = if (hidden) dp(100) else (if (isDash) (1792 - 160) else WindowManager.LayoutParams.MATCH_PARENT)
-        val g = if (hidden) (Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL) else (Gravity.BOTTOM or (if (isDash) Gravity.END else Gravity.START))
+        val w = if (hidden) dp(100) else WindowManager.LayoutParams.MATCH_PARENT
+        val g = if (hidden) (Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL) else (Gravity.BOTTOM or (if (isDash) Gravity.CENTER_HORIZONTAL else Gravity.START))
 
         params = WindowManager.LayoutParams(
             w, h,
@@ -1429,18 +1431,24 @@ class OverlayService : Service() {
         root.removeAllViews()
         root.addView(rootLayout)
 
-        val dashWidth = 1792 - 160 // Reserva 1 polegada à esquerda
-        val panel = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            background = null // Painel externo transparente, cards individuais têm fundo
-            setPadding(dp(20), dp(10), dp(20), dp(20))
+        val dashWidth = 1792 //- 120 // Largura levemente ajustada
+        
+        // Container Mestre com fundo semi-transparente
+        val dashboardContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            // DockColors.SCREEN com 92% de opacidade (0xEB)
+            val bgColor = (0xEB shl 24) or (DockColors.SCREEN and 0x00FFFFFF)
+            background = pill(bgColor, dp(40))
+            setPadding(dp(10), dp(10), dp(10), dp(10))
         }
-        rootLayout.addView(panel, FrameLayout.LayoutParams(dashWidth, 720 - dp(60), Gravity.BOTTOM or Gravity.END))
+        rootLayout.addView(dashboardContainer, FrameLayout.LayoutParams(dashWidth, 720 - dp(80), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+            bottomMargin = dp(20)
+        })
 
-        // Header
+        // Header (Data e Hora)
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(40), 0, dp(40), 0)
+            setPadding(dp(40), dp(10), dp(40), 0)
         }
         val tvHeader = TextView(this).apply {
             textSize = 18f; setTextColor(cTxt); setTypeface(typeface, Typeface.BOLD)
@@ -1449,11 +1457,18 @@ class OverlayService : Service() {
         header.addView(tvHeader)
 
         updaters["header_info"] = {
-            val sdf = java.text.SimpleDateFormat("HH:mm  -  EEEE, dd 'DE' MMMM 'DE' yyyy", java.util.Locale("pt", "BR"))
+            val sdf = java.text.SimpleDateFormat("EEEE, dd 'DE' MMMM 'DE' yyyy", java.util.Locale("pt", "BR"))
             tvHeader.text = sdf.format(java.util.Date()).uppercase()
         }
+        dashboardContainer.addView(header, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(50)))
 
-        rootLayout.addView(header, FrameLayout.LayoutParams(dashWidth, dp(60), Gravity.TOP or Gravity.END))
+        // Painel de Colunas
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            background = null
+            setPadding(dp(20), dp(10), dp(20), dp(20))
+        }
+        dashboardContainer.addView(panel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
 
         // Colunas (Grade de 12 colunas simplificada: 4-4-4)
         val col1 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
@@ -1525,46 +1540,7 @@ class OverlayService : Service() {
     private fun createTempControl(c: Temp): View {
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }
 
-        val topArea = FrameLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        }
-
-        val tv = TextView(this).apply {
-            textSize = 54f; setTextColor(DockColors.CYAN); setTypeface(typeface, Typeface.BOLD); text = "--°C"
-            setPadding(0, 0, 0, dp(12)); gravity = Gravity.CENTER
-        }
-        topArea.addView(tv, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
-
-        if (c.id == "tempD") {
-            val syncBtn = TextView(this).apply {
-                text = "SYNC"; textSize = 11f; setTextColor(cMuted); gravity = Gravity.CENTER
-                setTypeface(typeface, Typeface.BOLD); letterSpacing = 0.1f
-                background = pill(cSurfaceRaised, dp(14), stroke = cLine)
-                isClickable = true
-
-                fun update() {
-                    val isOn = VehicleClient.getData(DockKeys.CAR_HVAC_SYNC_ENABLE) == "1"
-                    background = pill(if (isOn) cSurfaceSelected else cSurfaceRaised, dp(14), stroke = if (isOn) cAccent else cLine)
-                    setTextColor(if (isOn) DockColors.CYAN else cMuted)
-                }
-
-                setOnClickListener {
-                    onUserActivity()
-                    val cur = VehicleClient.getData(DockKeys.CAR_HVAC_SYNC_ENABLE) == "1"
-                    val next = if (cur) "0" else "1"
-                    io.execute { VehicleClient.set(DockKeys.CAR_HVAC_SYNC_ENABLE, next); main.post { refreshAll() } }
-                }
-
-                updaters["tempD_sync"] = { update() }
-                update()
-            }
-            topArea.addView(syncBtn, FrameLayout.LayoutParams(dp(60), dp(32), Gravity.START or Gravity.CENTER_VERTICAL).apply {
-                topMargin = dp(-10) // Ajuste para alinhar melhor com o número grande
-            })
-        }
-        layout.addView(topArea)
-
-        val sliderW = dp(280); val sliderH = dp(14)
+        val sliderW = dp(280); val sliderH = dp(44)
         val totalW = dp(380)
         val container = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(totalW, dp(44))
@@ -1581,17 +1557,24 @@ class OverlayService : Service() {
         container.addView(btn("−", -1), FrameLayout.LayoutParams(dp(44), dp(44), Gravity.START or Gravity.CENTER_VERTICAL))
 
         val track = FrameLayout(this).apply {
-            background = pill(cTrack, dp(7))
+            background = pill(cTrack, dp(22))
         }
         container.addView(track, FrameLayout.LayoutParams(sliderW, sliderH, Gravity.CENTER))
 
         val fill = View(this).apply {
             background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
                 intArrayOf(DockColors.CYAN, DockColors.WHITE, DockColors.ORANGE)).apply {
-                cornerRadius = dp(7).toFloat()
+                cornerRadius = dp(22).toFloat()
             }
         }
         track.addView(fill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
+
+        val tv = TextView(this).apply {
+            textSize = 22f; setTextColor(Color.WHITE); setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER; includeFontPadding = false
+            setShadowLayer(dp(2).toFloat(), 0f, 1f, Color.BLACK)
+        }
+        container.addView(tv, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.MATCH_PARENT, Gravity.CENTER))
 
         container.addView(btn("+", 1), FrameLayout.LayoutParams(dp(44), dp(44), Gravity.END or Gravity.CENTER_VERTICAL))
 
@@ -1602,10 +1585,9 @@ class OverlayService : Service() {
             val text = "${c.fmt(v)}°C"
             val sb = SpannableStringBuilder(text)
             if (text.endsWith("°C")) {
-                sb.setSpan(RelativeSizeSpan(0.7f), text.length - 2, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                sb.setSpan(RelativeSizeSpan(0.8f), text.length - 2, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
             tv.text = sb
-            tv.setTextColor(DockColors.CYAN)
             val lp = fill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt()
             fill.layoutParams = lp
         }
@@ -1706,26 +1688,28 @@ class OverlayService : Service() {
             setTypeface(typeface, Typeface.BOLD); letterSpacing = 0.1f
             background = pill(cSurfaceRaised, dp(18), stroke = cLine)
 
-            fun update() {
-                val isOn = VehicleClient.getData(key) == onV
+            fun update(forcedState: Boolean? = null) {
+                val isOn = forcedState ?: (VehicleClient.getData(key) == onV)
                 background = pill(if (isOn) cSurfaceSelected else cSurfaceRaised, dp(18), stroke = if (isOn) cAccent else cLine)
                 setTextColor(if (isOn) DockColors.CYAN else cMuted)
             }
 
             setOnClickListener {
                 onUserActivity()
-                val next = if (VehicleClient.getData(key) == onV) offV else onV
+                val isOn = VehicleClient.getData(key) == onV
+                update(!isOn)
+                val next = if (isOn) offV else onV
                 io.execute { VehicleClient.set(key, next); main.post { refreshAll() } }
             }
 
-            updaters["quick_${side}_$key"] = { update() }
+            updaters["quick_${side}_$key"] = { update(null) }
             update()
         }
 
-        val btnW = dp(110)
-        layout.addView(quickBtn("POWER", DockKeys.CAR_HVAC_POWER_MODE), LinearLayout.LayoutParams(btnW, dp(38)).apply { marginEnd = dp(8) })
-        layout.addView(quickBtn("A/C", DockKeys.CAR_HVAC_AC_ENABLE), LinearLayout.LayoutParams(btnW, dp(38)).apply { marginStart = dp(4); marginEnd = dp(4) })
-        layout.addView(quickBtn("AUTO", DockKeys.CAR_HVAC_AUTO_ENABLE), LinearLayout.LayoutParams(btnW, dp(38)).apply { marginStart = dp(8) })
+        layout.addView(quickBtn("POWER", DockKeys.CAR_HVAC_POWER_MODE), LinearLayout.LayoutParams(0, dp(38), 1f))
+        layout.addView(quickBtn("A/C", DockKeys.CAR_HVAC_AC_ENABLE), LinearLayout.LayoutParams(0, dp(38), 1f).apply { marginStart = dp(8) })
+        layout.addView(quickBtn("AUTO", DockKeys.CAR_HVAC_AUTO_ENABLE), LinearLayout.LayoutParams(0, dp(38), 1f).apply { marginStart = dp(8) })
+        layout.addView(quickBtn("SYNC", DockKeys.CAR_HVAC_SYNC_ENABLE), LinearLayout.LayoutParams(0, dp(38), 1f).apply { marginStart = dp(8) })
 
         return layout
     }
@@ -1738,15 +1722,37 @@ class OverlayService : Service() {
         val topRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         val batteryIcon = icon(R.drawable.battery_charging_medium, dp(20), DockColors.GREEN)
         topRow.addView(batteryIcon)
+        
         val label = TextView(this).apply {
-            text = "BATERIA"; textSize = 11f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD)
+            text = "BATERIA"; textSize = 18f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD)
             letterSpacing = 0.2f; setPadding(dp(8), 0, 0, 0)
         }
-        topRow.addView(label, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        topRow.addView(label)
+
         val valueTxt = TextView(this).apply {
-            textSize = 14f; setTextColor(cTxt); setTypeface(typeface, Typeface.BOLD); text = "0%"
+            textSize = 22f; setTextColor(cTxt); setTypeface(typeface, Typeface.BOLD); text = "0%"
+            setPadding(dp(8), 0, 0, 0)
         }
         topRow.addView(valueTxt)
+
+        val infoContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL or Gravity.END
+            setPadding(dp(12), 0, 0, 0)
+        }
+        
+        val autonomiaTv = TextView(this).apply {
+            text = "AUTONOMIA -- KM"; textSize = 13f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD)
+        }
+        infoContainer.addView(autonomiaTv)
+        
+        val ecoLabel = TextView(this).apply {
+            text = "ECONOMIA: --"; textSize = 13f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD)
+            setPadding(dp(12), 0, 0, 0)
+        }
+        infoContainer.addView(ecoLabel)
+        
+        topRow.addView(infoContainer, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+
         layout.addView(topRow)
 
         val track = FrameLayout(this).apply {
@@ -1759,23 +1765,12 @@ class OverlayService : Service() {
         track.addView(fill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
         layout.addView(track)
 
-        // Seção de Economia e Consumo (Simplificada com Views)
-        val ecoRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(12), 0, 0)
-        }
-        val ecoLabel = TextView(this).apply {
-            text = "ECONOMIA: -- (Max: --)"; textSize = 11f; setTextColor(cMuted)
-            setTypeface(typeface, Typeface.BOLD); letterSpacing = 0.05f
-        }
-        ecoRow.addView(ecoLabel)
-        layout.addView(ecoRow)
-
+        // Seção de Consumo (Simplificada com Views)
         val consumptionCard = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             background = pill(cSurfaceRaised, dp(12), stroke = cLine)
             setPadding(dp(12), dp(8), dp(12), dp(8))
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) }
         }
 
         fun consumptionItem(label: String, color: Int) = TextView(this).apply {
@@ -1800,21 +1795,37 @@ class OverlayService : Service() {
             fill.background = pill(st.color, dp(15))
 
             val range = VehicleClient.getData(DockKeys.CAR_EV_INFO_ELECTRIC_MODE_REMAIN_ODOMETER) ?: "--"
-            label.text = "BATERIA - Autonomia $range KM"
+            val autoSb = android.text.SpannableStringBuilder("AUTONOMIA $range KM")
+            if (range != "--") {
+                val start = 10 // "AUTONOMIA "
+                val end = start + range.length
+                autoSb.setSpan(android.text.style.ForegroundColorSpan(cTxt), start, end, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            autonomiaTv.text = autoSb
 
             // Atualiza Economic Level
             val rawEco = VehicleClient.getData(DockKeys.CAR_EV_INFO_ECONOMIC_GUIDE_LEVEL)?.toFloatOrNull() ?: 0f
             if (rawEco > 0) {
-                if (rawEco > maxEconomicLevel) maxEconomicLevel = rawEco
+                if (firstEcoValue) {
+                    minEconomicLevel = rawEco
+                    maxEconomicLevel = rawEco
+                    firstEcoValue = false
+                } else {
+                    if (rawEco > maxEconomicLevel) maxEconomicLevel = rawEco
+                    if (rawEco < minEconomicLevel) minEconomicLevel = rawEco
+                }
+                
                 val ecoColor = when {
                     rawEco >= 70f -> DockColors.CYAN
                     rawEco >= 40f -> DockColors.GREEN
                     else -> DockColors.AMBER
                 }
-                ecoLabel.text = "ECONOMIA: "
-                val sb = android.text.SpannableStringBuilder("${String.format("%.0f", rawEco)} (Max: ${String.format("%.0f", maxEconomicLevel)})")
-                sb.setSpan(android.text.style.ForegroundColorSpan(ecoColor), 0, sb.indexOf(" ("), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                ecoLabel.append(sb)
+                
+                val sb = android.text.SpannableStringBuilder("ECONOMIA: ${String.format("%.0f", rawEco)} (${String.format("%.0f", minEconomicLevel)} / ${String.format("%.0f", maxEconomicLevel)})")
+                sb.setSpan(android.text.style.ForegroundColorSpan(ecoColor), 10, sb.indexOf(" ("), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                ecoLabel.text = sb
+            } else {
+                ecoLabel.text = "ECONOMIA: --"
             }
 
             // Atualiza Consumo
@@ -1837,40 +1848,50 @@ class OverlayService : Service() {
 
         val modeRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
         val options = listOf(0 to "HEV", 1 to "Prioridade EV", 3 to "EV")
-        val tiles = options.map { (mode, label) ->
-            val tile = createModeTile(mode, label, c)
-            modeRow.addView(tile, LinearLayout.LayoutParams(0, dp(50), 1f).apply {
-                marginStart = dp(4); marginEnd = dp(4)
-            })
-            tile
+        
+        val tiles = options.map { (_, label) ->
+            createModeTile(label)
         }
-        layout.addView(modeRow)
 
-        layout.addView(gapView(16))
         val hevSub = createHevSubCard(c)
-        layout.addView(hevSub)
 
-        updaters[c.id] = { _ ->
-            val curMode = c.cur()
-            // Atualiza todos os tiles quando o modo muda
+        val updateUI = { targetMode: Int? ->
+            val curMode = targetMode ?: c.cur()
             options.forEachIndexed { i, (mode, _) ->
                 val active = curMode == mode
                 val tile = tiles[i] as LinearLayout
                 val icon = tile.getChildAt(0) as ImageView
                 val tvLabel = tile.getChildAt(1) as TextView
-                
                 val modeColor = c.colors[mode] ?: DockColors.GREEN
 
                 tile.background = pill(if (active) cSurfaceSelected else cSurfaceRaised, dp(16), stroke = if (active) modeColor else cLine)
                 icon.setColorFilter(if (active) modeColor else cMuted)
                 tvLabel.setTextColor(if (active) cTxt else cMuted)
             }
-
-            // Habilita/Desabilita o sub-card HEV
             val isHev = curMode == 0
             hevSub.alpha = if (isHev) 1f else 0.4f
             hevSub.isEnabled = isHev
         }
+
+        tiles.forEachIndexed { i, tile ->
+            modeRow.addView(tile, LinearLayout.LayoutParams(0, dp(50), 1f).apply {
+                marginStart = dp(4); marginEnd = dp(4)
+            })
+            tile.setOnClickListener {
+                onUserActivity()
+                val mode = options[i].first
+                updateUI(mode)
+                io.execute { c.select(mode); main.post { refreshAll() } }
+            }
+        }
+
+        layout.addView(modeRow)
+        layout.addView(gapView(16))
+        layout.addView(hevSub)
+
+        updaters[c.id] = { _ -> updateUI(null) }
+        updateUI(null)
+
         return layout
     }
 
@@ -1881,14 +1902,17 @@ class OverlayService : Service() {
             setPadding(dp(12), dp(10), dp(12), dp(10))
         }
 
+        var updateIntelBtn: (Boolean?) -> Unit = {}
+        var updateSliderUI: (Int, Boolean?) -> Unit = { _, _ -> }
+
         val intelBtn = TextView(this).apply {
             text = "INTELIGENTE"; textSize = 10f; setTextColor(cMuted); gravity = Gravity.CENTER
             setTypeface(typeface, Typeface.BOLD); letterSpacing = 0.05f
             background = pill(cCard, dp(12), stroke = cLine)
             isClickable = true
 
-            fun update() {
-                val active = c.curStrategy() == 1
+            updateIntelBtn = { forcedActive ->
+                val active = forcedActive ?: (c.curStrategy() == 1)
                 background = pill(if (active) cSurfaceSelected else cCard, dp(12), stroke = if (active) DockColors.AMBER else cLine)
                 setTextColor(if (active) DockColors.AMBER else cMuted)
             }
@@ -1896,11 +1920,13 @@ class OverlayService : Service() {
             setOnClickListener {
                 if (!layout.isEnabled) return@setOnClickListener
                 onUserActivity()
+                updateIntelBtn(true)
+                updateSliderUI(c.curHevSocInt(), false)
                 io.execute { c.select(0, strategy = 1); main.post { refreshAll() } }
             }
 
-            updaters["hev_strategy_1"] = { update() }
-            update()
+            updaters["hev_strategy_1"] = { updateIntelBtn(null) }
+            updateIntelBtn(null)
         }
         layout.addView(intelBtn, LinearLayout.LayoutParams(dp(110), dp(32)))
 
@@ -1926,8 +1952,8 @@ class OverlayService : Service() {
         track.addView(fill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
         sliderArea.addView(track)
 
-        fun updateSliderUI(soc: Int) {
-            val isSave = c.curStrategy() == 2
+        updateSliderUI = { soc, forcedActive ->
+            val isSave = forcedActive ?: (c.curStrategy() == 2)
             socLabel.text = "SAVE $soc%"
             socLabel.setTextColor(if (isSave) cTxt else cMuted)
 
@@ -1935,16 +1961,22 @@ class OverlayService : Service() {
             val lp = fill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt()
             fill.layoutParams = lp
             fill.background = pill(if (isSave) DockColors.AMBER else cMuted, dp(5))
+            sliderArea.alpha = if (isSave) 1f else 0.4f
         }
 
         track.setOnTouchListener { _, e ->
             if (!layout.isEnabled) return@setOnTouchListener true
             val r = (e.x / sliderW).coerceIn(0f, 1f)
             val soc = c.minSoc + (r * (c.maxSoc - c.minSoc)).toInt()
-            updateSliderUI(soc)
+            
+            if (e.action == MotionEvent.ACTION_MOVE) {
+                updateSliderUI(soc, c.curStrategy() == 2)
+            }
+            
             if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
                 onUserActivity()
-                // Força a mudança para a estratégia 2 (SAVE) ao interagir com a barra
+                updateSliderUI(soc, true)
+                updateIntelBtn(false)
                 io.execute { c.select(0, strategy = 2, soc = soc); main.post { refreshAll() } }
             }
             true
@@ -1953,15 +1985,13 @@ class OverlayService : Service() {
         layout.addView(sliderArea)
 
         updaters["hev_sub_card"] = {
-            updateSliderUI(c.curHevSocInt())
-            val isSave = c.curStrategy() == 2
-            sliderArea.alpha = if (isSave) 1f else 0.4f
+            updateSliderUI(c.curHevSocInt(), null)
         }
 
         return layout
     }
 
-    private fun createModeTile(mode: Int, label: String, c: Mode): View {
+    private fun createModeTile(label: String): View {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
             isClickable = true
@@ -1973,8 +2003,6 @@ class OverlayService : Service() {
             setPadding(dp(8), 0, 0, 0)
         }
         layout.addView(tvLabel)
-
-        layout.setOnClickListener { onUserActivity(); io.execute { c.select(mode); main.post { refreshAll() } } }
         return layout
     }
 
@@ -2040,6 +2068,15 @@ class OverlayService : Service() {
         val options = DockControls.AIRFLOW_OPTIONS
         val icons = ArrayList<ImageView>()
 
+        val updateUI = { targetOpt: AirflowOption? ->
+            options.forEachIndexed { i, opt ->
+                val iv = icons.getOrNull(i) ?: return@forEachIndexed
+                val isCur = if (targetOpt != null) opt == targetOpt else DockControls.AIRFLOW_CONTROL.currentOption() == opt
+                iv.background = pill(if (isCur) cSurfaceSelected else cSurfaceRaised, dp(14), stroke = if (isCur) cAccent else cLine)
+                iv.setColorFilter(if (isCur) DockColors.CYAN else cMuted)
+            }
+        }
+
         options.forEachIndexed { i, opt ->
             val iv = icon(opt.icon, cMuted, 28).apply {
                 setPadding(dp(12), dp(10), dp(12), dp(10))
@@ -2048,6 +2085,7 @@ class OverlayService : Service() {
 
                 setOnClickListener {
                     onUserActivity()
+                    updateUI(opt)
                     io.execute { DockControls.AIRFLOW_CONTROL.select(opt); main.post { refreshAll() } }
                 }
             }
@@ -2056,12 +2094,9 @@ class OverlayService : Service() {
                 if (i > 0) marginStart = dp(8)
             })
 
-            updaters["dash_air_${side}_${opt.label}"] = {
-                val isCur = DockControls.AIRFLOW_CONTROL.currentOption() == opt
-                iv.background = pill(if (isCur) cSurfaceSelected else cSurfaceRaised, dp(14), stroke = if (isCur) cAccent else cLine)
-                iv.setColorFilter(if (isCur) DockColors.CYAN else cMuted)
-            }
+            updaters["dash_air_${side}_${opt.label}"] = { updateUI(null) }
         }
+        updateUI(null)
         return layout
     }
 

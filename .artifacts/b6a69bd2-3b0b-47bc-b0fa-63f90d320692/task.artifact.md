@@ -1,4 +1,4 @@
-- `[x]` Atualizar `createTempControl` para suportar o botão SYNC
-- `[x]` Reduzir tamanho da fonte da temperatura (54f -> 43f)
-- `[x]` Implementar lógica visual e de clique do botão SYNC
-- `[x]` Validar alinhamento e funcionamento no Dashboard
+- `[x]` Refatorar `topRow` de bateria para incluir Autonomia e Economia lado a lado
+- `[x]` Aumentar tamanho da fonte do SOC (Bateria %) para 22sp
+- `[x]` Remover `ecoRow` e ajustar paddings do cartão de bateria
+- `[x]` Validar alinhamento e legibilidade das informações unificadas
