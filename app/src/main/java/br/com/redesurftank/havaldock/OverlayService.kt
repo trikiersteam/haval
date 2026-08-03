@@ -1437,7 +1437,7 @@ class OverlayService : Service() {
         val dashboardContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             // DockColors.SCREEN com 92% de opacidade (0xEB)
-            val bgColor = (0xEB shl 24) or (DockColors.SCREEN and 0x00FFFFFF)
+            val bgColor = (0xFF shl 24) or (DockColors.SCREEN and 0x00FFFFFF) // (0xEB shl 24) 92% opaco 0xFF 100%
             background = pill(bgColor, dp(40))
             setPadding(dp(10), dp(10), dp(10), dp(10))
         }
