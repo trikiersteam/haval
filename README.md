@@ -1,13 +1,11 @@
 # Haval Dock
 
 Projeto de estudo, copia de projeto haval-dock de licença MIT aberta.
+Agradecimento especial aos HavaleirosBrasil.
 
 Uma **toolbar inferior** (barra de atalhos) para a central Haval/GWM, desenhada como **overlay**
 por cima do mediacenter/CarPlay. App Android **standalone** (não depende de outros apps nem de
 aprovação de terceiros).
-
-A barra fica **só na faixa de baixo** da tela — nunca cobre o header, o meio ou as laterais (é onde
-o mapa/CarPlay aparece). As configurações abrem **apenas pelo ícone do app** na central.
 
 ## Estado
 
@@ -15,9 +13,6 @@ o mapa/CarPlay aparece). As configurações abrem **apenas pelo ícone do app** 
 (ver `prototype/`) e a implementação do app (overlay + leitura/escrita das funções do veículo)
 está em andamento.
 
-## A barra (10 controles, esquerda → direita)
-
-`Temp. motorista · Ventil. motorista | Veloc. ar-cond. · Recirculador | Modo condução · Modo direção · Regeneração | Temp. passageiro · Ventil. passageiro | Volume rádio`
 
 ## Stack
 
