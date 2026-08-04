@@ -32,5 +32,5 @@ git tag v0.1.0 && git push origin v0.1.0
 ```
 
 ## Protótipo
+executa diretamente no emulador com várias mock quando flag simulacao está habilitado.
 
-`prototype/index.html` — mockup HTML da barra + tela de configurações (abre direto no navegador).
