@@ -2,6 +2,14 @@
 
 Este arquivo contém diretrizes essenciais para assistentes de IA (Gemini/Gomini) trabalharem no projeto **HavalDock**.
 
+## 🚀 Procedimento de Lançamento (Release)
+1. **Versão:** Incrementar `versionCode` e `versionName` em `app/build.gradle.kts`.
+2. **Build:** Executar `./gradlew assembleRelease`.
+3. **Git:** 
+   - Commitar as mudanças.
+   - Criar tag: `git tag <versionName>`.
+   - Push: `git push origin main --tags`.
+
 ## 📱 Especificações do Hardware (Carro)
 - **Resolução da Tela:** 1920x720 pixels (Ultra-wide landscape).
 - **Densidade:** 321 dpi.
