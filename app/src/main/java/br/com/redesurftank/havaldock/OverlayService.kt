@@ -104,10 +104,6 @@ class OverlayService : Service() {
     private var lastProjection: String? = null  // última projeção vista
     private var lastCentralApp: String? = null  // último app não-projeção
 
-    private var maxEconomicLevel = 0.0f
-    private var minEconomicLevel = 100.0f
-    private var firstEcoValue = true
-
     // Medidas e Cores
     private val barHeightPx: Int get() = dp(SettingsStore.barHeight(this))
     private val handleHeightPx by lazy { dp(HANDLE_DP) }
@@ -259,8 +255,8 @@ class OverlayService : Service() {
 
         val isDash = visualMode == SettingsStore.VISUAL_DASHBOARD
         val h = if (hidden) handleHeightPx else (if (isDash) 720 else barHeightPx)
-        val w = if (hidden) dp(100) else WindowManager.LayoutParams.MATCH_PARENT
-        val g = if (hidden) (Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL) else (Gravity.BOTTOM or (if (isDash) Gravity.CENTER_HORIZONTAL else Gravity.START))
+        val w = if (hidden) dp(100) else (if (isDash) 1792 else WindowManager.LayoutParams.MATCH_PARENT)
+        val g = if (hidden) (Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL) else (Gravity.BOTTOM or (if (isDash) Gravity.END else Gravity.START))
 
         params = WindowManager.LayoutParams(
             w, h,
@@ -1431,13 +1427,13 @@ class OverlayService : Service() {
         root.removeAllViews()
         root.addView(rootLayout)
 
-        val dashWidth = 1792 //- 120 // Largura levemente ajustada
+        val dashWidth = 1792
         
         // Container Mestre com fundo semi-transparente
         val dashboardContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             // DockColors.SCREEN com 92% de opacidade (0xEB)
-            val bgColor = (0xFF shl 24) or (DockColors.SCREEN and 0x00FFFFFF) // (0xEB shl 24) 92% opaco 0xFF 100%
+            val bgColor = (0xFF shl 24) or (DockColors.SCREEN and 0x00FFFFFF)
             background = pill(bgColor, dp(40))
             setPadding(dp(10), dp(10), dp(10), dp(10))
         }
@@ -1570,9 +1566,9 @@ class OverlayService : Service() {
         track.addView(fill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
 
         val tv = TextView(this).apply {
-            textSize = 22f; setTextColor(Color.WHITE); setTypeface(typeface, Typeface.BOLD)
+            textSize = 26f; setTextColor(Color.WHITE); setTypeface(typeface, Typeface.BOLD)
             gravity = Gravity.CENTER; includeFontPadding = false
-            setShadowLayer(dp(2).toFloat(), 0f, 1f, Color.BLACK)
+            setShadowLayer(dp(6).toFloat(), 0f, 1f, Color.BLACK)
         }
         container.addView(tv, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.MATCH_PARENT, Gravity.CENTER))
 
@@ -1729,62 +1725,27 @@ class OverlayService : Service() {
         }
         topRow.addView(label)
 
-        val valueTxt = TextView(this).apply {
-            textSize = 22f; setTextColor(cTxt); setTypeface(typeface, Typeface.BOLD); text = "0%"
-            setPadding(dp(8), 0, 0, 0)
-        }
-        topRow.addView(valueTxt)
-
-        val infoContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL or Gravity.END
-            setPadding(dp(12), 0, 0, 0)
-        }
-        
-        val autonomiaTv = TextView(this).apply {
-            text = "AUTONOMIA -- KM"; textSize = 13f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD)
-        }
-        infoContainer.addView(autonomiaTv)
-        
-        val ecoLabel = TextView(this).apply {
-            text = "ECONOMIA: --"; textSize = 13f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD)
-            setPadding(dp(12), 0, 0, 0)
-        }
-        infoContainer.addView(ecoLabel)
-        
-        topRow.addView(infoContainer, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-
         layout.addView(topRow)
 
         val track = FrameLayout(this).apply {
-            background = pill(cTrack, dp(15))
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(15)).apply { topMargin = dp(12) }
+            background = pill(cTrack, dp(32))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(32)).apply { topMargin = dp(16) }
         }
         val fill = View(this).apply {
-            background = pill(DockColors.GREEN, dp(15))
+            background = pill(DockColors.GREEN, dp(32))
         }
         track.addView(fill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
+
+        val valueTxt = TextView(this).apply {
+            textSize = 26f; setTextColor(Color.WHITE);
+            setTypeface(typeface, Typeface.BOLD);
+            text = "0%"
+            gravity = Gravity.CENTER; includeFontPadding = false
+            setShadowLayer(dp(6).toFloat(), 0f, 1f, Color.BLACK)
+        }
+        track.addView(valueTxt, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.MATCH_PARENT, Gravity.CENTER))
+
         layout.addView(track)
-
-        // Seção de Consumo (Simplificada com Views)
-        val consumptionCard = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            background = pill(cSurfaceRaised, dp(12), stroke = cLine)
-            setPadding(dp(12), dp(8), dp(12), dp(8))
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) }
-        }
-
-        fun consumptionItem(label: String, color: Int) = TextView(this).apply {
-            text = "$label: --"; textSize = 11f; setTextColor(color)
-            setTypeface(typeface, Typeface.BOLD); gravity = Gravity.CENTER
-        }
-
-        val energyTv = consumptionItem("ENERGIA", DockColors.CYAN)
-        val fuelTv = consumptionItem("GASOLINA", DockColors.AMBER)
-
-        consumptionCard.addView(energyTv, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        consumptionCard.addView(View(this).apply { background = pill(cLine, 1) }, LinearLayout.LayoutParams(dp(1), dp(16)))
-        consumptionCard.addView(fuelTv, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        layout.addView(consumptionCard)
 
         updaters[c.id] = { st ->
             val v = (st.text?.toString()?.replace("%", "")?.toIntOrNull() ?: 0).coerceIn(0, 100)
@@ -1792,47 +1753,7 @@ class OverlayService : Service() {
 
             batteryIcon.setImageResource(st.icon)
             batteryIcon.setColorFilter(st.color)
-            fill.background = pill(st.color, dp(15))
-
-            val range = VehicleClient.getData(DockKeys.CAR_EV_INFO_ELECTRIC_MODE_REMAIN_ODOMETER) ?: "--"
-            val autoSb = android.text.SpannableStringBuilder("AUTONOMIA $range KM")
-            if (range != "--") {
-                val start = 10 // "AUTONOMIA "
-                val end = start + range.length
-                autoSb.setSpan(android.text.style.ForegroundColorSpan(cTxt), start, end, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            }
-            autonomiaTv.text = autoSb
-
-            // Atualiza Economic Level
-            val rawEco = VehicleClient.getData(DockKeys.CAR_EV_INFO_ECONOMIC_GUIDE_LEVEL)?.toFloatOrNull() ?: 0f
-            if (rawEco > 0) {
-                if (firstEcoValue) {
-                    minEconomicLevel = rawEco
-                    maxEconomicLevel = rawEco
-                    firstEcoValue = false
-                } else {
-                    if (rawEco > maxEconomicLevel) maxEconomicLevel = rawEco
-                    if (rawEco < minEconomicLevel) minEconomicLevel = rawEco
-                }
-                
-                val ecoColor = when {
-                    rawEco >= 70f -> DockColors.CYAN
-                    rawEco >= 40f -> DockColors.GREEN
-                    else -> DockColors.AMBER
-                }
-                
-                val sb = android.text.SpannableStringBuilder("ECONOMIA: ${String.format("%.0f", rawEco)} (${String.format("%.0f", minEconomicLevel)} / ${String.format("%.0f", maxEconomicLevel)})")
-                sb.setSpan(android.text.style.ForegroundColorSpan(ecoColor), 10, sb.indexOf(" ("), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                ecoLabel.text = sb
-            } else {
-                ecoLabel.text = "ECONOMIA: --"
-            }
-
-            // Atualiza Consumo
-            val energy = VehicleClient.getData(DockKeys.CAR_EV_INFO_CYCLE_ENERGY_CONSUME_INFO) ?: "--"
-            val fuel = VehicleClient.getData(DockKeys.CAR_EV_INFO_CYCLE_FUEL_CONSUME_INFO) ?: "--"
-            energyTv.text = "ENERGIA: $energy KW"
-            fuelTv.text = "GASOLINA: $fuel L"
+            fill.background = pill(st.color, dp(32))
 
             val lp = fill.layoutParams as FrameLayout.LayoutParams
             track.post {
@@ -1941,7 +1862,7 @@ class OverlayService : Service() {
         }
         sliderArea.addView(socLabel)
 
-        val sliderW = dp(220); val sliderH = dp(20) //barra do save% tamanho e especura
+        val sliderW = dp(280); val sliderH = dp(30) //barra do save% tamanho e especura
         val track = FrameLayout(this).apply {
             background = pill(cTrack, dp(5))
             layoutParams = LinearLayout.LayoutParams(sliderW, sliderH).apply { marginStart = dp(8) }
@@ -2198,7 +2119,7 @@ class OverlayService : Service() {
             
             val visualMode = SettingsStore.visualMode.value
             val isDash = visualMode == SettingsStore.VISUAL_DASHBOARD
-            params.width = if (isDash) (1792 - 160) else WindowManager.LayoutParams.MATCH_PARENT
+            params.width = if (isDash) 1792 else WindowManager.LayoutParams.MATCH_PARENT
             params.height = if (isDash) 720 else barHeightPx
             params.gravity = Gravity.BOTTOM or (if (isDash) Gravity.END else Gravity.START)
             
