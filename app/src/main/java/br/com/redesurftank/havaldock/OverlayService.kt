@@ -1862,7 +1862,7 @@ class OverlayService : Service() {
         }
         sliderArea.addView(socLabel)
 
-        val sliderW = dp(280); val sliderH = dp(30) //barra do save% tamanho e especura
+        val sliderW = dp(280); val sliderH = dp(30) //barra do save% tamanho e espessura
         val track = FrameLayout(this).apply {
             background = pill(cTrack, dp(5))
             layoutParams = LinearLayout.LayoutParams(sliderW, sliderH).apply { marginStart = dp(8) }

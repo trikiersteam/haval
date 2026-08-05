@@ -280,7 +280,7 @@ class TxtToggle(id: String, section: Int, label: String, val key: String) :
     fun flip() = VehicleClient.set(key, if (isOn()) "0" else "1")
 }
 
-/** Toggle de ícone (recirculador): troca o ícone por estado. Neste carro cycle_mode 0=recirc, 1=externo. */
+/** Toggle de ícone (recirculador): troca o ícone por estado. Neste carro cycle_mode 0=recirc, 1=externo.*/
 class IconToggle(id: String, section: Int, label: String, @DrawableRes val iconOn: Int,
                 @DrawableRes val iconOff: Int, val key: String, val onV: String, val offV: String) :
     Control(id, section, label) {

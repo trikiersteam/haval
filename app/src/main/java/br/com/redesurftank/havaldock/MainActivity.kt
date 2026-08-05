@@ -139,7 +139,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // ---- barra ----
+            // ---- barra ---- 
             SectionCard("Interface Visual") {
                 Text("Tipo de Visualização", color = Color.White, fontSize = 16.sp)
                 Text("Escolha entre a barra compacta ou o painel completo.", color = Muted, fontSize = 13.sp)
