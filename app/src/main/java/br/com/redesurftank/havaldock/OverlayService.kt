@@ -107,6 +107,15 @@ class OverlayService : Service() {
     private var lastManualSoc: Int = -1
     private var lastManualSocTime: Long = 0
 
+    private var lastManualVol: Int = -1
+    private var lastManualVolTime: Long = 0
+
+    private var lastManualTempD: Double = -1.0
+    private var lastManualTempDTime: Long = 0
+
+    private var lastManualTempP: Double = -1.0
+    private var lastManualTempPTime: Long = 0
+
     // Medidas e Cores
     private val barHeightPx: Int get() = dp(SettingsStore.barHeight(this))
     private val handleHeightPx by lazy { dp(HANDLE_DP) }
@@ -405,9 +414,15 @@ class OverlayService : Service() {
             gravity = Gravity.CENTER; setPadding(dp(14), 0, dp(14), 0)
         }
         row.addView(tv)
-        updaters[c.id] = { st -> 
-            tv.text = st.text
-            tv.setTextColor(st.color)
+        updaters[c.id] = { st ->
+            val now = System.currentTimeMillis()
+            val cur = c.read() ?: c.min
+            val manualVal = if (c.id == "tempD") lastManualTempD else lastManualTempP
+            val manualTime = if (c.id == "tempD") lastManualTempDTime else lastManualTempPTime
+            if (now - manualTime > 2000 || cur == manualVal) {
+                tv.text = st.text
+                tv.setTextColor(st.color)
+            }
         }
 
         var startX = 0f
@@ -462,8 +477,12 @@ class OverlayService : Service() {
         v.addView(ic)
         v.addView(track.first)
         updaters[c.id] = { st ->
-            setTrack(track.second, st.ratio)
-            if (st.icon != 0) ic.setImageResource(st.icon)
+            val now = System.currentTimeMillis()
+            val v = c.value()
+            if (now - lastManualVolTime > 1000 || v == lastManualVol) {
+                setTrack(track.second, st.ratio)
+                if (st.icon != 0) ic.setImageResource(st.icon)
+            }
         }
         v.setOnClickListener { onUserActivity(); openVolume(c, v) }
         return v
@@ -656,6 +675,8 @@ class OverlayService : Service() {
             if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
                 onUserActivity()
                 currentV = v
+                lastManualVol = v
+                lastManualVolTime = System.currentTimeMillis()
                 io.execute { c.set(v); main.post { refreshAll() } }
             }
             true
@@ -984,6 +1005,8 @@ class OverlayService : Service() {
             updateTempUI(v)
             if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
                 onUserActivity()
+                if (c.id == "tempD") { lastManualTempD = v; lastManualTempDTime = System.currentTimeMillis() }
+                else if (c.id == "tempP") { lastManualTempP = v; lastManualTempPTime = System.currentTimeMillis() }
                 io.execute { c.select(v); main.post { refreshAll() } }
             }
             true
@@ -1630,16 +1653,6 @@ class OverlayService : Service() {
             layoutParams = LinearLayout.LayoutParams(totalW, dp(44))
         }
 
-        fun btn(txt: String, dir: Int) = TextView(this).apply {
-            text = txt; textSize = 24f; setTextColor(cTxt); gravity = Gravity.CENTER
-            setTypeface(typeface, Typeface.NORMAL)
-            background = pill(cSurfaceRaised, dp(22), stroke = cLine)
-            isClickable = true
-            setOnClickListener { onUserActivity(); io.execute { c.nudge(dir); main.post { refreshAll() } } }
-        }
-
-        container.addView(btn("−", -1), FrameLayout.LayoutParams(dp(44), dp(44), Gravity.START or Gravity.CENTER_VERTICAL))
-
         val track = FrameLayout(this).apply {
             background = pill(cTrack, dp(22))
         }
@@ -1660,10 +1673,6 @@ class OverlayService : Service() {
         }
         container.addView(tv, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.MATCH_PARENT, Gravity.CENTER))
 
-        container.addView(btn("+", 1), FrameLayout.LayoutParams(dp(44), dp(44), Gravity.END or Gravity.CENTER_VERTICAL))
-
-        layout.addView(container)
-
         fun updateUI(v: Double) {
             val r = ((v - c.min) / (c.hi() - c.min)).toFloat()
             val text = "${c.fmt(v)}°C"
@@ -1676,6 +1685,27 @@ class OverlayService : Service() {
             fill.layoutParams = lp
         }
 
+        fun btn(txt: String, dir: Int) = TextView(this).apply {
+            text = txt; textSize = 24f; setTextColor(cTxt); gravity = Gravity.CENTER
+            setTypeface(typeface, Typeface.NORMAL)
+            background = pill(cSurfaceRaised, dp(22), stroke = cLine)
+            isClickable = true
+            setOnClickListener {
+                onUserActivity()
+                val cur = c.read() ?: c.min
+                val next = (cur + dir * c.step).coerceIn(c.min, c.hi())
+                updateUI(next)
+                if (c.id == "tempD") { lastManualTempD = next; lastManualTempDTime = System.currentTimeMillis() }
+                else if (c.id == "tempP") { lastManualTempP = next; lastManualTempPTime = System.currentTimeMillis() }
+                io.execute { c.select(next); main.post { refreshAll() } }
+            }
+        }
+
+        container.addView(btn("−", -1), FrameLayout.LayoutParams(dp(44), dp(44), Gravity.START or Gravity.CENTER_VERTICAL))
+        container.addView(btn("+", 1), FrameLayout.LayoutParams(dp(44), dp(44), Gravity.END or Gravity.CENTER_VERTICAL))
+
+        layout.addView(container)
+
         val touchArea = View(this).apply { isClickable = true }
         container.addView(touchArea, FrameLayout.LayoutParams(sliderW, dp(44), Gravity.CENTER))
 
@@ -1684,11 +1714,24 @@ class OverlayService : Service() {
             val v = (Math.round((c.min + r * (c.hi() - c.min)) / c.step) * c.step).coerceIn(c.min, c.hi())
             updateUI(v)
             if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
-                onUserActivity(); io.execute { c.select(v); main.post { refreshAll() } }
+                onUserActivity()
+                if (c.id == "tempD") { lastManualTempD = v; lastManualTempDTime = System.currentTimeMillis() }
+                else if (c.id == "tempP") { lastManualTempP = v; lastManualTempPTime = System.currentTimeMillis() }
+                io.execute { c.select(v); main.post { refreshAll() } }
             }
             true
         }
-        updaters[c.id] = { _ -> updateUI(c.read() ?: c.min) }
+        updaters[c.id] = { _ ->
+            val cur = c.read() ?: c.min
+            val now = System.currentTimeMillis()
+            if (c.id == "tempD") {
+                if (now - lastManualTempDTime > 2000 || cur == lastManualTempD) updateUI(cur)
+            } else if (c.id == "tempP") {
+                if (now - lastManualTempPTime > 2000 || cur == lastManualTempP) updateUI(cur)
+            } else {
+                updateUI(cur)
+            }
+        }
         return layout
     }
 
@@ -2370,15 +2413,20 @@ class OverlayService : Service() {
             if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
                 onUserActivity()
                 currentV = v
+                lastManualVol = v
+                lastManualVolTime = System.currentTimeMillis()
                 io.execute { c.set(v); main.post { refreshAll() } }
             }
             true
         }
         updaters[c.id] = { st ->
             val v = c.value()
-            currentV = v
-            updateUI(v)
-            if (st.icon != 0) volumeIcon.setImageResource(st.icon)
+            val now = System.currentTimeMillis()
+            if (now - lastManualVolTime > 1000 || v == lastManualVol) {
+                currentV = v
+                updateUI(v)
+                if (st.icon != 0) volumeIcon.setImageResource(st.icon)
+            }
         }
         return layout
     }
