@@ -29,6 +29,7 @@ object SettingsStore {
     const val KEY_SEC3_X = "sec3_x"
     const val KEY_BOOT = "launch_on_boot"
     const val KEY_VISUAL_MODE = "visual_mode"
+    const val KEY_LIGHT_FLOATING = "light_floating"
 
     const val MODE_ALWAYS = "always"
     const val MODE_AUTO = "auto"
@@ -69,6 +70,7 @@ object SettingsStore {
     val sec3X = mutableIntStateOf(920)
     val launchOnBoot = mutableStateOf(true)
     val visualMode = mutableStateOf(VISUAL_BAR)
+    val lightFloatingEnabled = mutableStateOf(false)
 
     fun init(context: Context) {
         appCtx = context.applicationContext
@@ -88,6 +90,7 @@ object SettingsStore {
         launchOnBoot.value = p.getBoolean(KEY_BOOT, true)
         val mode = p.getString(KEY_VISUAL_MODE, VISUAL_BAR) ?: VISUAL_BAR
         visualMode.value = if (mode == VISUAL_BALLOONS) VISUAL_BAR else mode
+        lightFloatingEnabled.value = p.getBoolean(KEY_LIGHT_FLOATING, false)
     }
 
     fun setOverlayEnabled(v: Boolean) {
@@ -161,6 +164,11 @@ object SettingsStore {
         prefs(appCtx).edit().putString(KEY_VISUAL_MODE, v).apply()
     }
 
+    fun setLightFloatingEnabled(v: Boolean) {
+        lightFloatingEnabled.value = v
+        prefs(appCtx).edit().putBoolean(KEY_LIGHT_FLOATING, v).apply()
+    }
+
     fun isLaunchOnBoot(context: Context): Boolean =
         prefs(context).getBoolean(KEY_BOOT, true)
 
@@ -184,6 +192,9 @@ object SettingsStore {
 
     fun isItemFrameEnabled(context: Context): Boolean =
         prefs(context).getBoolean(KEY_ITEM_FRAME, false)
+
+    fun isLightFloatingEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_LIGHT_FLOATING, false)
 
     fun isSimulationEnabled(context: Context): Boolean =
         prefs(context).getBoolean(KEY_SIMULATION, isEmulator())

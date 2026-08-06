@@ -29,7 +29,6 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import br.com.redesurftank.havaldock.data.Airflow
 import br.com.redesurftank.havaldock.data.AirflowOption
 import br.com.redesurftank.havaldock.data.Battery
 import br.com.redesurftank.havaldock.data.Control
@@ -191,7 +190,7 @@ class OverlayService : Service() {
         if (key != null && key.startsWith("sec") && key.endsWith("_x")) {
             main.post { updateSectionsPosition() }
         }
-        if (key == SettingsStore.KEY_BAR_HEIGHT || key == SettingsStore.KEY_VISUAL_MODE) {
+        if (key == SettingsStore.KEY_BAR_HEIGHT || key == SettingsStore.KEY_VISUAL_MODE || key == SettingsStore.KEY_LIGHT_FLOATING) {
             if (key == SettingsStore.KEY_BAR_HEIGHT) params.height = barHeightPx
             if (!hidden) main.post {
                 if (::root.isInitialized) runCatching { wm.removeView(root) }
@@ -211,7 +210,7 @@ class OverlayService : Service() {
     override fun onCreate() {
         super.onCreate()
         startForeground(NOTIF_ID, buildNotification())
-        wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        wm = getSystemService(WINDOW_SERVICE) as WindowManager
         buildOverlay()
         
         SettingsStore.prefs(this).registerOnSharedPreferenceChangeListener(prefsListener)
@@ -272,9 +271,7 @@ class OverlayService : Service() {
 
         params = WindowManager.LayoutParams(
             w, h,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
@@ -391,8 +388,6 @@ class OverlayService : Service() {
         is Regen -> tileRegen(c)
         else -> View(this)
     }
-
-    private fun gap(v: View, start: Int) { (v.layoutParams as LinearLayout.LayoutParams).marginStart = dp(start) }
 
     private fun col() = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
@@ -722,42 +717,6 @@ class OverlayService : Service() {
         if (s > 0) main.postDelayed(closePopupsRunnable, s * 1000L)
     }
 
-    // ---- popup de fluxo de ar (linha horizontal de ícones) ----
-
-    private fun openAirflow(c: Airflow, anchor: View) {
-        if (airflowWin != null) { closeAirflow(); return }
-        closeVolume(); closeLevel(); closeMode(); closeTemp()
-        armPopupTimer()
-        val pop = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            background = pill(getPopupColor(), dp(18)); setPadding(dp(12), dp(10), dp(12), dp(10))
-        }
-        val ivs = ArrayList<Pair<AirflowOption, ImageView>>()
-        c.options.forEach { opt ->
-            val iv = ImageView(this).apply {
-                setImageResource(opt.icon); setColorFilter(cTxt); isClickable = true
-                setPadding(dp(8), dp(8), dp(8), dp(8))
-                layoutParams = LinearLayout.LayoutParams(dp(54), dp(54)).apply { marginStart = dp(4); marginEnd = dp(4) }
-                setOnClickListener {
-                    onUserActivity(); armPopupTimer()
-                    io.execute { c.select(opt); main.post { closeAirflow(); refreshAll() } }
-                }
-            }
-            ivs.add(opt to iv); pop.addView(iv)
-        }
-
-        runCatching { 
-            wm.addView(pop, createPopupParams(anchor))
-            handleOutsideTouch(pop)
-            airflowWin = pop 
-        }
-        // destaca o modo atual em ciano (IPC fora da main thread)
-        io.execute {
-            val cur = c.currentOption()
-            main.post { ivs.forEach { (o, iv) -> iv.setColorFilter(if (o == cur) cAccent else cTxt) } }
-        }
-        onUserActivity()
-    }
 
     // ---- popup de modo (Modos de condução + SOC HEV) ----
 
@@ -1001,7 +960,7 @@ class OverlayService : Service() {
             armPopupTimer()
             val r = (e.x / view.width).coerceIn(0f, 1f)
             val raw = c.min + r * (c.hi() - c.min)
-            val v = (Math.round(raw / c.step) * c.step).coerceIn(c.min, c.hi())
+            val v = (kotlin.math.round(raw / c.step) * c.step).coerceIn(c.min, c.hi())
             updateTempUI(v)
             if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
                 onUserActivity()
@@ -1588,38 +1547,44 @@ class OverlayService : Service() {
         val col3 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
         panel.addView(col3, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
 
+        // Configuração Flutuante
+        val isFloating = SettingsStore.isLightFloatingEnabled(this)
+        val cardBg = if (isFloating) DockColors.SCREEN else null
+        val cardStroke = if (isFloating) DockColors.SCREEN else null
+
         // Coluna 1: Motorista Light
-        col1.addView(createDashboardCard("", createHvacQuickControls("D"), radius = 8))
+        col1.addView(createDashboardCard("", createHvacQuickControls("D"), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
         col1.addView(gapView(4))
-        col1.addView(createDashboardCard("", createAirflowSelection("D"), radius = 8))
+        col1.addView(createDashboardCard("", createAirflowSelection("D"), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
         col1.addView(gapView(4))
-        col1.addView(createDashboardCard("", createLevelControl(DockControls.FAN, R.drawable.ic_fan, iconSize = 42), radius = 8))
+        col1.addView(createDashboardCard("", createLevelControl(DockControls.FAN, R.drawable.ic_fan, iconSize = 42), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
         col1.addView(gapView(4))
-        col1.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempD" } as Temp), radius = 8))
+        col1.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempD" } as Temp), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
         col1.addView(gapView(4))
-        col1.addView(createDashboardCard("", createLevelControl(DockControls.VENT_D, R.drawable.ic_carseat_cooler), radius = 8))
+        col1.addView(createDashboardCard("", createLevelControl(DockControls.VENT_D, R.drawable.ic_carseat_cooler), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
 
         // Coluna 2: Veículo (Centro) Light
-        col2.addView(createDashboardCard("", createBatteryCard(DockControls.ALL.find { it.id == "bat" } as Battery), radius = 8))
+        col2.addView(createDashboardCard("", createBatteryCard(DockControls.ALL.find { it.id == "bat" } as Battery), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
         col2.addView(gapView(4))
-        col2.addView(createDashboardCard("MODO DE CONDUÇÃO", createDriveModeSelectionLight(DockControls.DRIVE), iconRes = R.drawable.ic_bolt, titleSize = 18f, radius = 8))
+        col2.addView(createDashboardCard("MODO DE CONDUÇÃO", createDriveModeSelectionLight(DockControls.DRIVE), iconRes = R.drawable.ic_bolt, titleSize = 18f, radius = 8, bgColor = cardBg, strokeColor = cardStroke))
         col2.addView(gapView(4))
-        col2.addView(createDashboardCard("", createAmbientTempCard(DockControls.ALL.find { it.id == "recirc" } as IconToggle), radius = 8))
+        col2.addView(createDashboardCard("", createAmbientTempCard(DockControls.ALL.find { it.id == "recirc" } as IconToggle), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
 
         // Coluna 3: Passageiro Light
-        col3.addView(createDashboardCard("", createVolumeControl(DockControls.ALL.find { it.id == "vol" } as Volume), radius = 8))
+        col3.addView(createDashboardCard("", createVolumeControl(DockControls.ALL.find { it.id == "vol" } as Volume), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
         col3.addView(gapView(4))
-        col3.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempP" } as Temp), radius = 8))
+        col3.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempP" } as Temp), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
         col3.addView(gapView(4))
-        col3.addView(createDashboardCard("", createLevelControl(DockControls.VENT_P, R.drawable.ic_carseat_cooler), radius = 8))
+        col3.addView(createDashboardCard("", createLevelControl(DockControls.VENT_P, R.drawable.ic_carseat_cooler), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
     }
 
-    private fun createDashboardCard(title: String, content: View, active: Boolean = false, iconRes: Int? = null, titleSize: Float = 13f, radius: Int = 28): View {
+    private fun createDashboardCard(title: String, content: View, active: Boolean = false, iconRes: Int? = null, titleSize: Float = 13f, radius: Int = 28, bgColor: Int? = null, strokeColor: Int? = null): View {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            val bg = if (active) cSurfaceSelected else cCard
-            background = pill(bg, dp(radius), stroke = if (active) cAccent else cLine)
+            val bg = bgColor ?: (if (active) cSurfaceSelected else cCard)
+            val stroke = strokeColor ?: (if (active) cAccent else cLine)
+            background = pill(bg, dp(radius), stroke = stroke)
             val topP = if (title.isEmpty()) dp(16) else dp(12) //altura do card default
             setPadding(dp(24), topP, dp(24), dp(20))
         }
@@ -1737,7 +1702,7 @@ class OverlayService : Service() {
             }
 
             val r = (e.x / sliderW).coerceIn(0f, 1f)
-            var v = (Math.round((c.min + r * (c.hi() - c.min)) / c.step) * c.step).coerceIn(c.min, c.hi())
+            var v = (kotlin.math.round((c.min + r * (c.hi() - c.min)) / c.step) * c.step).coerceIn(c.min, c.hi())
             
             // Trava de Conforto: Se começou abaixo de 23, não deixa passar de 23 no mesmo arraste
             if (!canGoPast23) v = minOf(v, 23.0)
@@ -1812,7 +1777,7 @@ class OverlayService : Service() {
 
         touchArea.setOnTouchListener { _, e ->
             val r = (e.x / sliderW).coerceIn(0f, 1f)
-            val vLevel = (Math.round(r * c.hi())).toInt().coerceIn(c.min, c.hi())
+            val vLevel = (kotlin.math.round(r * c.hi())).toInt().coerceIn(c.min, c.hi())
             updateVisual(vLevel)
             if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
                 onUserActivity(); io.execute { c.setLevel(vLevel); main.post { refreshAll() } }
@@ -1934,102 +1899,6 @@ class OverlayService : Service() {
             }
         }
         layout.addView(gapView(6))
-        return layout
-    }
-
-    private fun createHevSubCard(c: Mode): View {
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            background = pill(cCard, dp(16), stroke = cLine)
-            setPadding(dp(12), dp(10), dp(12), dp(10))
-        }
-
-        var updateIntelBtn: (Boolean?) -> Unit = {}
-        var updateSliderUI: (Int, Boolean?) -> Unit = { _, _ -> }
-
-        val intelBtn = TextView(this).apply {
-            text = "INTELIGENTE"; textSize = 10f; setTextColor(cMuted); gravity = Gravity.CENTER
-            setTypeface(typeface, Typeface.BOLD); letterSpacing = 0.05f
-            background = pill(cCard, dp(12), stroke = cLine)
-            isClickable = true
-
-            updateIntelBtn = { forcedActive ->
-                val active = forcedActive ?: (c.curStrategy() == 1)
-                background = pill(if (active) cSurfaceSelected else cCard, dp(12), stroke = if (active) DockColors.AMBER else cLine)
-                setTextColor(if (active) DockColors.AMBER else cMuted)
-            }
-
-            setOnClickListener {
-                if (!layout.isEnabled) return@setOnClickListener
-                onUserActivity()
-                updateIntelBtn(true)
-                updateSliderUI(c.curHevSocInt(), false)
-                io.execute { c.select(0, strategy = 1); main.post { refreshAll() } }
-            }
-
-            updaters["hev_strategy_1"] = { updateIntelBtn(null) }
-            updateIntelBtn(null)
-        }
-        layout.addView(intelBtn, LinearLayout.LayoutParams(dp(110), dp(32)))
-
-        val sliderArea = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(12), 0, 0, 0)
-        }
-
-        val socLabel = TextView(this).apply {
-            textSize = 16f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD)
-            text = "SAVE -%"; minWidth = dp(75)
-        }
-        sliderArea.addView(socLabel)
-
-        val sliderW = dp(280); val sliderH = dp(30) //barra do save% tamanho e espessura
-        val track = FrameLayout(this).apply {
-            background = pill(cTrack, dp(5))
-            layoutParams = LinearLayout.LayoutParams(sliderW, sliderH).apply { marginStart = dp(8) }
-        }
-        val fill = View(this).apply {
-            background = pill(DockColors.AMBER, dp(5))
-        }
-        track.addView(fill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
-        sliderArea.addView(track)
-
-        updateSliderUI = { soc, forcedActive ->
-            val isSave = forcedActive ?: (c.curStrategy() == 2)
-            socLabel.text = "SAVE $soc%"
-            socLabel.setTextColor(if (isSave) cTxt else cMuted)
-
-            val r = (soc - c.minSoc).toFloat() / (c.maxSoc - c.minSoc)
-            val lp = fill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt()
-            fill.layoutParams = lp
-            fill.background = pill(if (isSave) DockColors.AMBER else cMuted, dp(18))
-            sliderArea.alpha = if (isSave) 1f else 0.4f
-        }
-
-        track.setOnTouchListener { _, e ->
-            if (!layout.isEnabled) return@setOnTouchListener true
-            val r = (e.x / sliderW).coerceIn(0f, 1f)
-            val soc = c.minSoc + (r * (c.maxSoc - c.minSoc)).toInt()
-            
-            if (e.action == MotionEvent.ACTION_MOVE) {
-                updateSliderUI(soc, c.curStrategy() == 2)
-            }
-            
-            if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
-                onUserActivity()
-                updateSliderUI(soc, true)
-                updateIntelBtn(false)
-                io.execute { c.select(0, strategy = 2, soc = soc); main.post { refreshAll() } }
-            }
-            true
-        }
-
-        layout.addView(sliderArea)
-
-        updaters["hev_sub_card"] = {
-            updateSliderUI(c.curHevSocInt(), null)
-        }
-
         return layout
     }
 
@@ -2219,21 +2088,6 @@ class OverlayService : Service() {
             }
         }
 
-        return layout
-    }
-
-    private fun createModeTile(label: String): View {
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
-            isClickable = true
-        }
-        val icon = icon(R.drawable.ic_bolt, dp(24), cMuted)
-        layout.addView(icon)
-        val tvLabel = TextView(this).apply {
-            text = label.uppercase(); textSize = 11f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD)
-            setPadding(dp(8), 0, 0, 0)
-        }
-        layout.addView(tvLabel)
         return layout
     }
 
@@ -2476,7 +2330,7 @@ class OverlayService : Service() {
     private fun registerRequestReceiver() {
         val filter = IntentFilter(ACTION_REQUEST_STATE)
         if (Build.VERSION.SDK_INT >= 33)
-            registerReceiver(requestReceiver, filter, Context.RECEIVER_EXPORTED)
+            registerReceiver(requestReceiver, filter, RECEIVER_EXPORTED)
         else
             @Suppress("UnspecifiedRegisterReceiverFlag") registerReceiver(requestReceiver, filter)
     }
@@ -2505,15 +2359,12 @@ class OverlayService : Service() {
 
     private fun buildNotification(): Notification {
         val channelId = "haval_dock_overlay"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val nm = getSystemService(NotificationManager::class.java)
-            if (nm.getNotificationChannel(channelId) == null) {
-                val channel = NotificationChannel(channelId, "Haval Dock", NotificationManager.IMPORTANCE_MIN)
-                nm.createNotificationChannel(channel)
-            }
+        val nm = getSystemService(NotificationManager::class.java)
+        if (nm.getNotificationChannel(channelId) == null) {
+            val channel = NotificationChannel(channelId, "Haval Dock", NotificationManager.IMPORTANCE_MIN)
+            nm.createNotificationChannel(channel)
         }
-        val b = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            Notification.Builder(this, channelId) else @Suppress("DEPRECATION") Notification.Builder(this)
+        val b = Notification.Builder(this, channelId)
         return b.setContentTitle("Haval Dock").setContentText("Barra inferior ativa")
             .setSmallIcon(R.mipmap.ic_launcher).setOngoing(true).build()
     }

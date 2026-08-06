@@ -159,6 +159,18 @@ class MainActivity : ComponentActivity() {
                         OverlayService.start(this@MainActivity)
                     }
                 }
+
+                if (visualMode == SettingsStore.VISUAL_DASHBOARD_LIGHT) {
+                    Spacer(Modifier.height(14.dp))
+                    val lightFloating by SettingsStore.lightFloatingEnabled
+                    RowSwitch("Flutuante sem borda", "Remove fundo e bordas dos cards no modo Light.", lightFloating) {
+                        SettingsStore.setLightFloatingEnabled(it)
+                        if (SettingsStore.overlayEnabled.value) {
+                            OverlayService.stop(this@MainActivity)
+                            OverlayService.start(this@MainActivity)
+                        }
+                    }
+                }
             }
 
             SectionCard("Barra inferior") {
@@ -254,6 +266,18 @@ class MainActivity : ComponentActivity() {
                         SectionPosRow("Passageiro", sec3, screenWidthDp) { SettingsStore.setSectionX(3, it) }
                     }
                 }
+
+                if (visualMode == SettingsStore.VISUAL_DASHBOARD_LIGHT) {
+                    Spacer(Modifier.height(14.dp))
+                    val lightFloating by SettingsStore.lightFloatingEnabled
+                    RowSwitch("Flutuante sem borda", "Remove fundo e bordas dos cards no modo Light.", lightFloating) {
+                        SettingsStore.setLightFloatingEnabled(it)
+                        if (SettingsStore.overlayEnabled.value) {
+                            OverlayService.stop(this@MainActivity)
+                            OverlayService.start(this@MainActivity)
+                        }
+                    }
+                }
             }
 
             // ---- boot ----
@@ -302,6 +326,18 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+
+                if (visualMode == SettingsStore.VISUAL_DASHBOARD_LIGHT) {
+                    Spacer(Modifier.height(14.dp))
+                    val lightFloating by SettingsStore.lightFloatingEnabled
+                    RowSwitch("Flutuante sem borda", "Remove fundo e bordas dos cards no modo Light.", lightFloating) {
+                        SettingsStore.setLightFloatingEnabled(it)
+                        if (SettingsStore.overlayEnabled.value) {
+                            OverlayService.stop(this@MainActivity)
+                            OverlayService.start(this@MainActivity)
                         }
                     }
                 }
