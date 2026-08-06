@@ -50,6 +50,7 @@ object SettingsStore {
 
     const val VISUAL_BAR = "bar"
     const val VISUAL_DASHBOARD = "dashboard"
+    const val VISUAL_DASHBOARD_LIGHT = "dashboard_light"
     const val VISUAL_BALLOONS = "balloons"
 
     private lateinit var appCtx: Context

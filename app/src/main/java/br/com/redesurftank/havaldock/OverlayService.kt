@@ -104,6 +104,9 @@ class OverlayService : Service() {
     private var lastProjection: String? = null  // última projeção vista
     private var lastCentralApp: String? = null  // último app não-projeção
 
+    private var lastManualSoc: Int = -1
+    private var lastManualSocTime: Long = 0
+
     // Medidas e Cores
     private val barHeightPx: Int get() = dp(SettingsStore.barHeight(this))
     private val handleHeightPx by lazy { dp(HANDLE_DP) }
@@ -253,7 +256,7 @@ class OverlayService : Service() {
             return
         }
 
-        val isDash = visualMode == SettingsStore.VISUAL_DASHBOARD
+        val isDash = visualMode == SettingsStore.VISUAL_DASHBOARD || visualMode == SettingsStore.VISUAL_DASHBOARD_LIGHT
         val h = if (hidden) handleHeightPx else (if (isDash) 720 else barHeightPx)
         val w = if (hidden) dp(100) else (if (isDash) 1792 else WindowManager.LayoutParams.MATCH_PARENT)
         val g = if (hidden) (Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL) else (Gravity.BOTTOM or (if (isDash) Gravity.END else Gravity.START))
@@ -279,7 +282,7 @@ class OverlayService : Service() {
         }
 
         if (isDash) {
-            buildDashboard()
+            if (visualMode == SettingsStore.VISUAL_DASHBOARD_LIGHT) buildDashboardLight() else buildDashboard()
             dashboard?.visibility = if (hidden) View.GONE else View.VISIBLE
         } else {
             val b = LinearLayout(this).apply {
@@ -361,21 +364,6 @@ class OverlayService : Service() {
             if (c.section < secs.size) secs[c.section].addView(tile(c))
         }
         secs[0].addView(projTile())
-
-        // Adiciona atalho para Dashboard se estiver no modo barra
-        if (SettingsStore.visualMode.value == SettingsStore.VISUAL_BAR) {
-            val dashBtn = icon(R.drawable.ic_car, dp(24), Color.WHITE).apply {
-                setPadding(dp(12), 0, dp(12), 0)
-                setOnClickListener {
-                    SettingsStore.setVisualMode(SettingsStore.VISUAL_DASHBOARD)
-                    OverlayService.stop(this@OverlayService)
-                    OverlayService.start(this@OverlayService)
-                }
-            }
-            content.addView(dashBtn, FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.MATCH_PARENT,
-                Gravity.END or Gravity.CENTER_VERTICAL).apply { marginEnd = dp(10) })
-        }
     }
 
     private fun rowSection() = LinearLayout(this).apply {
@@ -819,6 +807,8 @@ class OverlayService : Service() {
             updateHEVUI(2, soc)
             if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
                 onUserActivity()
+                lastManualSoc = soc
+                lastManualSocTime = System.currentTimeMillis()
                 io.execute { c.select(0, strategy = 2, soc = soc); main.post { refreshAll() } }
             }
             true
@@ -1463,6 +1453,7 @@ class OverlayService : Service() {
             orientation = LinearLayout.HORIZONTAL
             background = null
             setPadding(dp(20), dp(10), dp(20), dp(20))
+            gravity = Gravity.BOTTOM
         }
         dashboardContainer.addView(panel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
 
@@ -1512,22 +1503,119 @@ class OverlayService : Service() {
         col3.addView(createDashboardCard("", createLevelControl(DockControls.VENT_P, R.drawable.ic_carseat_cooler)))
     }
 
-    private fun createDashboardCard(title: String, content: View, active: Boolean = false): View {
+    private fun buildDashboardLight() {
+        val rootLayout = FrameLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+            setBackgroundColor(Color.TRANSPARENT)
+        }
+        dashboard = rootLayout
+        root.removeAllViews()
+        root.addView(rootLayout)
+
+        val dashWidth = 1792
+        
+        // Container Mestre com fundo semi-transparente
+        val dashboardContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val bgColor = (0xFF shl 24) or (DockColors.SCREEN and 0x00FFFFFF)
+            background = pill(bgColor, dp(40))
+            setPadding(dp(10), dp(10), dp(10), dp(10))
+        }
+        rootLayout.addView(dashboardContainer, FrameLayout.LayoutParams(dashWidth, 720 - dp(80), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+            bottomMargin = dp(20)
+        })
+
+        // Header (Data e Hora)
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(40), dp(10), dp(40), 0)
+        }
+        val tvHeader = TextView(this).apply {
+            textSize = 18f; setTextColor(cTxt); setTypeface(typeface, Typeface.BOLD)
+            letterSpacing = 0.05f
+        }
+        header.addView(tvHeader)
+
+        updaters["header_info"] = {
+            val sdf = java.text.SimpleDateFormat("EEEE, dd 'DE' MMMM 'DE' yyyy", java.util.Locale("pt", "BR"))
+            tvHeader.text = sdf.format(java.util.Date()).uppercase()
+        }
+        dashboardContainer.addView(header, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(50)))
+
+        // Painel de Colunas
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            background = null
+            setPadding(dp(20), dp(10), dp(20), dp(20))
+            gravity = Gravity.BOTTOM
+        }
+        dashboardContainer.addView(panel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+
+        // Colunas
+        val col1 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
+        panel.addView(col1, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+
+        panel.addView(gapView(12, true))
+
+        val col2 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
+        panel.addView(col2, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        
+        panel.addView(gapView(12, true))
+
+        val col3 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
+        panel.addView(col3, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+
+        // Coluna 1: Motorista Light
+        col1.addView(createDashboardCard("", createHvacQuickControls("D"), radius = 8))
+        col1.addView(gapView(4))
+        col1.addView(createDashboardCard("", createAirflowSelection("D"), radius = 8))
+        col1.addView(gapView(4))
+        col1.addView(createDashboardCard("", createLevelControl(DockControls.FAN, R.drawable.ic_fan), radius = 8))
+        col1.addView(gapView(4))
+        col1.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempD" } as Temp), radius = 8))
+        col1.addView(gapView(4))
+        col1.addView(createDashboardCard("", createLevelControl(DockControls.VENT_D, R.drawable.ic_carseat_cooler), radius = 8))
+
+        // Coluna 2: Veículo (Centro) Light
+        col2.addView(createDashboardCard("", createBatteryCard(DockControls.ALL.find { it.id == "bat" } as Battery), radius = 8))
+        col2.addView(gapView(4))
+        col2.addView(createDashboardCard("MODO DE CONDUÇÃO", createDriveModeSelectionLight(DockControls.DRIVE), iconRes = R.drawable.ic_bolt, titleSize = 18f, radius = 8))
+        col2.addView(gapView(4))
+        col2.addView(createDashboardCard("", createAmbientTempCard(DockControls.ALL.find { it.id == "recirc" } as IconToggle), radius = 8))
+
+        // Coluna 3: Passageiro Light
+        col3.addView(createDashboardCard("", createVolumeControl(DockControls.ALL.find { it.id == "vol" } as Volume), radius = 8))
+        col3.addView(gapView(4))
+        col3.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempP" } as Temp), radius = 8))
+        col3.addView(gapView(4))
+        col3.addView(createDashboardCard("", createLevelControl(DockControls.VENT_P, R.drawable.ic_carseat_cooler), radius = 8))
+    }
+
+    private fun createDashboardCard(title: String, content: View, active: Boolean = false, iconRes: Int? = null, titleSize: Float = 13f, radius: Int = 28): View {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             val bg = if (active) cSurfaceSelected else cCard
-            background = pill(bg, dp(28), stroke = if (active) cAccent else cLine)
+            background = pill(bg, dp(radius), stroke = if (active) cAccent else cLine)
             val topP = if (title.isEmpty()) dp(16) else dp(12) //altura do card default
             setPadding(dp(24), topP, dp(24), dp(20))
         }
         if (title.isNotEmpty()) {
-            val tvTitle = TextView(this).apply {
-                text = title.uppercase(); textSize = 13f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD)
-                letterSpacing = 0.2f
+            val titleRow = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
                 setPadding(0, 0, 0, dp(12))
             }
-            card.addView(tvTitle)
+            if (iconRes != null) {
+                titleRow.addView(icon(iconRes, dp(18), cMuted))
+                titleRow.addView(gapView(8, true))
+            }
+            val tvTitle = TextView(this).apply {
+                text = title.uppercase(); textSize = titleSize; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD)
+                letterSpacing = 0.2f
+            }
+            titleRow.addView(tvTitle)
+            card.addView(titleRow)
         }
         card.addView(content)
         return card
@@ -1761,6 +1849,7 @@ class OverlayService : Service() {
                 fill.layoutParams = lp
             }
         }
+        layout.addView(gapView(4))
         return layout
     }
 
@@ -1881,7 +1970,7 @@ class OverlayService : Service() {
             val r = (soc - c.minSoc).toFloat() / (c.maxSoc - c.minSoc)
             val lp = fill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt()
             fill.layoutParams = lp
-            fill.background = pill(if (isSave) DockColors.AMBER else cMuted, dp(5))
+            fill.background = pill(if (isSave) DockColors.AMBER else cMuted, dp(18))
             sliderArea.alpha = if (isSave) 1f else 0.4f
         }
 
@@ -1912,6 +2001,195 @@ class OverlayService : Service() {
         return layout
     }
 
+    private fun createDriveModeSelectionLight(c: Mode): View {
+        val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }
+        val modeRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        
+        // Botão HEV Customizado
+        val hevTile = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
+            isClickable = true
+            layoutParams = LinearLayout.LayoutParams(0, dp(60), 1f).apply { marginStart = dp(4); marginEnd = dp(4) }
+        }
+        val hevText = TextView(this).apply {
+            text = "HEV"; textSize = 18f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+        val strategyText = TextView(this).apply {
+            text = "INTELIGENTE"; textSize = 14f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD)
+            setPadding(0, dp(2), 0, 0)
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+        hevTile.addView(hevText); hevTile.addView(strategyText)
+
+        // Outras Opções (EV)
+        val options = listOf(1 to "Prioridade EV", 3 to "EV")
+        val otherTiles = options.map { opt ->
+            LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
+                isClickable = true
+                val tv = TextView(this@OverlayService).apply {
+                    text = opt.second.uppercase(); textSize = 18f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD)
+                    gravity = Gravity.CENTER
+                }
+                addView(tv)
+            }
+        }
+
+        val hevSub = createHevSubCardLight(c)
+
+        val updateUI = { targetMode: Int? ->
+            val curMode = targetMode ?: c.cur()
+            val curStrategy = c.curStrategy()
+            val isHev = curMode == 0
+            val modeColor = DockColors.AMBER
+
+            // Update HEV Tile
+            hevTile.background = pill(if (isHev) cSurfaceSelected else cSurfaceRaised, dp(16), stroke = if (isHev) modeColor else cLine)
+            hevText.setTextColor(if (isHev) modeColor else cMuted)
+            
+            if (isHev) {
+                if (curStrategy == 1) {
+                    strategyText.text = "INTELIGENTE"
+                    strategyText.setTextColor(modeColor)
+                } else {
+                    strategyText.text = "INTELIGENTE"
+                    strategyText.setTextColor(cMuted)
+                }
+            } else {
+                strategyText.text = "INTELIGENTE"
+                strategyText.setTextColor(cMuted)
+            }
+
+            // Update Other Tiles
+            options.forEachIndexed { i, (mode, _) ->
+                val active = curMode == mode
+                val tile = otherTiles[i]
+                val tvLabel = tile.getChildAt(0) as TextView
+                val mColor = c.colors[mode] ?: DockColors.GREEN
+
+                tile.background = pill(if (active) cSurfaceSelected else cSurfaceRaised, dp(16), stroke = if (active) mColor else cLine)
+                tvLabel.setTextColor(if (active) cTxt else cMuted)
+            }
+
+            hevSub.alpha = if (isHev) 1f else 0.4f
+            hevSub.isEnabled = isHev
+        }
+
+        hevTile.setOnClickListener {
+            onUserActivity()
+            updateUI(0)
+            io.execute { c.select(0, strategy = 1); main.post { refreshAll() } }
+        }
+        modeRow.addView(hevTile)
+
+        otherTiles.forEachIndexed { i, tile ->
+            modeRow.addView(tile, LinearLayout.LayoutParams(0, dp(60), 1f).apply {
+                marginStart = dp(4); marginEnd = dp(4)
+            })
+            tile.setOnClickListener {
+                onUserActivity()
+                val mode = options[i].first
+                updateUI(mode)
+                io.execute { c.select(mode); main.post { refreshAll() } }
+            }
+        }
+
+        layout.addView(modeRow)
+        layout.addView(gapView(16))
+        layout.addView(hevSub)
+        layout.addView(gapView(4))
+
+        updaters[c.id] = { _ -> updateUI(null) }
+        updateUI(null)
+        return layout
+    }
+
+    private fun createHevSubCardLight(c: Mode): View {
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            background = pill(cCard, dp(16), stroke = cLine)
+            setPadding(dp(20), dp(10), dp(20), dp(10))
+            isClickable = true
+        }
+
+        val sliderArea = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+        }
+
+        val socLabel = TextView(this).apply {
+            textSize = 16f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD)
+            text = "SAVE -%"; minWidth = dp(85)
+        }
+        sliderArea.addView(socLabel)
+
+        val sliderW = dp(380); val sliderH = dp(36)
+        val track = FrameLayout(this).apply {
+            background = pill(cTrack, dp(18))
+            layoutParams = LinearLayout.LayoutParams(sliderW, sliderH).apply { marginStart = dp(12) }
+        }
+        val fill = View(this).apply {
+            background = pill(DockColors.AMBER, dp(18))
+        }
+        track.addView(fill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
+        sliderArea.addView(track)
+
+        fun updateSliderUI(soc: Int, forcedActive: Boolean? = null) {
+            val isSave = forcedActive ?: (c.curStrategy() == 2)
+            socLabel.text = "SAVE $soc%"
+            socLabel.setTextColor(if (isSave) cTxt else cMuted)
+
+            val r = (soc - c.minSoc).toFloat() / (c.maxSoc - c.minSoc)
+            val lp = fill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt()
+            fill.layoutParams = lp
+            fill.background = pill(if (isSave) DockColors.AMBER else cMuted, dp(18))
+            sliderArea.alpha = if (isSave) 1f else 0.4f
+
+            // Update the card border to show selection
+            layout.background = pill(if (isSave) cSurfaceSelected else cCard, dp(16), stroke = if (isSave) DockColors.AMBER else cLine)
+        }
+
+        layout.setOnClickListener {
+            if (!layout.isEnabled) return@setOnClickListener
+            onUserActivity()
+            io.execute { 
+                c.select(0, strategy = 2, soc = c.curHevSocInt())
+                main.post { refreshAll() }
+            }
+        }
+
+        track.setOnTouchListener { _, e ->
+            if (!layout.isEnabled) return@setOnTouchListener true
+            val r = (e.x / sliderW).coerceIn(0f, 1f)
+            val soc = c.minSoc + (r * (c.maxSoc - c.minSoc)).toInt()
+            
+            if (e.action == MotionEvent.ACTION_MOVE) {
+                updateSliderUI(soc, true)
+            }
+            
+            if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) {
+                onUserActivity()
+                lastManualSoc = soc
+                lastManualSocTime = System.currentTimeMillis()
+                io.execute { c.select(0, strategy = 2, soc = soc); main.post { refreshAll() } }
+            }
+            true
+        }
+
+        layout.addView(sliderArea)
+
+        updaters["hev_sub_card_light"] = {
+            val cur = c.curHevSocInt()
+            val now = System.currentTimeMillis()
+            // Ignora o valor do carro por 2 segundos se ele for diferente do que o usuário acabou de setar
+            if (now - lastManualSocTime > 2000 || cur == lastManualSoc) { //delay para nao piscar o valor e depois voltar (em teste de confirmacao no carro, pendente)
+                updateSliderUI(cur, null)
+            }
+        }
+
+        return layout
+    }
+
     private fun createModeTile(label: String): View {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
@@ -1937,8 +2215,8 @@ class OverlayService : Service() {
         val internal = createTempInfo(R.drawable.ic_thermo, DockColors.ORANGE, "INTERNA", "tempIn")
         layout.addView(internal, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
 
-        val img = icon(R.drawable.ic_recirc_closed, dp(28), cMuted)
-        layout.addView(img, LinearLayout.LayoutParams(dp(52), dp(52)).apply { marginStart = dp(12); marginEnd = dp(12) })
+        val img = icon(R.drawable.ic_recirc_closed, dp(36), cMuted)
+        layout.addView(img, LinearLayout.LayoutParams(dp(58), dp(58)).apply { marginStart = dp(12); marginEnd = dp(12) })
 
         val external = createTempInfo(R.drawable.ic_external_thermo, DockColors.CYAN, "EXTERNA", "tempOut")
         layout.addView(external, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
@@ -1962,11 +2240,11 @@ class OverlayService : Service() {
 
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(10), 0, 0, 0) }
         val tvVal = TextView(this).apply {
-            text = "--,−°"; textSize = 22f; setTextColor(cTxt); setTypeface(typeface, Typeface.BOLD)
+            text = "--,−°"; textSize = 32f; setTextColor(cTxt); setTypeface(typeface, Typeface.BOLD)
             includeFontPadding = false
         }
         val tvLabel = TextView(this).apply {
-            text = label; textSize = 9f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD)
+            text = label; textSize = 12f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD)
             includeFontPadding = false
         }
         col.addView(tvVal); col.addView(tvLabel)
@@ -2059,12 +2337,12 @@ class OverlayService : Service() {
                 marginStart = dp(16)
             }
         )
-        val sliderW = dp(330); val sliderH = dp(20) //Barra de volume
+        val sliderW = dp(330); val sliderH = dp(36) //Barra de volume
         val track = FrameLayout(this).apply {
-            background = pill(cTrack, dp(7))
+            background = pill(cTrack, dp(18))
             layoutParams = LinearLayout.LayoutParams(sliderW, sliderH).apply { marginStart = dp(12) }
         }
-        val fill = View(this).apply { background = pill(DockColors.CYAN, dp(7)) }
+        val fill = View(this).apply { background = pill(DockColors.CYAN, dp(18)) }
         track.addView(fill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
         layout.addView(track)
 
@@ -2075,7 +2353,7 @@ class OverlayService : Service() {
             val color = if (v > 12) DockColors.RED else DockColors.CYAN
             val r = v.toFloat() / c.hi()
             val lp = fill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt(); fill.layoutParams = lp
-            fill.background = pill(color, dp(7))
+            fill.background = pill(color, dp(18))
         }
 
         track.setOnTouchListener { _, e ->
@@ -2118,7 +2396,7 @@ class OverlayService : Service() {
             handle.visibility = View.GONE
             
             val visualMode = SettingsStore.visualMode.value
-            val isDash = visualMode == SettingsStore.VISUAL_DASHBOARD
+            val isDash = visualMode == SettingsStore.VISUAL_DASHBOARD || visualMode == SettingsStore.VISUAL_DASHBOARD_LIGHT
             params.width = if (isDash) 1792 else WindowManager.LayoutParams.MATCH_PARENT
             params.height = if (isDash) 720 else barHeightPx
             params.gravity = Gravity.BOTTOM or (if (isDash) Gravity.END else Gravity.START)
