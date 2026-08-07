@@ -266,7 +266,7 @@ class OverlayService : Service() {
 
         val isDash = visualMode == SettingsStore.VISUAL_DASHBOARD || visualMode == SettingsStore.VISUAL_DASHBOARD_LIGHT
         val h = if (hidden) handleHeightPx else (if (isDash) 720 else barHeightPx)
-        val w = if (hidden) dp(100) else (if (isDash) 1792 else WindowManager.LayoutParams.MATCH_PARENT)
+        val w = if (hidden) dp(100) else (if (isDash) 1776 else WindowManager.LayoutParams.MATCH_PARENT)
         val g = if (hidden) (Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL) else (Gravity.BOTTOM or (if (isDash) Gravity.END else Gravity.START))
 
         params = WindowManager.LayoutParams(
@@ -1399,7 +1399,7 @@ class OverlayService : Service() {
         root.removeAllViews()
         root.addView(rootLayout)
 
-        val dashWidth = 1792
+        val dashWidth = 1776
         
         // Container Mestre com fundo semi-transparente
         val dashboardContainer = LinearLayout(this).apply {
@@ -1409,8 +1409,8 @@ class OverlayService : Service() {
             background = pill(bgColor, dp(40))
             setPadding(dp(10), dp(10), dp(10), dp(10))
         }
-        rootLayout.addView(dashboardContainer, FrameLayout.LayoutParams(dashWidth, 720 - dp(80), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
-            bottomMargin = dp(20)
+        rootLayout.addView(dashboardContainer, FrameLayout.LayoutParams(dashWidth, 720 - dp(20), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+            bottomMargin = dp(10)
         })
 
         // Header (Data e Hora)
@@ -1465,7 +1465,7 @@ class OverlayService : Service() {
         col1.addView(createDashboardCard("", createLevelControl(DockControls.VENT_D, R.drawable.ic_carseat_cooler)))
 
         // Coluna 2: Veículo (Centro)
-        col2.addView(createDashboardCard("", createBatteryCard(DockControls.ALL.find { it.id == "bat" } as Battery)))
+        col2.addView(createDashboardCard("", createBatteryCard(DockControls.ALL.find { it.id == "bat" } as Battery, segmented = false)))
         col2.addView(gapView(12))
         col2.addView(createDashboardCard("MODO DE CONDUÇÃO", createDriveModeSelectionLight(DockControls.DRIVE), iconRes = R.drawable.ic_bolt, titleSize = 18f))
         col2.addView(gapView(12))
@@ -1494,7 +1494,7 @@ class OverlayService : Service() {
         root.removeAllViews()
         root.addView(rootLayout)
 
-        val dashWidth = 1792
+        val dashWidth = 1776
         
         // Container Mestre com fundo semi-transparente
         val dashboardContainer = LinearLayout(this).apply {
@@ -1503,8 +1503,8 @@ class OverlayService : Service() {
             background = pill(bgColor, dp(40))
             setPadding(dp(10), dp(5), dp(10), dp(10))
         }
-        rootLayout.addView(dashboardContainer, FrameLayout.LayoutParams(dashWidth, 720 - dp(80), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
-            bottomMargin = dp(8)
+        rootLayout.addView(dashboardContainer, FrameLayout.LayoutParams(dashWidth, 720 - dp(20), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+            bottomMargin = dp(4)
         })
 
         // Header (Data e Hora)
@@ -1564,7 +1564,7 @@ class OverlayService : Service() {
         col1.addView(createDashboardCard("", createLevelControl(DockControls.VENT_D, R.drawable.ic_carseat_cooler), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
 
         // Coluna 2: Veículo (Centro) Light
-        col2.addView(createDashboardCard("", createBatteryCard(DockControls.ALL.find { it.id == "bat" } as Battery), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
+        col2.addView(createDashboardCard("", createBatteryCard(DockControls.ALL.find { it.id == "bat" } as Battery, segmented = true), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
         col2.addView(gapView(4))
         col2.addView(createDashboardCard("MODO DE CONDUÇÃO", createDriveModeSelectionLight(DockControls.DRIVE), iconRes = R.drawable.ic_bolt, titleSize = 18f, radius = 8, bgColor = cardBg, strokeColor = cardStroke))
         col2.addView(gapView(4))
@@ -1840,14 +1840,14 @@ class OverlayService : Service() {
         }
 
         layout.addView(quickBtn("POWER", DockKeys.CAR_HVAC_POWER_MODE), LinearLayout.LayoutParams(0, dp(64), 1f))
-        layout.addView(quickBtn("A/C", DockKeys.CAR_HVAC_AC_ENABLE), LinearLayout.LayoutParams(0, dp(64), 1f).apply { marginStart = dp(8) })
-        layout.addView(quickBtn("AUTO", DockKeys.CAR_HVAC_AUTO_ENABLE), LinearLayout.LayoutParams(0, dp(64), 1f).apply { marginStart = dp(8) })
-        layout.addView(quickBtn("SYNC", DockKeys.CAR_HVAC_SYNC_ENABLE), LinearLayout.LayoutParams(0, dp(64), 1f).apply { marginStart = dp(8) })
+        layout.addView(quickBtn("A/C", DockKeys.CAR_HVAC_AC_ENABLE), LinearLayout.LayoutParams(0, dp(64), 1f).apply { marginStart = dp(16) })
+        layout.addView(quickBtn("AUTO", DockKeys.CAR_HVAC_AUTO_ENABLE), LinearLayout.LayoutParams(0, dp(64), 1f).apply { marginStart = dp(16) })
+        layout.addView(quickBtn("SYNC", DockKeys.CAR_HVAC_SYNC_ENABLE), LinearLayout.LayoutParams(0, dp(64), 1f).apply { marginStart = dp(16) })
 
         return layout
     }
 
-    private fun createBatteryCard(c: Battery): View {
+    private fun createBatteryCard(c: Battery, segmented: Boolean = false): View {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, dp(4), 0, 0)
@@ -1865,13 +1865,29 @@ class OverlayService : Service() {
         layout.addView(topRow)
 
         val track = FrameLayout(this).apply {
-            background = pill(cTrack, dp(32))
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(32)).apply { topMargin = dp(16) }
+            background = if (segmented) null else pill(cTrack, dp(48))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(48)).apply { topMargin = dp(16) }
         }
-        val fill = View(this).apply {
-            background = pill(DockColors.GREEN, dp(32))
+
+        if (segmented) {
+            val segmentsRow = LinearLayout(this).apply { 
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            // 20 segmentos (cada um representa 5%)
+            for (i in 0 until 20) {
+                val s = View(this).apply { background = pill(cTrack, dp(4)) }
+                segmentsRow.addView(s, LinearLayout.LayoutParams(0, dp(48), 1f).apply { 
+                    if (i > 0) marginStart = dp(4) 
+                })
+            }
+            track.addView(segmentsRow, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        } else {
+            val fill = View(this).apply {
+                background = pill(DockColors.GREEN, dp(48))
+            }
+            track.addView(fill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
         }
-        track.addView(fill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
 
         val valueTxt = TextView(this).apply {
             textSize = 26f; setTextColor(Color.WHITE);
@@ -1890,12 +1906,40 @@ class OverlayService : Service() {
 
             batteryIcon.setImageResource(st.icon)
             batteryIcon.setColorFilter(st.color)
-            fill.background = pill(st.color, dp(32))
 
-            val lp = fill.layoutParams as FrameLayout.LayoutParams
-            track.post {
-                lp.width = (track.width * (v / 100f)).toInt()
-                fill.layoutParams = lp
+            // Definição das cores para o degradê
+            val (cStart, cEnd) = when {
+                v > 75 -> Color.parseColor("#00838F") to DockColors.CYAN   // Ciano escuro -> claro
+                v >= 31 -> Color.parseColor("#2E7D32") to DockColors.GREEN  // Verde escuro -> claro
+                v > 15 -> Color.parseColor("#FF8F00") to Color.parseColor("#ffcf00") //DockColors.AMBER  // Laranja escuro -> Amarelo
+                else -> Color.parseColor("#C62828") to DockColors.RED      // Vermelho escuro -> claro
+            }
+
+            if (segmented) {
+                val segmentsRow = track.getChildAt(0) as LinearLayout
+                val activeCount = (v / 5).coerceIn(0, 20)
+                for (i in 0 until 20) {
+                    val s = segmentsRow.getChildAt(i)
+                    if (i < activeCount) {
+                        // Calcula a cor do traço baseada na posição (i) para criar o degradê
+                        val ratio = i / 19f
+                        s.background = pill(blend(cStart, cEnd, ratio), dp(4))
+                    } else {
+                        s.background = pill(cTrack, dp(4))
+                    }
+                }
+            } else {
+                val fill = track.getChildAt(0)
+                // Aplica degradê na barra sólida
+                val grad = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(cStart, cEnd))
+                grad.cornerRadius = dp(48).toFloat()
+                fill.background = grad
+                
+                val lp = fill.layoutParams as FrameLayout.LayoutParams
+                track.post {
+                    lp.width = (track.width * (v / 100f)).toInt()
+                    fill.layoutParams = lp
+                }
             }
         }
         layout.addView(gapView(6))
@@ -2288,7 +2332,7 @@ class OverlayService : Service() {
             
             val visualMode = SettingsStore.visualMode.value
             val isDash = visualMode == SettingsStore.VISUAL_DASHBOARD || visualMode == SettingsStore.VISUAL_DASHBOARD_LIGHT
-            params.width = if (isDash) 1792 else WindowManager.LayoutParams.MATCH_PARENT
+            params.width = if (isDash) 1776 else WindowManager.LayoutParams.MATCH_PARENT
             params.height = if (isDash) 720 else barHeightPx
             params.gravity = Gravity.BOTTOM or (if (isDash) Gravity.END else Gravity.START)
             
@@ -2315,7 +2359,7 @@ class OverlayService : Service() {
         broadcastBarState()
     }
 
-    // Avisa apps que reservam o rodapé (haval-radio) qual a altura ocupada agora.
+    // Avisa apps que reservam o rodapé qual a altura ocupada agora.
     private fun broadcastBarState() {
         val h = if (hidden) HANDLE_DP else SettingsStore.barHeight(this)
         runCatching {

@@ -60,7 +60,7 @@ object VehicleClient {
             DockKeys.CAR_HVAC_AUTO_ENABLE to "0",
             DockKeys.CAR_HVAC_CYCLE_MODE to "0",
             DockKeys.CAR_HVAC_BLOWER_MODE to "0",
-            DockKeys.CAR_EV_INFO_CUR_BATTERY_POWER_PERCENTAGE to "75",
+            DockKeys.CAR_EV_INFO_CUR_BATTERY_POWER_PERCENTAGE to "30",
             DockKeys.CAR_EV_INFO_ECONOMIC_GUIDE_LEVEL to "65",
             DockKeys.CAR_EV_INFO_ELECTRIC_MODE_REMAIN_ODOMETER to "45",
             DockKeys.CAR_EV_SETTING_POWER_MODEL_CONFIG to "3",
