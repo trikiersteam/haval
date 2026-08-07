@@ -198,20 +198,20 @@ class MainActivity : ComponentActivity() {
                     Spacer(Modifier.height(14.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Ocultar após", color = if (isBarMode) Color.White else Muted, fontSize = 16.sp)
+                            Text("Ocultar após", color = Color.White, fontSize = 16.sp)
                             Text("Reinicia a cada toque na barra.", color = Muted, fontSize = 13.sp)
                         }
-                        Stepper("$secs s", enabled = isBarMode) { d -> SettingsStore.setAutoHideSecs(secs + d) }
+                        Stepper("$secs s", enabled = true) { d -> SettingsStore.setAutoHideSecs(secs + d) }
                     }
 
                     Spacer(Modifier.height(14.dp))
                     val pSecs by SettingsStore.popupSecs
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Tempo do menu", color = if (isBarMode) Color.White else Muted, fontSize = 16.sp)
+                            Text("Tempo do menu", color = Color.White, fontSize = 16.sp)
                             Text(if (pSecs == 0) "Menu ficará visível até o clique." else "Auto-ocultar menus após inatividade.", color = Muted, fontSize = 13.sp)
                         }
-                        Stepper("$pSecs s", enabled = isBarMode) { d -> SettingsStore.setPopupSecs(pSecs + d) }
+                        Stepper("$pSecs s", enabled = true) { d -> SettingsStore.setPopupSecs(pSecs + d) }
                     }
                 }
 
@@ -237,7 +237,7 @@ class MainActivity : ComponentActivity() {
 
                 Spacer(Modifier.height(14.dp))
                 val itemFrame by SettingsStore.itemFrameEnabled
-                RowSwitch("Moldura nos itens", "Agrupa os ícones em um balão arredondado.", itemFrame, enabled = isBarMode) {
+                RowSwitch("Moldura nos itens da barra inferior", "Agrupa os ícones em um balão arredondado.", itemFrame, enabled = isBarMode) {
                     SettingsStore.setItemFrameEnabled(it)
                 }
                 
@@ -264,18 +264,6 @@ class MainActivity : ComponentActivity() {
                         SectionPosRow("Centro", sec1, screenWidthDp) { SettingsStore.setSectionX(1, it) }
                         SectionPosRow("Bateria", sec2, screenWidthDp) { SettingsStore.setSectionX(2, it) }
                         SectionPosRow("Passageiro", sec3, screenWidthDp) { SettingsStore.setSectionX(3, it) }
-                    }
-                }
-
-                if (visualMode == SettingsStore.VISUAL_DASHBOARD_LIGHT) {
-                    Spacer(Modifier.height(14.dp))
-                    val lightFloating by SettingsStore.lightFloatingEnabled
-                    RowSwitch("Flutuante sem borda", "Remove fundo e bordas dos cards no modo Light.", lightFloating) {
-                        SettingsStore.setLightFloatingEnabled(it)
-                        if (SettingsStore.overlayEnabled.value) {
-                            OverlayService.stop(this@MainActivity)
-                            OverlayService.start(this@MainActivity)
-                        }
                     }
                 }
             }
@@ -326,18 +314,6 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
-                        }
-                    }
-                }
-
-                if (visualMode == SettingsStore.VISUAL_DASHBOARD_LIGHT) {
-                    Spacer(Modifier.height(14.dp))
-                    val lightFloating by SettingsStore.lightFloatingEnabled
-                    RowSwitch("Flutuante sem borda", "Remove fundo e bordas dos cards no modo Light.", lightFloating) {
-                        SettingsStore.setLightFloatingEnabled(it)
-                        if (SettingsStore.overlayEnabled.value) {
-                            OverlayService.stop(this@MainActivity)
-                            OverlayService.start(this@MainActivity)
                         }
                     }
                 }

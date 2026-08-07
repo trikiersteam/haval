@@ -117,6 +117,13 @@ object DockKeys {
     const val CAR_CONFIGURE_OUTSIDE_TEMP_DISPLAY = "car.configure.outside_temp_display"
     const val MEDIA_VOLUME = "sys.settings.audio.media_volume"
     const val MEDIA_VOLUME_RANGE = "sys.settings.audio.media_volume_range"
+
+    const val CAR_BASIC_GEAR_STATUS = "car.basic.gear_status"
+    const val CAR_BASIC_COOLANT_TEMP = "car.basic.coolant_temp"
+    const val CAR_BASIC_BATTERY_VOLTAGE = "car.basic.battery_voltage"
+    const val CAR_BASIC_AVG_FUEL_CONSUMPTION = "car.basic.avg_fuel_consumption"
+    const val CAR_BASIC_TRANSMISSION_OIL_TEMP = "car.basic.transmission_oil_temp"
+    const val CAR_DMS_FRS_DRIVER_BEHAVIOR_DETECT = "car.dms.frs.driver_behavior_detect"
 }
 
 /** Cores do tema v2 (Tokens do Handoff Lovable). */
@@ -600,7 +607,24 @@ object DockControls {
             "MEDIA VOL RANGE" to DockKeys.MEDIA_VOLUME_RANGE,
             "INSIDE TEMP" to DockKeys.CAR_BASIC_INSIDE_TEMP,
             "OUTSIDE TEMP" to DockKeys.CAR_BASIC_OUTSIDE_TEMP,
-            "OUTSIDE DISPLAY" to DockKeys.CAR_CONFIGURE_OUTSIDE_TEMP_DISPLAY
+            "OUTSIDE DISPLAY" to DockKeys.CAR_CONFIGURE_OUTSIDE_TEMP_DISPLAY,
+            "BATTERY VOLTAGE" to DockKeys.CAR_BASIC_BATTERY_VOLTAGE,
+            "COOLANT TEMP" to DockKeys.CAR_BASIC_COOLANT_TEMP,
+            "GEAR STATUS" to DockKeys.CAR_BASIC_GEAR_STATUS,
+            "AVG FUEL" to DockKeys.CAR_BASIC_AVG_FUEL_CONSUMPTION,
+            "TRANS OIL TEMP" to DockKeys.CAR_BASIC_TRANSMISSION_OIL_TEMP,
+            "DRIVER BEHAVIOR" to DockKeys.CAR_DMS_FRS_DRIVER_BEHAVIOR_DETECT
+        ),
+        "POWER INFO" to linkedMapOf(
+            "BATT CURRENT" to "car.ev_info.power_battery_current",
+            "BATT VOLTAGE" to "car.ev_info.power_battery_voltage",
+            "POWER DOWN COMPLETE" to "car.ev_info.power_down_complete",
+            "POWER VOLT STATE" to "car.ev_info.power_volt_state",
+            "MOTOR POWER" to "car.ev_info.motor_power",
+            "MOTOR SPEED" to "car.ev_info.motor_speed",
+            "PHEV AHD VOLTAGE" to "car.ev_info.phev_ahd_voltage",
+            "ENERGY RECOVERY" to "car.ev_info.energy_recovery_info",
+            "CHARGE CURRENT" to "car.ev_info.cur_charge_current"
         )
     )
 }
