@@ -92,6 +92,7 @@ object DockKeys {
     const val CAR_EV_INFO_CHARGING_GUN_CONN_STATE = "car.ev_info.charging_gun_conn_state"
     const val CAR_EV_INFO_CHARGING_STATE = "car.ev_info.charging_state"
     const val CAR_EV_INFO_ENERGY_CONSUME_INFO = "car.ev_info.energy_consume_info"
+    const val CAR_EV_INFO_ENERGY_RECOVERY_INFO = "car.ev_info.energy_recovery_info"
     const val CAR_EV_INFO_CYCLE_ENERGY_CONSUME_INFO = "car.ev_info.cycle_energy_consume_info"
     const val CAR_EV_INFO_CYCLE_FUEL_CONSUME_INFO = "car.ev_info.cycle_fuel_consume_info"
     const val CAR_EV_INFO_ECONOMIC_GUIDE_LEVEL = "car.ev_info.economic_guide_level"
@@ -500,6 +501,8 @@ object DockControls {
         DockKeys.CAR_EV_INFO_CUR_BATTERY_POWER_PERCENTAGE,
         DockKeys.CAR_BASIC_INSIDE_TEMP, DockKeys.CAR_BASIC_OUTSIDE_TEMP,
         DockKeys.MEDIA_VOLUME,
+        DockKeys.CAR_BASIC_BATTERY_VOLTAGE,
+        "car.ev_info.power_battery_current"
     )
 
     val DEBUG_VARIABLES: Map<String, Map<String, String>> = linkedMapOf(

@@ -11,6 +11,8 @@ shizuku = "13.1.5"
 hiddenapibypass = "6.1"
 gson = "2.13.1"
 reorderable = "3.1.0"
+mpandroidchart = "v3.1.0"
+viewpager = "1.0.0"
 
 [libraries]
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -29,6 +31,8 @@ shizuku-provider = { group = "dev.rikka.shizuku", name = "provider", version.ref
 hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version.ref = "hiddenapibypass" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }
+mpandroidchart = { group = "com.github.PhilJay", name = "MPAndroidChart", version.ref = "mpandroidchart" }
+viewpager = { group = "androidx.viewpager", name = "viewpager", version.ref = "viewpager" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

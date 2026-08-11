@@ -12,8 +12,8 @@ android {
         applicationId = "br.com.redesurftank.havaldock"
         minSdk = 28
         targetSdk = 28
-        versionCode = 52
-        versionName = "0.2.60"
+        versionCode = 53
+        versionName = "0.2.61"
 
         val isDev = file("../dev_marker").exists()
         buildConfigField("boolean", "DEV_ENVIRONMENT", isDev.toString())
@@ -78,4 +78,6 @@ dependencies {
     implementation(libs.shizuku)
     implementation(libs.shizuku.provider)
     implementation(libs.hiddenapibypass)
+    implementation(libs.mpandroidchart)
+    implementation(libs.viewpager)
 }

@@ -29,6 +29,18 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.viewpager.widget.PagerAdapter
+import androidx.viewpager.widget.ViewPager
+import com.github.mikephil.charting.charts.BarChart
+import com.github.mikephil.charting.charts.LineChart
+import com.github.mikephil.charting.components.XAxis
+import com.github.mikephil.charting.data.BarData
+import com.github.mikephil.charting.data.BarDataSet
+import com.github.mikephil.charting.data.BarEntry
+import com.github.mikephil.charting.data.Entry
+import com.github.mikephil.charting.data.LineData
+import com.github.mikephil.charting.data.LineDataSet
+import com.github.mikephil.charting.formatter.ValueFormatter
 import br.com.redesurftank.havaldock.data.AirflowOption
 import br.com.redesurftank.havaldock.data.Battery
 import br.com.redesurftank.havaldock.data.Control
@@ -100,6 +112,49 @@ class OverlayService : Service() {
     private var lastManualTempDTime: Long = 0
     private var lastManualTempP: Double = -1.0
     private var lastManualTempPTime: Long = 0
+
+    private var currentDashPage = 0
+
+    // Histórico para o Gráfico de Energia
+    private val powerHistory = ArrayList<Pair<Float, Float>>() // Consumo, Regeneração
+    private val CHART_MAX_POINTS = 30
+    private var mockIndex = 0
+    private val mockSequence = listOf(-1.0, -1.0, 10.0, 20.0, 35.0, -20.0, -18.0, -10.0, 0.0, 1.0, 1.2, 1.0, 30.0, 35.0, 5.0, 4.0, 6.0, 5.0)
+
+    private val chartTicker = object : Runnable {
+        override fun run() {
+            if (!hidden && (SettingsStore.visualMode.value == SettingsStore.VISUAL_DASHBOARD_LIGHT)) {
+                updateChartData()
+            }
+            main.postDelayed(this, 2000L)
+        }
+    }
+
+    private fun updateChartData() {
+        val isSim = SettingsStore.simulationEnabled.value
+        val volt = if (isSim) 328.0 else (VehicleClient.getData(DockKeys.CAR_BASIC_BATTERY_VOLTAGE)?.toDoubleOrNull() ?: 0.0)
+        val curr = if (isSim) {
+            val v = mockSequence[mockIndex % mockSequence.size]
+            mockIndex++
+            v
+        } else {
+            VehicleClient.getData("car.ev_info.power_battery_current")?.toDoubleOrNull() ?: 0.0
+        }
+        
+        if (curr == 0.0 && !isSim) return 
+
+        // Ambos em kW para manter a mesma escala visual
+        val pKw = (kotlin.math.abs(volt * curr) / 1000.0).toFloat()
+        val consumption = if (curr > 0) pKw else 0f
+        val regen = if (curr < 0) pKw else 0f
+        
+        powerHistory.add(consumption to regen)
+        if (powerHistory.size > CHART_MAX_POINTS) powerHistory.removeAt(0)
+        
+        if (currentDashPage == 1) {
+            main.post { updaters["power_chart"]?.invoke(RenderState()) }
+        }
+    }
 
     private val barHeightPx: Int get() = dp(SettingsStore.barHeight(this))
     private val handleHeightPx by lazy { dp(HANDLE_DP) }
@@ -179,6 +234,7 @@ class OverlayService : Service() {
         HvacPanel.ensureEnabled()
         refreshAll()
         main.postDelayed(projPoll, 1200)
+        main.post(chartTicker)
     }
 
     private val onVehicleConnected: () -> Unit = { refreshAll() }
@@ -191,6 +247,7 @@ class OverlayService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         main.removeCallbacks(hideRunnable); main.removeCallbacks(closePopupsRunnable); main.removeCallbacks(projPoll)
+        main.removeCallbacks(chartTicker)
         closeAllPopups()
         runCatching { SettingsStore.prefs(this).unregisterOnSharedPreferenceChangeListener(prefsListener) }
         runCatching { unregisterReceiver(requestReceiver) }
@@ -640,10 +697,22 @@ class OverlayService : Service() {
      */
     private fun refreshAll() {
         if (hidden) return
+        val visual = SettingsStore.visualMode.value
+        val isDash = visual == SettingsStore.VISUAL_DASHBOARD || visual == SettingsStore.VISUAL_DASHBOARD_LIGHT
+        
         io.execute {
             val controls = DockControls.ALL + listOf(DockControls.DRIVE, DockControls.FAN, DockControls.VENT_D, DockControls.VENT_P, DockControls.AUTO_CONTROL, DockControls.AIRFLOW_CONTROL)
             val snap = controls.map { it.id to it.render() }
             main.post {
+                // Se estiver no Dashboard e na página do Gráfico, atualiza apenas o gráfico e itens globais (projeção)
+                if (isDash && currentDashPage == 1) {
+                    updaters["power_chart"]?.invoke(RenderState())
+                    updaters["proj"]?.invoke(RenderState())
+                    updaters["dash_proj"]?.invoke(RenderState())
+                    return@post
+                }
+
+                // Atualiza controles normais (Página 1 ou Modo Barra)
                 snap.forEach { (id, st) -> updaters[id]?.invoke(st) }
                 updaters["fan_popup"]?.invoke(RenderState()); updaters["vent_popup"]?.invoke(RenderState()); updaters["auto_popup"]?.invoke(RenderState()); updaters["pwr_popup"]?.invoke(RenderState()); updaters["ac_popup"]?.invoke(RenderState()); updaters["air_popup"]?.invoke(RenderState())
                 DockControls.AIRFLOW_OPTIONS.forEach { opt -> updaters["air_${opt.label}"]?.invoke(RenderState()) }
@@ -673,49 +742,115 @@ class OverlayService : Service() {
 
     /**
      * Constrói o layout do Dashboard Normal (Painel Completo).
-     * Organiza os cards em 3 colunas (Motorista, Veículo, Passageiro).
+     * Organiza os cards em 3 colunas (Motorista, Veículo, Passageiro) com paginação.
      */
     private fun buildDashboard() {
         val rootLayout = FrameLayout(this).apply { layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT); setBackgroundColor(Color.TRANSPARENT) }
         dashboard = rootLayout; root.removeAllViews(); root.addView(rootLayout)
         val dashboardContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; background = pill((0xFF shl 24) or (DockColors.SCREEN and 0x00FFFFFF), dp(40)); setPadding(dp(10), dp(10), dp(10), dp(10)) }
         rootLayout.addView(dashboardContainer, FrameLayout.LayoutParams(1770, 720 - dp(40), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = dp(2) })
+        
+        // Header
         val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(40), dp(10), dp(40), 0) }
         val tvHeader = TextView(this).apply { textSize = 18f; setTextColor(cTxt); setTypeface(typeface, Typeface.BOLD); letterSpacing = 0.05f }; header.addView(tvHeader)
         updaters["header_info"] = { val sdf = java.text.SimpleDateFormat("EEEE, dd 'DE' MMMM 'DE' yyyy", java.util.Locale("pt", "BR")); tvHeader.text = sdf.format(java.util.Date()).uppercase() }
         dashboardContainer.addView(header, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(50)))
-        val panel = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; background = null; setPadding(dp(20), dp(10), dp(20), dp(20)); gravity = Gravity.BOTTOM }
-        dashboardContainer.addView(panel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
-        val col1 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }; panel.addView(col1, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
-        panel.addView(gapView(12, true)); val col2 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }; panel.addView(col2, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
-        panel.addView(gapView(12, true)); val col3 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }; panel.addView(col3, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
+
+        // ViewPager para as Páginas
+        val viewPager = ViewPager(this).apply { id = View.generateViewId() }
+        
+        // Página 1: Controles
+        val page1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; background = null; setPadding(dp(20), dp(10), dp(20), dp(20)); gravity = Gravity.BOTTOM }
+        val col1 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }; page1.addView(col1, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
+        page1.addView(gapView(12, true)); val col2 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }; page1.addView(col2, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
+        page1.addView(gapView(12, true)); val col3 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }; page1.addView(col3, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
+        
         col1.addView(createDashboardCard("", createHvacQuickControls("D"))); col1.addView(gapView(12)); col1.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempD" } as Temp))); col1.addView(gapView(12)); col1.addView(createDashboardCard("", createAirflowSelection("D"))); col1.addView(gapView(12)); col1.addView(createDashboardCard("", createLevelControl(DockControls.FAN, R.drawable.ic_fan))); col1.addView(gapView(12)); col1.addView(createDashboardCard("", createLevelControl(DockControls.VENT_D, R.drawable.ic_carseat_cooler)))
-        col2.addView(createDashboardCard("", createBatteryCard(DockControls.ALL.find { it.id == "bat" } as Battery, segmented = false))); col2.addView(gapView(12)); col2.addView(createDashboardCard("MODO DE CONDUÇÃO", createDriveModeSelectionLight(DockControls.DRIVE), iconRes = R.drawable.ic_bolt, titleSize = 18f)); col2.addView(gapView(12)); col2.addView(createDashboardCard("", createAmbientTempCard(DockControls.ALL.find { it.id == "recirc" } as IconToggle))); col2.addView(gapView(12)); col2.addView(createDashboardCard("", createVolumeControl(DockControls.ALL.find { it.id == "vol" } as Volume)))
+        col2.addView(createDashboardCard("", createBatteryCard(DockControls.ALL.find { it.id == "bat" } as Battery, segmented = false))); col2.addView(gapView(12)); col2.addView(createDashboardCard("MODO DE CONDUÇÃO", createDriveModeSelectionLight(DockControls.DRIVE), iconRes = R.drawable.ic_bolt, titleSize = 18f)); col2.addView(gapView(12)); col2.addView(createDashboardCard("", createAmbientTempCard(DockControls.ALL.find { it.id == "recirc" } as IconToggle)))
         col3.addView(createDashboardCard("", createHvacQuickControls("P"))); col3.addView(gapView(12)); col3.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempP" } as Temp))); col3.addView(gapView(12)); col3.addView(createDashboardCard("", createAirflowSelection("P"))); col3.addView(gapView(12)); col3.addView(createDashboardCard("", createLevelControl(DockControls.FAN, R.drawable.ic_fan))); col3.addView(gapView(12)); col3.addView(createDashboardCard("", createLevelControl(DockControls.VENT_P, R.drawable.ic_carseat_cooler)))
+
+        // Página 2: Gráfico de Potência
+        val page2 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(dp(60), dp(20), dp(60), dp(40)) }
+        page2.addView(createDashboardCard("Análise de Energia (kW)", createPowerChart(heightDp = 380), radius = 28))
+
+        val pages = listOf(page1, page2)
+        viewPager.adapter = object : PagerAdapter() {
+            override fun getCount() = pages.size
+            override fun isViewFromObject(v: View, obj: Any) = v == obj
+            override fun instantiateItem(container: android.view.ViewGroup, pos: Int): Any { container.addView(pages[pos]); return pages[pos] }
+            override fun destroyItem(container: android.view.ViewGroup, pos: Int, obj: Any) { container.removeView(obj as View) }
+        }
+        
+        dashboardContainer.addView(viewPager, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        
+        // Indicador de Páginas
+        val dots = createDotsIndicator(pages.size, viewPager)
+        dashboardContainer.addView(dots)
     }
 
     /**
-     * Constrói o layout do Dashboard Light (Minimalista).
-     * Focado em ergonomia com botões maiores e visual limpo, ideal para uso em movimento.
+     * Constrói o layout do Dashboard Light (Minimalista) com suporte a páginas.
      */
     private fun buildDashboardLight() {
         val rootLayout = FrameLayout(this).apply { layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT); setBackgroundColor(Color.TRANSPARENT) }
         dashboard = rootLayout; root.removeAllViews(); root.addView(rootLayout)
         val dashboardContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; background = pill((0xFF shl 24) or (DockColors.SCREEN and 0x00FFFFFF), dp(40)); setPadding(dp(10), dp(5), dp(10), dp(10)) }
         rootLayout.addView(dashboardContainer, FrameLayout.LayoutParams(1770, 720 - dp(150), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = dp(2) })
+        
+        // Header
         val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(40), dp(4), dp(40), 0) }
         val tvHeader = TextView(this).apply { textSize = 18f; setTextColor(cTxt); setTypeface(typeface, Typeface.BOLD); letterSpacing = 0.05f }; header.addView(tvHeader)
         updaters["header_info"] = { val sdf = java.text.SimpleDateFormat("EEEE, dd 'DE' MMMM 'DE' yyyy", java.util.Locale("pt", "BR")); tvHeader.text = sdf.format(java.util.Date()).uppercase() }
         dashboardContainer.addView(header, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(35)))
-        val panel = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; background = null; setPadding(dp(20), dp(10), dp(20), dp(20)); gravity = Gravity.BOTTOM }
-        dashboardContainer.addView(panel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
-        val col1 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }; panel.addView(col1, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        panel.addView(gapView(12, true)); val col2 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }; panel.addView(col2, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        panel.addView(gapView(12, true)); val col3 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }; panel.addView(col3, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+
+        // ViewPager
+        val viewPager = ViewPager(this).apply { id = View.generateViewId() }
         val isFloating = SettingsStore.isLightFloatingEnabled(this); val cardBg = if (isFloating) DockColors.SCREEN else null; val cardStroke = if (isFloating) DockColors.SCREEN else null
+
+        // Página 1 Light: Controles
+        val page1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; background = null; setPadding(dp(20), dp(5), dp(20), dp(10)); gravity = Gravity.BOTTOM }
+        val col1 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }; page1.addView(col1, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        page1.addView(gapView(12, true)); val col2 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }; page1.addView(col2, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        page1.addView(gapView(12, true)); val col3 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }; page1.addView(col3, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        
         col1.addView(createDashboardCard("", createHvacQuickControls("D"), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col1.addView(gapView(4)); col1.addView(createDashboardCard("", createAirflowSelection("D"), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col1.addView(gapView(4)); col1.addView(createDashboardCard("", createLevelControl(DockControls.FAN, R.drawable.ic_fan, iconSize = 42), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col1.addView(gapView(4)); col1.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempD" } as Temp), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col1.addView(gapView(4)); col1.addView(createDashboardCard("", createLevelControl(DockControls.VENT_D, R.drawable.ic_carseat_cooler), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
         col2.addView(createDashboardCard("", createBatteryCard(DockControls.ALL.find { it.id == "bat" } as Battery, segmented = true), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col2.addView(gapView(4)); col2.addView(createDashboardCard("MODO DE CONDUÇÃO", createDriveModeSelectionLight(DockControls.DRIVE), iconRes = R.drawable.ic_bolt, titleSize = 18f, radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col2.addView(gapView(4)); col2.addView(createDashboardCard("", createAmbientTempCard(DockControls.ALL.find { it.id == "recirc" } as IconToggle), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
         col3.addView(createDashboardCard("", createVolumeControl(DockControls.ALL.find { it.id == "vol" } as Volume), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col3.addView(gapView(4)); col3.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempP" } as Temp), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col3.addView(gapView(4)); col3.addView(createDashboardCard("", createLevelControl(DockControls.VENT_P, R.drawable.ic_carseat_cooler), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
+
+        // Página 2 Light: Gráfico ampliado
+        val page2 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(dp(60), dp(10), dp(60), dp(20)) }
+        page2.addView(createDashboardCard("Consumo vs Regeneração (kW)", createPowerChart(heightDp = 300), radius = 16, bgColor = cardBg, strokeColor = cardStroke))
+
+        val pages = listOf(page1, page2)
+        viewPager.adapter = object : PagerAdapter() {
+            override fun getCount() = pages.size
+            override fun isViewFromObject(v: View, obj: Any) = v == obj
+            override fun instantiateItem(container: android.view.ViewGroup, pos: Int): Any { container.addView(pages[pos]); return pages[pos] }
+            override fun destroyItem(container: android.view.ViewGroup, pos: Int, obj: Any) { container.removeView(obj as View) }
+        }
+        
+        dashboardContainer.addView(viewPager, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        
+        val dots = createDotsIndicator(pages.size, viewPager)
+        dashboardContainer.addView(dots)
+    }
+
+    private fun createDotsIndicator(count: Int, pager: ViewPager): View {
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, 0, 0, dp(10)) }
+        val dots = Array(count) { View(this) }
+        dots.forEachIndexed { i, d ->
+            d.background = pill(if (i == 0) cAccent else cLine, dp(4))
+            row.addView(d, LinearLayout.LayoutParams(dp(8), dp(8)).apply { marginStart = dp(6); marginEnd = dp(6) })
+        }
+        pager.addOnPageChangeListener(object : ViewPager.SimpleOnPageChangeListener() {
+            override fun onPageSelected(pos: Int) {
+                currentDashPage = pos
+                dots.forEachIndexed { i, d -> d.background = pill(if (i == pos) cAccent else cLine, dp(4)) }
+                if (pos == 0) refreshAll()
+                else if (pos == 1) updaters["power_chart"]?.invoke(RenderState())
+            }
+        })
+        return row
     }
 
     private fun createDashboardCard(title: String, content: View, active: Boolean = false, iconRes: Int? = null, titleSize: Float = 13f, radius: Int = 28, bgColor: Int? = null, strokeColor: Int? = null): View {
@@ -855,6 +990,90 @@ class OverlayService : Service() {
         fun updateUI(v: Int) { val color = if (v > 12) DockColors.RED else DockColors.CYAN; val lp = fill.layoutParams; lp.width = (sW * (v.toFloat() / c.hi()).coerceIn(0f, 1f)).toInt(); fill.layoutParams = lp; fill.background = pill(color, dp(18)) }
         track.setOnTouchListener { _, e -> var v = ((e.x / sW).coerceIn(0f, 1f) * c.hi()).toInt(); if (e.action == MotionEvent.ACTION_DOWN) canGo12 = curV >= 12; if (!canGo12) v = minOf(v, 12); updateUI(v); if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { onUserActivity(); curV = v; lastManualVol = v; lastManualVolTime = System.currentTimeMillis(); io.execute { c.set(v); main.post { refreshAll() } } }; true }
         updaters[c.id] = { val v = c.value(); val now = System.currentTimeMillis(); if (now - lastManualVolTime > 2000 || v == lastManualVol) { curV = v; updateUI(v); if (it.icon != 0) volIc.setImageResource(it.icon) } }; return layout
+    }
+
+    private fun createPowerChart(heightDp: Int = 165): View {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(heightDp))
+        }
+
+        // 1. Barra de Acumulados (Estrutura Manual para Centralização Perfeita)
+        val accumContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(dp(105), LinearLayout.LayoutParams.MATCH_PARENT).apply { marginEnd = dp(12) }
+            background = pill(cTrack, dp(8))
+            clipToOutline = true
+        }
+        
+        // Segmento de Regeneração (Topo)
+        val regenBar = TextView(this).apply {
+            gravity = Gravity.CENTER; setTextColor(Color.BLACK); setTypeface(null, Typeface.BOLD); textSize = 11f
+            background = pill(DockColors.CYAN, 0)
+            setPadding(dp(10), 0, dp(10), 0) // Garante que o texto fique centralizado em 80% da largura
+        }
+        // Segmento de Consumo (Base)
+        val consBar = TextView(this).apply {
+            gravity = Gravity.CENTER; setTextColor(Color.BLACK); setTypeface(null, Typeface.BOLD); textSize = 11f
+            background = pill(DockColors.WHITE, 0)
+            setPadding(dp(10), 0, dp(10), 0)
+        }
+        
+        accumContainer.addView(regenBar)
+        accumContainer.addView(consBar)
+        container.addView(accumContainer)
+
+        // 2. Gráfico de Linha (Instantâneo)
+        val lineChart = LineChart(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+            description.isEnabled = false; legend.isEnabled = false; setTouchEnabled(false)
+            xAxis.isEnabled = false; axisRight.isEnabled = false; setDrawGridBackground(false)
+            axisLeft.apply {
+                setDrawGridLines(true); gridColor = Color.parseColor("#1AFFFFFF")
+                textColor = cMuted; textSize = 9f; setLabelCount(3, true); setDrawAxisLine(false)
+            }
+        }
+        container.addView(lineChart)
+
+        updaters["power_chart"] = {
+            // Atualiza Barra Acumulada
+            val cycleEnergy = VehicleClient.getData(DockKeys.CAR_EV_INFO_CYCLE_ENERGY_CONSUME_INFO)?.toFloatOrNull() ?: 0f
+            val energyRecovery = VehicleClient.getData(DockKeys.CAR_EV_INFO_ENERGY_RECOVERY_INFO)?.toFloatOrNull() ?: 0f
+            val total = cycleEnergy + energyRecovery
+
+            if (total > 0) {
+                regenBar.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, energyRecovery)
+                consBar.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, cycleEnergy)
+                
+                regenBar.text = if (energyRecovery > 0.1) String.format(java.util.Locale.US, "%.1f", energyRecovery) else ""
+                consBar.text = if (cycleEnergy > 0.1) String.format(java.util.Locale.US, "%.1f", cycleEnergy) else ""
+                
+                regenBar.visibility = if (energyRecovery > 0) View.VISIBLE else View.GONE
+                consBar.visibility = if (cycleEnergy > 0) View.VISIBLE else View.GONE
+            } else {
+                regenBar.visibility = View.GONE; consBar.visibility = View.GONE
+            }
+
+            // Atualiza Gráfico de Linha
+            val consumptionEntries = ArrayList<Entry>()
+            val regenEntries = ArrayList<Entry>()
+            powerHistory.forEachIndexed { i, pair ->
+                consumptionEntries.add(Entry(i.toFloat(), pair.first))
+                regenEntries.add(Entry(i.toFloat(), pair.second))
+            }
+            val ds1 = LineDataSet(consumptionEntries, "Consumo").apply {
+                color = DockColors.WHITE; setDrawCircles(false); setDrawValues(false); lineWidth = 2f
+                mode = LineDataSet.Mode.CUBIC_BEZIER; setDrawFilled(true); fillColor = DockColors.WHITE; fillAlpha = 40
+            }
+            val ds2 = LineDataSet(regenEntries, "Regeneração").apply {
+                color = DockColors.CYAN; setDrawCircles(false); setDrawValues(false); lineWidth = 2f
+                mode = LineDataSet.Mode.CUBIC_BEZIER; setDrawFilled(true); fillColor = DockColors.CYAN; fillAlpha = 40
+            }
+            lineChart.data = LineData(ds1, ds2)
+            lineChart.invalidate()
+        }
+
+        return container
     }
 
     private fun gapView(size: Int, horizontal: Boolean = false): View = View(this).apply { layoutParams = if (horizontal) LinearLayout.LayoutParams(dp(size), 1) else LinearLayout.LayoutParams(1, dp(size)) }

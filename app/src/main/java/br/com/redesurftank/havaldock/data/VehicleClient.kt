@@ -67,7 +67,10 @@ object VehicleClient {
             DockKeys.MEDIA_VOLUME to "10",
             DockKeys.CAR_BASIC_INSIDE_TEMP to "24",
             DockKeys.CAR_BASIC_OUTSIDE_TEMP to "28",
-            DockKeys.CAR_EV_SETTING_CHARGE_SOC_TARGET_CONFIG to "22"
+            DockKeys.CAR_EV_SETTING_CHARGE_SOC_TARGET_CONFIG to "22",
+            DockKeys.CAR_BASIC_BATTERY_VOLTAGE to "328",
+            DockKeys.CAR_EV_INFO_CYCLE_ENERGY_CONSUME_INFO to "15.5",
+            DockKeys.CAR_EV_INFO_ENERGY_RECOVERY_INFO to "4.2"
         )
     }
 
