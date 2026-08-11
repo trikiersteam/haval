@@ -162,6 +162,10 @@ class OverlayService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    /**
+     * Ponto de entrada do serviço. Configura o WindowManager, cria a interface inicial,
+     * registra listeners de configurações e inicia a comunicação com o veículo.
+     */
     override fun onCreate() {
         super.onCreate()
         startForeground(NOTIF_ID, buildNotification())
@@ -180,6 +184,10 @@ class OverlayService : Service() {
     private val onVehicleConnected: () -> Unit = { refreshAll() }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int { applyVisibility(); return START_STICKY }
 
+    /**
+     * Encerra o serviço, removendo a interface da tela, cancelando timers e
+     * desregistrando todos os listeners de rádio e veículo para poupar recursos.
+     */
     override fun onDestroy() {
         super.onDestroy()
         main.removeCallbacks(hideRunnable); main.removeCallbacks(closePopupsRunnable); main.removeCallbacks(projPoll)
@@ -192,6 +200,10 @@ class OverlayService : Service() {
         runCatching { wm.removeView(root) }
     }
 
+    /**
+     * Constrói a janela principal do overlay (WindowManager). Define se será exibida
+     * a barra compacta (Toolbar) ou o Dashboard (Normal/Light) com base nas configurações.
+     */
     private fun buildOverlay() {
         val visualMode = SettingsStore.visualMode.value
         if (visualMode == SettingsStore.VISUAL_BALLOONS) return
@@ -442,10 +454,26 @@ class OverlayService : Service() {
         updaters.remove("mode_popup")
     }
     private fun closeTemp() { tempWin?.let { v -> runCatching { wm.removeView(v) } }; tempWin = null; updaters.remove("fan_popup"); updaters.remove("vent_popup"); updaters.remove("auto_popup"); updaters.remove("pwr_popup"); updaters.remove("ac_popup"); updaters.remove("air_popup") }
+    /**
+     * Fecha todos os menus flutuantes ativos (Volume, Temperatura, Modos, etc.).
+     */
     private fun closePopups() { closeVolume(); closeMode(); closeTemp() }
+    
+    /**
+     * Fecha todos os popups e cancela o timer de auto-fechamento.
+     */
     private fun closeAllPopups() { main.removeCallbacks(closePopupsRunnable); closePopups() }
+    
+    /**
+     * Inicia o timer para fechar menus abertos por inatividade do usuário.
+     */
     private fun armPopupTimer() { main.removeCallbacks(closePopupsRunnable); val s = SettingsStore.popupSecs(this); if (s > 0) main.postDelayed(closePopupsRunnable, s * 1000L) }
 
+    /**
+     * Abre o menu de seleção de Modos de Condução (HEV, EV, Prioridade EV).
+     * Se o modo selecionado for HEV, exibe opções adicionais para estratégia Inteligente
+     * ou Save SOC (com slider de ajuste de percentual).
+     */
     private fun openMode(c: Mode, anchor: View) {
         if (modeWin != null) { closeMode(); return }; closePopups(); armPopupTimer()
         val pop = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL; background = pill(getPopupColor(), dp(18)); setPadding(dp(12), dp(10), dp(12), dp(10)) }
@@ -496,6 +524,10 @@ class OverlayService : Service() {
         updateModePopupUI()
     }
 
+    /**
+     * Abre o menu completo de controle de Climatização (Temperatura, AC, AUTO, Ventilador, Bancos).
+     * Centraliza todos os controles de HVAC em um único popup contextual.
+     */
     private fun openTemp(c: Temp, anchor: View) {
         if (tempWin != null) { closeTemp(); return }; closePopups(); armPopupTimer()
         val pop = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL; background = pill(getPopupColor(), dp(18)); setPadding(dp(16), dp(12), dp(16), dp(12)) }
@@ -575,6 +607,11 @@ class OverlayService : Service() {
 
     private fun handleOutsideTouch(pop: View) { pop.setOnTouchListener { _, event -> if (event.action == MotionEvent.ACTION_OUTSIDE) { closeAllPopups(); true } else false } }
 
+    /**
+     * Executa a troca de modo de condução e estratégia de energia no veículo.
+     * Implementa 'Optimistic UI' para redesenhar a tela instantaneamente e
+     * proteção anti-flicker para ignorar leituras instáveis do carro por 2 segundos.
+     */
     private fun changeDriveMode(c: Mode, mode: Int, strategy: Int? = null, soc: Int? = null) {
         onUserActivity(); if (modeWin != null) armPopupTimer()
         lastManualSocTime = System.currentTimeMillis(); lastManualMode = mode
@@ -597,6 +634,10 @@ class OverlayService : Service() {
         }
     }
 
+    /**
+     * Atualiza todos os elementos visuais da interface (Barra e Dashboard) com os
+     * dados mais recentes lidos do barramento CAN do veículo.
+     */
     private fun refreshAll() {
         if (hidden) return
         io.execute {
@@ -620,11 +661,20 @@ class OverlayService : Service() {
     private val projPoll = object : Runnable { override fun run() { refreshProjection(); main.postDelayed(this, 2500) } }
     private fun refreshProjection() { io.execute { val raw = ProjectionLauncher.topPackage(); val fg = ProjectionLauncher.classifyProjection(raw); val conn: String?; val isFg: Boolean; if (fg != null) { conn = fg; isFg = true; lastProjection = fg } else { isFg = false; if (raw != null && raw != packageName) lastCentralApp = raw; conn = lastProjection ?: (if (ProjectionLauncher.carPlayConnected()) ProjectionLauncher.CARPLAY_PKG else null); if (conn != null) lastProjection = conn }; main.post { updateProjTile(conn, isFg) } } }
     private fun updateProjTile(conn: String?, fg: Boolean) { projConnected = conn; projForeground = fg; updaters["dash_proj"]?.invoke(RenderState()); val v = projView ?: return; val ic = projIcon ?: return; if (conn == null) { if (v.visibility != View.GONE) v.visibility = View.GONE; projShownState = null; return }; if (v.visibility != View.VISIBLE) v.visibility = View.VISIBLE; val want = if (fg) "car" else conn; if (projShownState != want) { when { fg -> { ic.setImageResource(R.drawable.ic_car); ic.setColorFilter(cTxt) }; conn == ProjectionLauncher.AA_PKG -> { ic.setImageResource(R.drawable.ic_androidauto); ic.clearColorFilter() }; else -> { ic.setImageResource(R.drawable.ic_carplay); ic.clearColorFilter() } }; projShownState = want } }
+    /**
+     * Gerencia o clique nos ícones de projeção (CarPlay/Android Auto).
+     * Alterna entre abrir o app de projeção ou voltar para a última tela da central.
+     * Minimiza o overlay automaticamente ao navegar para estas telas.
+     */
     private fun onProjClick() { onUserActivity(); val conn = projConnected ?: return; val goingBack = projForeground; hideBar(manual = true); io.execute { if (goingBack) { val comp = lastCentralApp?.let { runCatching { packageManager.getLaunchIntentForPackage(it)?.component?.flattenToString() }.getOrNull() }; if (comp != null) ProjectionLauncher.openComponent(comp) else ProjectionLauncher.goHome() } else { ProjectionLauncher.openProjection(conn) }; Thread.sleep(600); refreshProjection() } }
     private fun onUserActivity() { if (!hidden) armTimer() }
     private fun applyVisibility() { showBar() }
     private fun armTimer() { main.removeCallbacks(hideRunnable); if (SettingsStore.mode(this) == SettingsStore.MODE_AUTO) main.postDelayed(hideRunnable, SettingsStore.secs(this) * 1000L) }
 
+    /**
+     * Constrói o layout do Dashboard Normal (Painel Completo).
+     * Organiza os cards em 3 colunas (Motorista, Veículo, Passageiro).
+     */
     private fun buildDashboard() {
         val rootLayout = FrameLayout(this).apply { layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT); setBackgroundColor(Color.TRANSPARENT) }
         dashboard = rootLayout; root.removeAllViews(); root.addView(rootLayout)
@@ -644,6 +694,10 @@ class OverlayService : Service() {
         col3.addView(createDashboardCard("", createHvacQuickControls("P"))); col3.addView(gapView(12)); col3.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempP" } as Temp))); col3.addView(gapView(12)); col3.addView(createDashboardCard("", createAirflowSelection("P"))); col3.addView(gapView(12)); col3.addView(createDashboardCard("", createLevelControl(DockControls.FAN, R.drawable.ic_fan))); col3.addView(gapView(12)); col3.addView(createDashboardCard("", createLevelControl(DockControls.VENT_P, R.drawable.ic_carseat_cooler)))
     }
 
+    /**
+     * Constrói o layout do Dashboard Light (Minimalista).
+     * Focado em ergonomia com botões maiores e visual limpo, ideal para uso em movimento.
+     */
     private fun buildDashboardLight() {
         val rootLayout = FrameLayout(this).apply { layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT); setBackgroundColor(Color.TRANSPARENT) }
         dashboard = rootLayout; root.removeAllViews(); root.addView(rootLayout)
@@ -805,9 +859,18 @@ class OverlayService : Service() {
 
     private fun gapView(size: Int, horizontal: Boolean = false): View = View(this).apply { layoutParams = if (horizontal) LinearLayout.LayoutParams(dp(size), 1) else LinearLayout.LayoutParams(1, dp(size)) }
 
+    /**
+     * Restaura a visibilidade da interface, expandindo a janela do WindowManager
+     * e notificando outros apps sobre o espaço ocupado.
+     */
     private fun showBar() {
         main.removeCallbacks(hideRunnable); if (hidden) { hidden = false; bar?.visibility = View.VISIBLE; dashboard?.visibility = View.VISIBLE; handle.visibility = View.GONE; val isDash = SettingsStore.visualMode.value != SettingsStore.VISUAL_BAR; params.width = if (isDash) 1770 else WindowManager.LayoutParams.MATCH_PARENT; params.height = if (isDash) 720 else barHeightPx; params.gravity = Gravity.BOTTOM or (if (isDash) Gravity.END else Gravity.START); runCatching { wm.updateViewLayout(root, params) }; broadcastBarState(); refreshAll() }; armTimer()
     }
+    
+    /**
+     * Minimiza a interface para uma alça compacta (mini pill).
+     * Ocorre automaticamente pelo timer (Modo Auto) ou por gesto do usuário.
+     */
     private fun hideBar(manual: Boolean = false) { if (!manual && SettingsStore.mode(this) != SettingsStore.MODE_AUTO) return; closeAllPopups(); hidden = true; bar?.visibility = View.GONE; dashboard?.visibility = View.GONE; handle.visibility = View.VISIBLE; params.width = dp(100); params.height = handleHeightPx; params.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; runCatching { wm.updateViewLayout(root, params) }; broadcastBarState() }
     private fun broadcastBarState() { runCatching { sendBroadcast(Intent(ACTION_BAR_STATE).putExtra(EXTRA_VISIBLE, !hidden).putExtra(EXTRA_HEIGHT_DP, if (hidden) HANDLE_DP else SettingsStore.barHeight(this))) } }
     private fun registerRequestReceiver() { val f = IntentFilter(ACTION_REQUEST_STATE); if (Build.VERSION.SDK_INT >= 33) registerReceiver(requestReceiver, f, RECEIVER_EXPORTED) else registerReceiver(requestReceiver, f) }

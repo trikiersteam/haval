@@ -106,10 +106,10 @@ class MainActivity : ComponentActivity() {
                         vars.forEach { (label, key) ->
                             val newVal = VehicleClient.getData(key) ?: "—"
                             val old = debugValues[label]
-                            if (old == null || old.current != newVal) {
+                            if (old == null || old.history.last() != newVal) {
+                                val newHistory = (old?.history ?: emptyList()) + newVal
                                 debugValues[label] = MonitorValue(
-                                    current = newVal,
-                                    previous = old?.current,
+                                    history = newHistory.takeLast(3),
                                     lastChanged = System.currentTimeMillis()
                                 )
                             }
@@ -292,10 +292,11 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                             )
                             val items = vars.toList()
-                            val chunk = (items.size + 2) / 3
+                            val chunk = (items.size + 3) / 4
                             val col1 = items.take(chunk)
                             val col2 = items.drop(chunk).take(chunk)
-                            val col3 = items.drop(chunk * 2)
+                            val col3 = items.drop(chunk * 2).take(chunk)
+                            val col4 = items.drop(chunk * 3)
 
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                 Column(Modifier.weight(1f)) {
@@ -310,6 +311,11 @@ class MainActivity : ComponentActivity() {
                                 }
                                 Column(Modifier.weight(1f)) {
                                     col3.forEach { (label, _) ->
+                                        MonitorRow(label, debugValues[label])
+                                    }
+                                }
+                                Column(Modifier.weight(1f)) {
+                                    col4.forEach { (label, _) ->
                                         MonitorRow(label, debugValues[label])
                                     }
                                 }
@@ -452,22 +458,21 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun MonitorRow(label: String, monitor: MonitorValue?) {
-        val value = monitor?.current ?: "—"
-        val previous = monitor?.previous
+        val history = monitor?.history ?: listOf("—")
         val lastChanged = monitor?.lastChanged ?: 0
         val isRecent = System.currentTimeMillis() - lastChanged < 5000
-        val displayValue = if (isRecent && previous != null && previous != value) "$previous -> $value" else value
-        val color = if (isRecent && previous != null && previous != value) Color(0xFFFFC23C) else Color.White
+        val displayValue = history.joinToString(" -> ")
+        val color = if (isRecent && history.size > 1) Color(0xFFFFC23C) else Color.White
 
         Column(Modifier.padding(vertical = 6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(label, color = Muted, fontSize = 11.sp, modifier = Modifier.weight(0.5f), maxLines = 1)
+                Text(label, color = Muted, fontSize = 11.sp, modifier = Modifier.weight(0.4f), maxLines = 1)
                 Text(
                     displayValue,
                     color = color,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(0.5f),
+                    modifier = Modifier.weight(0.6f),
                     maxLines = 1
                 )
             }
@@ -484,8 +489,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private data class MonitorValue(
-        val current: String,
-        val previous: String? = null,
+        val history: List<String>,
         val lastChanged: Long = 0
     )
 }

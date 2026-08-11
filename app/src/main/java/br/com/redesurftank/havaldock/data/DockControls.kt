@@ -14,7 +14,7 @@ object DockKeys {
     const val CAR_HVAC_HEATING_ENABLE = "car.hvac.heating_enable"
     const val CAR_HVAC_ACMAX_ENABLE = "car.hvac.acmax_enable"
     const val CAR_HVAC_AC_ENABLE = "car.hvac.ac_enable"
-    const val CAR_HVAC_ANION_ENABLE = "car.hvac.anion_enable"
+    // const val CAR_HVAC_ANION_ENABLE = "car.hvac.anion_enable"
     const val CAR_HVAC_AQS_ENABLE = "car.hvac.aqs_enable"
     const val CAR_HVAC_AUTO_ENABLE = "car.hvac.auto_enable"
     const val CAR_HVAC_BLOWER_MODE = "car.hvac.blower_mode"
@@ -27,12 +27,12 @@ object DockKeys {
     const val CAR_HVAC_FAN_SPEED_RANGE = "car.hvac.fan_speed_range"
     const val CAR_HVAC_FRONT_DEFROST_ENABLE = "car.hvac.front_defrost_enable"
     const val CAR_HVAC_FRONT_TEMPERATURE_RANGE = "car.hvac.front_temperature_range"
-    const val CAR_HVAC_INTELLIGENT_SWITCH_ENABLE = "car.hvac.Intelligent_switch_enable"
+    // const val CAR_HVAC_INTELLIGENT_SWITCH_ENABLE = "car.hvac.Intelligent_switch_enable"
     const val CAR_HVAC_INTELLIGENT_TEMPERATURE_RANGE = "car.hvac.Intelligent_temperature_range"
-    const val CAR_HVAC_PANEL_DISPLAY_NOTIFY = "car.hvac.panel_display_notify"
+    // const val CAR_HVAC_PANEL_DISPLAY_NOTIFY = "car.hvac.panel_display_notify"
     const val CAR_HVAC_PASS_TEMPERATURE = "car.hvac.pass_temperature"
     const val CAR_HVAC_PASS_TEMP_ACTION = "car.hvac.pass_temp_action"
-    const val CAR_HVAC_PM2_5_VALUE = "car.hvac.pm2.5_value"
+    // const val CAR_HVAC_PM2_5_VALUE = "car.hvac.pm2.5_value"
     const val CAR_HVAC_POWER_MODE = "car.hvac.power_mode"
     const val CAR_HVAC_REAR_DEFROST_ENABLE = "car.hvac.rear_defrost_enable"
     const val CAR_HVAC_REAR_FAN_SPEED = "car.hvac.rear_fan_speed"
@@ -57,30 +57,30 @@ object DockKeys {
     const val CAR_EV_SETTING_POWER_RESERVE_CONFIG = "car.ev_setting.power_reserve_config" //1=inteligente, 2=save prioritario %
     const val CAR_EV_SETTING_APPOINT_CHARGE_SET = "car.ev_setting.appoint_charge_set"
     const val CAR_EV_SETTING_AUTO_CHARGE_CONFIG = "car.ev_setting.auto_charge_config"
-    const val CAR_EV_SETTING_AVAS_CONFIG = "car.ev.setting.avas_config"
-    const val CAR_EV_SETTING_AVAS_ENABLE = "car.ev.setting.avas_enable"
-    const val CAR_EV_SETTING_BATTERY_CHARGING_INSULATION_ENABLE = "car.ev.setting.battery_charging_insulation_enable"
-    const val CAR_EV_SETTING_BATTERY_CHARGING_INSULATION_TYPE = "car.ev.setting.battery_charging_insulation_type"
-    const val CAR_EV_SETTING_BATTERY_PACK_AUTO_INSULATION_ENABLE = "car.ev.setting.battery_pack_auto_insulation_enable"
+    // const val CAR_EV_SETTING_AVAS_CONFIG = "car.ev.setting.avas_config"
+    // const val CAR_EV_SETTING_AVAS_ENABLE = "car.ev.setting.avas_enable"
+    // const val CAR_EV_SETTING_BATTERY_CHARGING_INSULATION_ENABLE = "car.ev.setting.battery_charging_insulation_enable"
+    // const val CAR_EV_SETTING_BATTERY_CHARGING_INSULATION_TYPE = "car.ev.setting.battery_charging_insulation_type"
+    // const val CAR_EV_SETTING_BATTERY_PACK_AUTO_INSULATION_ENABLE = "car.ev.setting.battery_pack_auto_insulation_enable"
     const val CAR_EV_SETTING_CHARGE_ACTION = "car.ev_setting.charge_action"
     const val CAR_EV_SETTING_CHARGE_CURRENT_CONFIG = "car.ev_setting.charge_current_config"
     const val CAR_EV_SETTING_CHARGE_MODE = "car.ev_setting.charge_mode"
     const val CAR_EV_SETTING_CHARGE_SAVE_MODE_LIMIT_CONFIG = "car.ev_setting.charge_save_mode_limit_config"
     const val CAR_EV_SETTING_CHARGE_SOC_LIMIT_CONFIG = "car.ev_setting.charge_soc_limit_config"
     const val CAR_EV_SETTING_CHARGE_SOC_TARGET_CONFIG = "car.ev_setting.charge_soc_target_config"
-    const val CAR_EV_SETTING_DRIVE_TIME_CONFIG = "car.ev_setting.drive_time_config"
+    // const val CAR_EV_SETTING_DRIVE_TIME_CONFIG = "car.ev_setting.drive_time_config"
     const val CAR_EV_SETTING_ENGINE_DISCHARGE_ENABLE = "car.ev.setting.engine_discharge_enable"
-    const val CAR_EV_SETTING_GMODE_GW_STATE = "car.ev.setting.gmode_gw_state"
-    const val CAR_EV_SETTING_GMODE_HUT_SET = "car.ev.setting.gmode_hut_set"
-    const val CAR_EV_SETTING_GMODE_HUT_STATE = "car.ev.setting.gmode_hut_state"
-    const val CAR_EV_SETTING_GMODE_NOTIFY = "car.ev.setting.gmode_notify"
-    const val CAR_EV_SETTING_GMODE_STATE = "car.ev.setting.gmode_state"
-    const val CAR_EV_SETTING_VEHICLE_TO_LOAD_DISCHARGE_ENABLE = "car.ev.setting.vehicle_to_load_discharge_enable"
-    const val CAR_EV_SETTING_VEHICLE_TO_VEHICLE_DISCHARGE_ENABLE = "car.ev.setting.vehicle_to_vehicle_discharge_enable"
-    const val CAR_EV_SETTING_VEHICLE_TO_VEHICLE_DISCHARGE_NOTIFY = "car.ev.setting.vehicle_to_vehicle_discharge_notify"
-    const val CAR_EV_SETTING_VSG_CONFIG = "car.ev.setting.vsg_config"
-    const val CAR_EV_SETTING_WADE_MODE_ENABLE = "car.ev.setting.wade_mode_enable"
-    const val CAR_EV_SETTING_WASH_MODE_ENABLE = "car.ev.setting.wash_mode_enable"
+    // const val CAR_EV_SETTING_GMODE_GW_STATE = "car.ev.setting.gmode_gw_state"
+    // const val CAR_EV_SETTING_GMODE_HUT_SET = "car.ev.setting.gmode_hut_set"
+    // const val CAR_EV_SETTING_GMODE_HUT_STATE = "car.ev.setting.gmode_hut_state"
+    // const val CAR_EV_SETTING_GMODE_NOTIFY = "car.ev.setting.gmode_notify"
+    // const val CAR_EV_SETTING_GMODE_STATE = "car.ev.setting.gmode_state"
+    // const val CAR_EV_SETTING_VEHICLE_TO_LOAD_DISCHARGE_ENABLE = "car.ev.setting.vehicle_to_load_discharge_enable"
+    // const val CAR_EV_SETTING_VEHICLE_TO_VEHICLE_DISCHARGE_ENABLE = "car.ev.setting.vehicle_to_vehicle_discharge_enable"
+    // const val CAR_EV_SETTING_VEHICLE_TO_VEHICLE_DISCHARGE_NOTIFY = "car.ev.setting.vehicle_to_vehicle_discharge_notify"
+    // const val CAR_EV_SETTING_VSG_CONFIG = "car.ev.setting.vsg_config"
+    // const val CAR_EV_SETTING_WADE_MODE_ENABLE = "car.ev.setting.wade_mode_enable"
+    // const val CAR_EV_SETTING_WASH_MODE_ENABLE = "car.ev.setting.wash_mode_enable"
 
     // EV INFO
     const val CAR_BASIC_BATTERY_POWER_LEVEL = "car.basic.battery_power_level"
@@ -105,11 +105,13 @@ object DockKeys {
     // RADIO
     const val SYS_RADIO_PLAY_CONTROL_ACTION = "sys.radio.play_control_action"
     const val SYS_RADIO_PLAY_STATE = "sys.radio.play_state"
+    /*
     const val SYS_RADIO_RDS_CUR_CHANNEL_INFO = "sys.radio.rds_cur_channel_info"
     const val SYS_RADIO_RDS_REGIONAL_INFO = "sys.radio.rds_regional_info"
     const val SYS_RADIO_RDS_TRAFFIC_ANNOUNCEMENT_ACTIVE_STATE = "sys.radio.rds_traffic_announcement_active_state"
     const val SYS_RADIO_RDS_TRAFFIC_ANNOUNCEMENT_STATE = "sys.radio.rds_traffic_announcement_state"
     const val SYS_RADIO_RDS_TRAFFIC_PROGRAM_STATE = "sys.radio.rds_traffic_program_state"
+    */
 
     // OUTROS
     const val CAR_BASIC_INSIDE_TEMP = "car.basic.inside_temp"
@@ -525,11 +527,11 @@ object DockControls {
             "REAR TEMP ACTION" to DockKeys.CAR_HVAC_REAR_TEMP_ACTION,
             "FRONT DEFROST" to DockKeys.CAR_HVAC_FRONT_DEFROST_ENABLE,
             "FRONT TEMP RANGE" to DockKeys.CAR_HVAC_FRONT_TEMPERATURE_RANGE,
-            "INTELLIGENT SW" to DockKeys.CAR_HVAC_INTELLIGENT_SWITCH_ENABLE,
+            // "INTELLIGENT SW" to DockKeys.CAR_HVAC_INTELLIGENT_SWITCH_ENABLE,
             "INTELLIGENT TEMP" to DockKeys.CAR_HVAC_INTELLIGENT_TEMPERATURE_RANGE,
-            "PANEL NOTIFY" to DockKeys.CAR_HVAC_PANEL_DISPLAY_NOTIFY,
-            "PM2.5 VALUE" to DockKeys.CAR_HVAC_PM2_5_VALUE,
-            "ANION" to DockKeys.CAR_HVAC_ANION_ENABLE,
+            // "PANEL NOTIFY" to DockKeys.CAR_HVAC_PANEL_DISPLAY_NOTIFY,
+            // "PM2.5 VALUE" to DockKeys.CAR_HVAC_PM2_5_VALUE,
+            // "ANION" to DockKeys.CAR_HVAC_ANION_ENABLE,
             "AQS" to DockKeys.CAR_HVAC_AQS_ENABLE,
             "HVAC CONFIG" to DockKeys.CAR_HVAC_CONFIG,
             "HVAC REQUEST" to DockKeys.CAR_HVAC_REQUEST_HVAC_INFO,
@@ -549,29 +551,29 @@ object DockControls {
             "RECOVERY LEVEL" to DockKeys.REGEN_LEVEL,
             "APPOINT CHARGE" to DockKeys.CAR_EV_SETTING_APPOINT_CHARGE_SET,
             "AUTO CHARGE" to DockKeys.CAR_EV_SETTING_AUTO_CHARGE_CONFIG,
-            "AVAS CONFIG" to DockKeys.CAR_EV_SETTING_AVAS_CONFIG,
-            "AVAS ENABLE" to DockKeys.CAR_EV_SETTING_AVAS_ENABLE,
-            "BATT INSUL ENABLE" to DockKeys.CAR_EV_SETTING_BATTERY_CHARGING_INSULATION_ENABLE,
-            "BATT INSUL TYPE" to DockKeys.CAR_EV_SETTING_BATTERY_CHARGING_INSULATION_TYPE,
-            "BATT AUTO INSUL" to DockKeys.CAR_EV_SETTING_BATTERY_PACK_AUTO_INSULATION_ENABLE,
+            // "AVAS CONFIG" to DockKeys.CAR_EV_SETTING_AVAS_CONFIG,
+            // "AVAS ENABLE" to DockKeys.CAR_EV_SETTING_AVAS_ENABLE,
+            // "BATT INSUL ENABLE" to DockKeys.CAR_EV_SETTING_BATTERY_CHARGING_INSULATION_ENABLE,
+            // "BATT INSUL TYPE" to DockKeys.CAR_EV_SETTING_BATTERY_CHARGING_INSULATION_TYPE,
+            // "BATT AUTO INSUL" to DockKeys.CAR_EV_SETTING_BATTERY_PACK_AUTO_INSULATION_ENABLE,
             "CHARGE ACTION" to DockKeys.CAR_EV_SETTING_CHARGE_ACTION,
             "CHARGE CURRENT" to DockKeys.CAR_EV_SETTING_CHARGE_CURRENT_CONFIG,
             "CHARGE MODE" to DockKeys.CAR_EV_SETTING_CHARGE_MODE,
             "CHARGE SAVE LIMIT" to DockKeys.CAR_EV_SETTING_CHARGE_SAVE_MODE_LIMIT_CONFIG,
             "CHARGE SOC LIMIT" to DockKeys.CAR_EV_SETTING_CHARGE_SOC_LIMIT_CONFIG,
-            "DRIVE TIME" to DockKeys.CAR_EV_SETTING_DRIVE_TIME_CONFIG,
+            // "DRIVE TIME" to DockKeys.CAR_EV_SETTING_DRIVE_TIME_CONFIG,
             "ENGINE DISCHARGE" to DockKeys.CAR_EV_SETTING_ENGINE_DISCHARGE_ENABLE,
-            "GMODE GW STATE" to DockKeys.CAR_EV_SETTING_GMODE_GW_STATE,
-            "GMODE HUT SET" to DockKeys.CAR_EV_SETTING_GMODE_HUT_SET,
-            "GMODE HUT STATE" to DockKeys.CAR_EV_SETTING_GMODE_HUT_STATE,
-            "GMODE NOTIFY" to DockKeys.CAR_EV_SETTING_GMODE_NOTIFY,
-            "GMODE STATE" to DockKeys.CAR_EV_SETTING_GMODE_STATE,
-            "V2L DISCHARGE" to DockKeys.CAR_EV_SETTING_VEHICLE_TO_LOAD_DISCHARGE_ENABLE,
-            "V2V DISCHARGE" to DockKeys.CAR_EV_SETTING_VEHICLE_TO_VEHICLE_DISCHARGE_ENABLE,
-            "V2V NOTIFY" to DockKeys.CAR_EV_SETTING_VEHICLE_TO_VEHICLE_DISCHARGE_NOTIFY,
-            "VSG CONFIG" to DockKeys.CAR_EV_SETTING_VSG_CONFIG,
-            "WADE MODE" to DockKeys.CAR_EV_SETTING_WADE_MODE_ENABLE,
-            "WASH MODE" to DockKeys.CAR_EV_SETTING_WASH_MODE_ENABLE
+            // "GMODE GW STATE" to DockKeys.CAR_EV_SETTING_GMODE_GW_STATE,
+            // "GMODE HUT SET" to DockKeys.CAR_EV_SETTING_GMODE_HUT_SET,
+            // "GMODE HUT STATE" to DockKeys.CAR_EV_SETTING_GMODE_HUT_STATE,
+            // "GMODE NOTIFY" to DockKeys.CAR_EV_SETTING_GMODE_NOTIFY,
+            // "GMODE STATE" to DockKeys.CAR_EV_SETTING_GMODE_STATE,
+            // "V2L DISCHARGE" to DockKeys.CAR_EV_SETTING_VEHICLE_TO_LOAD_DISCHARGE_ENABLE,
+            // "V2V DISCHARGE" to DockKeys.CAR_EV_SETTING_VEHICLE_TO_VEHICLE_DISCHARGE_ENABLE,
+            // "V2V NOTIFY" to DockKeys.CAR_EV_SETTING_VEHICLE_TO_VEHICLE_DISCHARGE_NOTIFY,
+            // "VSG CONFIG" to DockKeys.CAR_EV_SETTING_VSG_CONFIG,
+            // "WADE MODE" to DockKeys.CAR_EV_SETTING_WADE_MODE_ENABLE,
+            // "WASH MODE" to DockKeys.CAR_EV_SETTING_WASH_MODE_ENABLE
         ),
         "EV-INFO" to linkedMapOf(
             "BATT POWER LEVEL" to DockKeys.CAR_BASIC_BATTERY_POWER_LEVEL,
@@ -595,12 +597,12 @@ object DockControls {
         ),
         "RÁDIO" to linkedMapOf(
             "PLAY STATE" to DockKeys.SYS_RADIO_PLAY_STATE,
-            "PLAY CONTROL" to DockKeys.SYS_RADIO_PLAY_CONTROL_ACTION,
-            "RDS CHANNEL" to DockKeys.SYS_RADIO_RDS_CUR_CHANNEL_INFO,
-            "RDS REGIONAL" to DockKeys.SYS_RADIO_RDS_REGIONAL_INFO,
-            "RDS TRAFFIC ACT" to DockKeys.SYS_RADIO_RDS_TRAFFIC_ANNOUNCEMENT_ACTIVE_STATE,
-            "RDS TRAFFIC STATE" to DockKeys.SYS_RADIO_RDS_TRAFFIC_ANNOUNCEMENT_STATE,
-            "RDS TRAFFIC PROG" to DockKeys.SYS_RADIO_RDS_TRAFFIC_PROGRAM_STATE
+            "PLAY CONTROL" to DockKeys.SYS_RADIO_PLAY_CONTROL_ACTION
+            // "RDS CHANNEL" to DockKeys.SYS_RADIO_RDS_CUR_CHANNEL_INFO,
+            // "RDS REGIONAL" to DockKeys.SYS_RADIO_RDS_REGIONAL_INFO,
+            // "RDS TRAFFIC ACT" to DockKeys.SYS_RADIO_RDS_TRAFFIC_ANNOUNCEMENT_ACTIVE_STATE,
+            // "RDS TRAFFIC STATE" to DockKeys.SYS_RADIO_RDS_TRAFFIC_ANNOUNCEMENT_STATE,
+            // "RDS TRAFFIC PROG" to DockKeys.SYS_RADIO_RDS_TRAFFIC_PROGRAM_STATE
         ),
         "OUTROS" to linkedMapOf(
             "MEDIA VOLUME" to DockKeys.MEDIA_VOLUME,
