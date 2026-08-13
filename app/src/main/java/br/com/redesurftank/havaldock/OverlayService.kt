@@ -21,6 +21,7 @@ import android.os.Looper
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.RelativeSizeSpan
+import android.view.GestureDetector
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -113,11 +114,43 @@ class OverlayService : Service() {
     private var lastManualTempP: Double = -1.0
     private var lastManualTempPTime: Long = 0
 
+    private var flashView: TextView? = null
+    private val flashHideRunnable = Runnable {
+        flashView?.let { runCatching { wm.removeView(it) } }
+        flashView = null
+    }
+
+    private fun showFlash(text: String) {
+        main.removeCallbacks(flashHideRunnable)
+        if (flashView == null) {
+            val tv = TextView(this).apply {
+                this.text = text
+                setTextColor(Color.WHITE)
+                textSize = 42f
+                setTypeface(typeface, Typeface.BOLD)
+                gravity = Gravity.CENTER
+                background = pill(Color.parseColor("#CC091017"), dp(24))
+                setPadding(dp(60), dp(30), dp(60), dp(30))
+            }
+            val lp = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+                PixelFormat.TRANSLUCENT
+            ).apply { gravity = Gravity.CENTER }
+            runCatching { wm.addView(tv, lp); flashView = tv }
+        } else {
+            flashView?.text = text
+        }
+        main.postDelayed(flashHideRunnable, 5000L)
+    }
+
     private var currentDashPage = 0
 
     // Histórico para o Gráfico de Energia
     private val powerHistory = ArrayList<Pair<Float, Float>>() // Consumo, Regeneração
-    private val CHART_MAX_POINTS = 30
+    private var chartLimit = 30 // 1min=30, 3min=90, 5min=150
+    private val CHART_MAX_POINTS = 150
     private var mockIndex = 0
     private val mockSequence = listOf(-1.0, -1.0, 10.0, 20.0, 35.0, -20.0, -18.0, -10.0, 0.0, 1.0, 1.2, 1.0, 30.0, 35.0, 5.0, 4.0, 6.0, 5.0)
 
@@ -131,14 +164,17 @@ class OverlayService : Service() {
     }
 
     private fun updateChartData() {
+        val isDash = SettingsStore.visualMode.value == SettingsStore.VISUAL_DASHBOARD || SettingsStore.visualMode.value == SettingsStore.VISUAL_DASHBOARD_LIGHT
+        if (!isDash) return
+
         val isSim = SettingsStore.simulationEnabled.value
-        val volt = if (isSim) 328.0 else (VehicleClient.getData(DockKeys.CAR_BASIC_BATTERY_VOLTAGE)?.toDoubleOrNull() ?: 0.0)
+        val volt = if (isSim) 328.0 else (VehicleClient.getData(DockKeys.CAR_EV_INFO_POWER_BATTERY_VOLTAGE)?.toDoubleOrNull() ?: 0.0)
         val curr = if (isSim) {
             val v = mockSequence[mockIndex % mockSequence.size]
             mockIndex++
             v
         } else {
-            VehicleClient.getData("car.ev_info.power_battery_current")?.toDoubleOrNull() ?: 0.0
+            VehicleClient.getData(DockKeys.CAR_EV_INFO_POWER_BATTERY_CURRENT)?.toDoubleOrNull() ?: 0.0
         }
         
         if (curr == 0.0 && !isSim) return 
@@ -161,6 +197,7 @@ class OverlayService : Service() {
     private val trackPx by lazy { dp(30) }
 
     private val cAccent = DockColors.CYAN
+    private val cEmerald = DockColors.EMERALD
     private val cTxt = DockColors.ON_SURFACE
     private val cMuted = DockColors.ON_SURFACE_MUTED
     private val cCard = DockColors.SURFACE
@@ -247,7 +284,8 @@ class OverlayService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         main.removeCallbacks(hideRunnable); main.removeCallbacks(closePopupsRunnable); main.removeCallbacks(projPoll)
-        main.removeCallbacks(chartTicker)
+        main.removeCallbacks(chartTicker); main.removeCallbacks(flashHideRunnable)
+        flashView?.let { runCatching { wm.removeView(it) } }
         closeAllPopups()
         runCatching { SettingsStore.prefs(this).unregisterOnSharedPreferenceChangeListener(prefsListener) }
         runCatching { unregisterReceiver(requestReceiver) }
@@ -1008,15 +1046,13 @@ class OverlayService : Service() {
         
         // Segmento de Regeneração (Topo)
         val regenBar = TextView(this).apply {
-            gravity = Gravity.CENTER; setTextColor(Color.BLACK); setTypeface(null, Typeface.BOLD); textSize = 11f
+            gravity = Gravity.CENTER; setTextColor(Color.BLACK); setTypeface(null, Typeface.BOLD); textSize = 26f
             background = pill(DockColors.CYAN, 0)
-            setPadding(dp(10), 0, dp(10), 0) // Garante que o texto fique centralizado em 80% da largura
         }
         // Segmento de Consumo (Base)
         val consBar = TextView(this).apply {
-            gravity = Gravity.CENTER; setTextColor(Color.BLACK); setTypeface(null, Typeface.BOLD); textSize = 11f
-            background = pill(DockColors.WHITE, 0)
-            setPadding(dp(10), 0, dp(10), 0)
+            gravity = Gravity.CENTER; setTextColor(Color.BLACK); setTypeface(null, Typeface.BOLD); textSize = 26f
+            background = pill(cEmerald, 0)
         }
         
         accumContainer.addView(regenBar)
@@ -1030,10 +1066,26 @@ class OverlayService : Service() {
             xAxis.isEnabled = false; axisRight.isEnabled = false; setDrawGridBackground(false)
             axisLeft.apply {
                 setDrawGridLines(true); gridColor = Color.parseColor("#1AFFFFFF")
-                textColor = cMuted; textSize = 9f; setLabelCount(3, true); setDrawAxisLine(false)
+                textColor = cMuted; textSize = 22f; setLabelCount(3, true); setDrawAxisLine(false)
             }
         }
         container.addView(lineChart)
+
+        // Interação: Clique Duplo para alternar histórico
+        val gd = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                val (limit, label) = when (chartLimit) {
+                    30 -> 90 to "3 min"
+                    90 -> 150 to "5 min"
+                    else -> 30 to "1 min"
+                }
+                chartLimit = limit
+                showFlash(label)
+                updaters["power_chart"]?.invoke(RenderState())
+                return true
+            }
+        })
+        container.setOnTouchListener { _, event -> gd.onTouchEvent(event); true }
 
         updaters["power_chart"] = {
             // Atualiza Barra Acumulada
@@ -1045,8 +1097,8 @@ class OverlayService : Service() {
                 regenBar.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, energyRecovery)
                 consBar.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, cycleEnergy)
                 
-                regenBar.text = if (energyRecovery > 0.1) String.format(java.util.Locale.US, "%.1f", energyRecovery) else ""
-                consBar.text = if (cycleEnergy > 0.1) String.format(java.util.Locale.US, "%.1f", cycleEnergy) else ""
+                regenBar.text = if (energyRecovery > 0.01) String.format(java.util.Locale.US, "%.2f", energyRecovery) else ""
+                consBar.text = if (cycleEnergy > 0.01) String.format(java.util.Locale.US, "%.2f", cycleEnergy) else ""
                 
                 regenBar.visibility = if (energyRecovery > 0) View.VISIBLE else View.GONE
                 consBar.visibility = if (cycleEnergy > 0) View.VISIBLE else View.GONE
@@ -1054,21 +1106,43 @@ class OverlayService : Service() {
                 regenBar.visibility = View.GONE; consBar.visibility = View.GONE
             }
 
+            // Filtra o histórico para o limite atual
+            val history = powerHistory.takeLast(chartLimit)
+            
             // Atualiza Gráfico de Linha
             val consumptionEntries = ArrayList<Entry>()
             val regenEntries = ArrayList<Entry>()
-            powerHistory.forEachIndexed { i, pair ->
+            history.forEachIndexed { i, pair ->
                 consumptionEntries.add(Entry(i.toFloat(), pair.first))
                 regenEntries.add(Entry(i.toFloat(), pair.second))
             }
-            val ds1 = LineDataSet(consumptionEntries, "Consumo").apply {
-                color = DockColors.WHITE; setDrawCircles(false); setDrawValues(false); lineWidth = 2f
-                mode = LineDataSet.Mode.CUBIC_BEZIER; setDrawFilled(true); fillColor = DockColors.WHITE; fillAlpha = 40
+
+            fun setupDataSet(entries: List<Entry>, label: String, colorRes: Int): LineDataSet {
+                return LineDataSet(entries, label).apply {
+                    color = colorRes; setDrawCircles(false); lineWidth = 3f
+                    mode = LineDataSet.Mode.CUBIC_BEZIER; setDrawFilled(true); fillColor = colorRes; fillAlpha = 50
+                    valueTextSize = 22f; valueTextColor = colorRes
+                    valueFormatter = object : ValueFormatter() {
+                        override fun getPointLabel(entry: Entry?): String {
+                            if (entry == null) return ""
+                            val idx = entries.indexOf(entry)
+                            if (idx <= 0 || idx >= entries.size - 1) return ""
+                            val prev = entries[idx - 1].y
+                            val next = entries[idx + 1].y
+                            val cur = entry.y
+                            // Detecta topo local (maior que vizinhos e maior que um limiar mínimo de ruído)
+                            if (cur > prev && cur > next && cur > 1.0f) {
+                                return String.format(java.util.Locale.US, "%.1f", cur)
+                            }
+                            return ""
+                        }
+                    }
+                }
             }
-            val ds2 = LineDataSet(regenEntries, "Regeneração").apply {
-                color = DockColors.CYAN; setDrawCircles(false); setDrawValues(false); lineWidth = 2f
-                mode = LineDataSet.Mode.CUBIC_BEZIER; setDrawFilled(true); fillColor = DockColors.CYAN; fillAlpha = 40
-            }
+
+            val ds1 = setupDataSet(consumptionEntries, "Consumo", cEmerald)
+            val ds2 = setupDataSet(regenEntries, "Regeneração", cAccent)
+            
             lineChart.data = LineData(ds1, ds2)
             lineChart.invalidate()
         }

@@ -123,7 +123,10 @@ object DockKeys {
 
     const val CAR_BASIC_GEAR_STATUS = "car.basic.gear_status"
     const val CAR_BASIC_COOLANT_TEMP = "car.basic.coolant_temp"
-    const val CAR_BASIC_BATTERY_VOLTAGE = "car.basic.battery_voltage"
+    const val BATTERY_12V_VOLTAGE = "car.basic.battery_voltage"
+    const val CAR_EV_INFO_POWER_BATTERY_VOLTAGE = "car.ev_info.power_battery_voltage"
+    const val CAR_EV_INFO_POWER_BATTERY_CURRENT = "car.ev_info.power_battery_current"
+    const val CAR_EV_INFO_CUR_CHARGE_CURRENT = "car.ev_info.cur_charge_current"
     const val CAR_BASIC_AVG_FUEL_CONSUMPTION = "car.basic.avg_fuel_consumption"
     const val CAR_BASIC_TRANSMISSION_OIL_TEMP = "car.basic.transmission_oil_temp"
     const val CAR_DMS_FRS_DRIVER_BEHAVIOR_DETECT = "car.dms.frs.driver_behavior_detect"
@@ -142,6 +145,7 @@ object DockColors {
     const val ORANGE = 0xFFFE8F5B.toInt()
     const val RED = 0xFFFF4D4D.toInt()
     const val AMBER = 0xFFFFC23C.toInt()
+    const val EMERALD = 0xFF00C853.toInt()
     
     const val ON_SURFACE = 0xFFF2F5F9.toInt()
     const val ON_SURFACE_MUTED = 0xFF89939E.toInt()
@@ -501,8 +505,10 @@ object DockControls {
         DockKeys.CAR_EV_INFO_CUR_BATTERY_POWER_PERCENTAGE,
         DockKeys.CAR_BASIC_INSIDE_TEMP, DockKeys.CAR_BASIC_OUTSIDE_TEMP,
         DockKeys.MEDIA_VOLUME,
-        DockKeys.CAR_BASIC_BATTERY_VOLTAGE,
-        "car.ev_info.power_battery_current"
+        DockKeys.BATTERY_12V_VOLTAGE,
+        DockKeys.CAR_EV_INFO_POWER_BATTERY_VOLTAGE,
+        DockKeys.CAR_EV_INFO_POWER_BATTERY_CURRENT,
+        DockKeys.CAR_EV_INFO_CUR_CHARGE_CURRENT
     )
 
     val DEBUG_VARIABLES: Map<String, Map<String, String>> = linkedMapOf(
@@ -613,7 +619,7 @@ object DockControls {
             "INSIDE TEMP" to DockKeys.CAR_BASIC_INSIDE_TEMP,
             "OUTSIDE TEMP" to DockKeys.CAR_BASIC_OUTSIDE_TEMP,
             "OUTSIDE DISPLAY" to DockKeys.CAR_CONFIGURE_OUTSIDE_TEMP_DISPLAY,
-            "BATTERY VOLTAGE" to DockKeys.CAR_BASIC_BATTERY_VOLTAGE,
+            "BATTERY VOLTAGE" to DockKeys.BATTERY_12V_VOLTAGE,
             "COOLANT TEMP" to DockKeys.CAR_BASIC_COOLANT_TEMP,
             "GEAR STATUS" to DockKeys.CAR_BASIC_GEAR_STATUS,
             "AVG FUEL" to DockKeys.CAR_BASIC_AVG_FUEL_CONSUMPTION,
@@ -621,15 +627,16 @@ object DockControls {
             "DRIVER BEHAVIOR" to DockKeys.CAR_DMS_FRS_DRIVER_BEHAVIOR_DETECT
         ),
         "POWER INFO" to linkedMapOf(
-            "BATT CURRENT" to "car.ev_info.power_battery_current",
-            "BATT VOLTAGE" to "car.ev_info.power_battery_voltage",
+            "BATT CURRENT" to DockKeys.CAR_EV_INFO_POWER_BATTERY_CURRENT,
+            "BATT VOLTAGE (TRACTION)" to DockKeys.CAR_EV_INFO_POWER_BATTERY_VOLTAGE,
+            "BATT VOLTAGE (12V)" to DockKeys.BATTERY_12V_VOLTAGE,
             "POWER DOWN COMPLETE" to "car.ev_info.power_down_complete",
             "POWER VOLT STATE" to "car.ev_info.power_volt_state",
             "MOTOR POWER" to "car.ev_info.motor_power",
             "MOTOR SPEED" to "car.ev_info.motor_speed",
             "PHEV AHD VOLTAGE" to "car.ev_info.phev_ahd_voltage",
             "ENERGY RECOVERY" to "car.ev_info.energy_recovery_info",
-            "CHARGE CURRENT" to "car.ev_info.cur_charge_current"
+            "CHARGE CURRENT" to DockKeys.CAR_EV_INFO_CUR_CHARGE_CURRENT
         )
     )
 }

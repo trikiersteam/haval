@@ -55,6 +55,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateMapOf
 import rikka.shizuku.Shizuku
 
+private val Emerald = Color(0xFF00C853)
+private val Amber = Color(0xFFFFC23C)
 private val Accent = Color(0xFF19E3B1)
 private val AccentSoft = Color(0xFF5FF0CF)
 private val Bg = Color(0xFF0B0E14)
@@ -104,7 +106,16 @@ class MainActivity : ComponentActivity() {
                 while (true) {
                     DockControls.DEBUG_VARIABLES.values.forEach { vars ->
                         vars.forEach { (label, key) ->
-                            val newVal = VehicleClient.getData(key) ?: "—"
+                            var newVal = VehicleClient.getData(key) ?: "—"
+                            
+                            // Formatação para Voltagens (2 casas decimais)
+                            if (key == br.com.redesurftank.havaldock.data.DockKeys.BATTERY_12V_VOLTAGE || 
+                                key == br.com.redesurftank.havaldock.data.DockKeys.CAR_EV_INFO_POWER_BATTERY_VOLTAGE) {
+                                newVal.toDoubleOrNull()?.let { 
+                                    newVal = String.format(java.util.Locale.US, "%.2f", it)
+                                }
+                            }
+
                             val old = debugValues[label]
                             if (old == null || old.history.last() != newVal) {
                                 val newHistory = (old?.history ?: emptyList()) + newVal
@@ -388,7 +399,7 @@ class MainActivity : ComponentActivity() {
     private fun StatusRow(name: String, status: String, ok: Boolean, onClick: () -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(name, color = Color.White, fontSize = 16.sp, modifier = Modifier.weight(1f))
-            Text(status, color = if (ok) AccentSoft else Color(0xFFE0556A), fontSize = 15.sp,
+            Text(status, color = if (ok) Emerald else Color(0xFFE0556A), fontSize = 15.sp,
                 fontWeight = FontWeight.Bold)
             if (!ok) {
                 Spacer(Modifier.width(12.dp))
@@ -462,7 +473,7 @@ class MainActivity : ComponentActivity() {
         val lastChanged = monitor?.lastChanged ?: 0
         val isRecent = System.currentTimeMillis() - lastChanged < 5000
         val displayValue = history.joinToString(" -> ")
-        val color = if (isRecent && history.size > 1) Color(0xFFFFC23C) else Color.White
+        val color = if (isRecent && history.size > 1) Amber else Color.White
 
         Column(Modifier.padding(vertical = 6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
