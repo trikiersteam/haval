@@ -5,132 +5,10 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import androidx.annotation.DrawableRes
+import br.com.redesurftank.havaldock.DockKeys
 import br.com.redesurftank.havaldock.R
 import java.util.Locale
 
-/** Chaves do IntelligentVehicleControlService (do CarConstants do Impulse / nota do vault). */
-object DockKeys {
-    //AR-CONDICIONADO
-    const val CAR_HVAC_HEATING_ENABLE = "car.hvac.heating_enable"
-    const val CAR_HVAC_ACMAX_ENABLE = "car.hvac.acmax_enable"
-    const val CAR_HVAC_AC_ENABLE = "car.hvac.ac_enable"
-    // const val CAR_HVAC_ANION_ENABLE = "car.hvac.anion_enable"
-    const val CAR_HVAC_AQS_ENABLE = "car.hvac.aqs_enable"
-    const val CAR_HVAC_AUTO_ENABLE = "car.hvac.auto_enable"
-    const val CAR_HVAC_BLOWER_MODE = "car.hvac.blower_mode"
-    const val CAR_HVAC_CONFIG = "car.hvac.config"
-    const val CAR_HVAC_CYCLE_MODE = "car.hvac.cycle_mode"
-    const val CAR_HVAC_DRIVER_TEMPERATURE = "car.hvac.driver_temperature"
-    const val CAR_HVAC_DRIVER_TEMP_ACTION = "car.hvac.driver_temp_action"
-    const val CAR_HVAC_FAN_SPEED = "car.hvac.fan_speed"
-    const val CAR_HVAC_FAN_SPEED_ACTION = "car.hvac.fan_speed_action"
-    const val CAR_HVAC_FAN_SPEED_RANGE = "car.hvac.fan_speed_range"
-    const val CAR_HVAC_FRONT_DEFROST_ENABLE = "car.hvac.front_defrost_enable"
-    const val CAR_HVAC_FRONT_TEMPERATURE_RANGE = "car.hvac.front_temperature_range"
-    // const val CAR_HVAC_INTELLIGENT_SWITCH_ENABLE = "car.hvac.Intelligent_switch_enable"
-    const val CAR_HVAC_INTELLIGENT_TEMPERATURE_RANGE = "car.hvac.Intelligent_temperature_range"
-    // const val CAR_HVAC_PANEL_DISPLAY_NOTIFY = "car.hvac.panel_display_notify"
-    const val CAR_HVAC_PASS_TEMPERATURE = "car.hvac.pass_temperature"
-    const val CAR_HVAC_PASS_TEMP_ACTION = "car.hvac.pass_temp_action"
-    // const val CAR_HVAC_PM2_5_VALUE = "car.hvac.pm2.5_value"
-    const val CAR_HVAC_POWER_MODE = "car.hvac.power_mode"
-    const val CAR_HVAC_REAR_DEFROST_ENABLE = "car.hvac.rear_defrost_enable"
-    const val CAR_HVAC_REAR_FAN_SPEED = "car.hvac.rear_fan_speed"
-    const val CAR_HVAC_REAR_FAN_SPEED_RANGE = "car.hvac.rear_fan_speed_range"
-    const val CAR_HVAC_REAR_TEMPERATURE = "car.hvac.rear_temperature"
-    const val CAR_HVAC_REAR_TEMPERATURE_RANGE = "car.hvac.rear_temperature_range"
-    const val CAR_HVAC_REAR_TEMP_ACTION = "car.hvac.rear_temp_action"
-    const val CAR_HVAC_REQUEST_HVAC_INFO = "car.hvac.request_hvac_info"
-    const val CAR_HVAC_SETTING_AUTO_DEFROST_ENABLE = "car.hvac.setting.auto_defrost_enable"
-    const val CAR_HVAC_SETTING_COMFORT_CURVE = "car.hvac.setting.comfort_curve"
-    const val CAR_HVAC_SETTING_LIMIT_ENABLE = "car.hvac.setting.limit_enable"
-    const val CAR_HVAC_SYNC_ENABLE = "car.hvac.sync_enable"
-
-    // BANCOS
-    const val DRIVER_SEAT_VENT = "car.comfort_setting.driver_seat_ventilation_level"
-    const val PASS_SEAT_VENT = "car.comfort_setting.passenger_seat_ventilation_level"
-    const val SEAT_VENT_MAX = "car.comfort_setting.seat_ventilation_max_level"
-
-    // EV SETTINGS
-    const val REGEN_LEVEL = "car.ev_setting.energy_recovery_level"
-    const val CAR_EV_SETTING_POWER_MODEL_CONFIG = "car.ev_setting.power_model_config" //0=HEV, 1=Prior.EV, 3=EV
-    const val CAR_EV_SETTING_POWER_RESERVE_CONFIG = "car.ev_setting.power_reserve_config" //1=inteligente, 2=save prioritario %
-    const val CAR_EV_SETTING_APPOINT_CHARGE_SET = "car.ev_setting.appoint_charge_set"
-    const val CAR_EV_SETTING_AUTO_CHARGE_CONFIG = "car.ev_setting.auto_charge_config"
-    // const val CAR_EV_SETTING_AVAS_CONFIG = "car.ev.setting.avas_config"
-    // const val CAR_EV_SETTING_AVAS_ENABLE = "car.ev.setting.avas_enable"
-    // const val CAR_EV_SETTING_BATTERY_CHARGING_INSULATION_ENABLE = "car.ev.setting.battery_charging_insulation_enable"
-    // const val CAR_EV_SETTING_BATTERY_CHARGING_INSULATION_TYPE = "car.ev.setting.battery_charging_insulation_type"
-    // const val CAR_EV_SETTING_BATTERY_PACK_AUTO_INSULATION_ENABLE = "car.ev.setting.battery_pack_auto_insulation_enable"
-    const val CAR_EV_SETTING_CHARGE_ACTION = "car.ev_setting.charge_action"
-    const val CAR_EV_SETTING_CHARGE_CURRENT_CONFIG = "car.ev_setting.charge_current_config"
-    const val CAR_EV_SETTING_CHARGE_MODE = "car.ev_setting.charge_mode"
-    const val CAR_EV_SETTING_CHARGE_SAVE_MODE_LIMIT_CONFIG = "car.ev_setting.charge_save_mode_limit_config"
-    const val CAR_EV_SETTING_CHARGE_SOC_LIMIT_CONFIG = "car.ev_setting.charge_soc_limit_config"
-    const val CAR_EV_SETTING_CHARGE_SOC_TARGET_CONFIG = "car.ev_setting.charge_soc_target_config"
-    // const val CAR_EV_SETTING_DRIVE_TIME_CONFIG = "car.ev_setting.drive_time_config"
-    const val CAR_EV_SETTING_ENGINE_DISCHARGE_ENABLE = "car.ev.setting.engine_discharge_enable"
-    // const val CAR_EV_SETTING_GMODE_GW_STATE = "car.ev.setting.gmode_gw_state"
-    // const val CAR_EV_SETTING_GMODE_HUT_SET = "car.ev.setting.gmode_hut_set"
-    // const val CAR_EV_SETTING_GMODE_HUT_STATE = "car.ev.setting.gmode_hut_state"
-    // const val CAR_EV_SETTING_GMODE_NOTIFY = "car.ev.setting.gmode_notify"
-    // const val CAR_EV_SETTING_GMODE_STATE = "car.ev.setting.gmode_state"
-    // const val CAR_EV_SETTING_VEHICLE_TO_LOAD_DISCHARGE_ENABLE = "car.ev.setting.vehicle_to_load_discharge_enable"
-    // const val CAR_EV_SETTING_VEHICLE_TO_VEHICLE_DISCHARGE_ENABLE = "car.ev.setting.vehicle_to_vehicle_discharge_enable"
-    // const val CAR_EV_SETTING_VEHICLE_TO_VEHICLE_DISCHARGE_NOTIFY = "car.ev.setting.vehicle_to_vehicle_discharge_notify"
-    // const val CAR_EV_SETTING_VSG_CONFIG = "car.ev.setting.vsg_config"
-    // const val CAR_EV_SETTING_WADE_MODE_ENABLE = "car.ev.setting.wade_mode_enable"
-    // const val CAR_EV_SETTING_WASH_MODE_ENABLE = "car.ev.setting.wash_mode_enable"
-
-    // EV INFO
-    const val CAR_BASIC_BATTERY_POWER_LEVEL = "car.basic.battery_power_level"
-    const val CAR_EV_INFO_BATTERY_CHARGE_PERCENTAGE = "car.ev_info.battery_charge_percentage"
-    const val CAR_EV_INFO_CAR_EV_INFO_SOC_OF_BATTERY = "car.ev_info.soc_of_battery"
-    const val CAR_EV_INFO_CUR_BATTERY_POWER_PERCENTAGE = "car.ev_info.cur_battery_power_percentage"
-    const val CAR_EV_INFO_CHARGE_REMAINING_TIME = "car.ev_info.charge_remaining_time"
-    const val CAR_EV_INFO_CHARGING_GUN_AC_CONN_STATE = "car.ev_info.charging_gun_ac_conn_state"
-    const val CAR_EV_INFO_CHARGING_GUN_CONN_STATE = "car.ev_info.charging_gun_conn_state"
-    const val CAR_EV_INFO_CHARGING_STATE = "car.ev_info.charging_state"
-    const val CAR_EV_INFO_ENERGY_CONSUME_INFO = "car.ev_info.energy_consume_info"
-    const val CAR_EV_INFO_ENERGY_RECOVERY_INFO = "car.ev_info.energy_recovery_info"
-    const val CAR_EV_INFO_CYCLE_ENERGY_CONSUME_INFO = "car.ev_info.cycle_energy_consume_info"
-    const val CAR_EV_INFO_CYCLE_FUEL_CONSUME_INFO = "car.ev_info.cycle_fuel_consume_info"
-    const val CAR_EV_INFO_ECONOMIC_GUIDE_LEVEL = "car.ev_info.economic_guide_level"
-    const val CAR_EV_INFO_ECONOMIC_GUIDE_RANGE = "car.ev_info.economic_guide_range"
-    const val CAR_EV_INFO_ELECTRIC_MODE_REMAIN_ODOMETER = "car.ev_info.electric_mode_remain_odometer"
-    const val CAR_EV_INFO_ATTENUATION_OF_BATTERY = "car.ev_info.attenuation_of_battery"
-    const val CAR_EV_INFO_AVG_ENERGY_CONSUME_INFO_SINCE_RESET = "car.ev_info.avg_energy_consume_info_since_reset"
-    const val CAR_EV_INFO_AVG_ENERGY_CONSUME_INFO_SINCE_STARTUP = "car.ev_info.avg_energy_consume_info_since_startup"
-    const val CAR_EV_INFO_BATT_HEAT_RUNAWAY_NOTIFY = "car.ev_info.batt_heat_runaway_notify"
-
-    // RADIO
-    const val SYS_RADIO_PLAY_CONTROL_ACTION = "sys.radio.play_control_action"
-    const val SYS_RADIO_PLAY_STATE = "sys.radio.play_state"
-    /*
-    const val SYS_RADIO_RDS_CUR_CHANNEL_INFO = "sys.radio.rds_cur_channel_info"
-    const val SYS_RADIO_RDS_REGIONAL_INFO = "sys.radio.rds_regional_info"
-    const val SYS_RADIO_RDS_TRAFFIC_ANNOUNCEMENT_ACTIVE_STATE = "sys.radio.rds_traffic_announcement_active_state"
-    const val SYS_RADIO_RDS_TRAFFIC_ANNOUNCEMENT_STATE = "sys.radio.rds_traffic_announcement_state"
-    const val SYS_RADIO_RDS_TRAFFIC_PROGRAM_STATE = "sys.radio.rds_traffic_program_state"
-    */
-
-    // OUTROS
-    const val CAR_BASIC_INSIDE_TEMP = "car.basic.inside_temp"
-    const val CAR_BASIC_OUTSIDE_TEMP = "car.basic.outside_temp"
-    const val CAR_CONFIGURE_OUTSIDE_TEMP_DISPLAY = "car.configure.outside_temp_display"
-    const val MEDIA_VOLUME = "sys.settings.audio.media_volume"
-    const val MEDIA_VOLUME_RANGE = "sys.settings.audio.media_volume_range"
-
-    const val CAR_BASIC_GEAR_STATUS = "car.basic.gear_status"
-    const val CAR_BASIC_COOLANT_TEMP = "car.basic.coolant_temp"
-    const val BATTERY_12V_VOLTAGE = "car.basic.battery_voltage"
-    const val CAR_EV_INFO_POWER_BATTERY_VOLTAGE = "car.ev_info.power_battery_voltage"
-    const val CAR_EV_INFO_POWER_BATTERY_CURRENT = "car.ev_info.power_battery_current"
-    const val CAR_EV_INFO_CUR_CHARGE_CURRENT = "car.ev_info.cur_charge_current"
-    const val CAR_BASIC_AVG_FUEL_CONSUMPTION = "car.basic.avg_fuel_consumption"
-    const val CAR_BASIC_TRANSMISSION_OIL_TEMP = "car.basic.transmission_oil_temp"
-    const val CAR_DMS_FRS_DRIVER_BEHAVIOR_DETECT = "car.dms.frs.driver_behavior_detect"
-}
 
 /** Cores do tema v2 (Tokens do Handoff Lovable). */
 object DockColors {
@@ -619,7 +497,6 @@ object DockControls {
             "INSIDE TEMP" to DockKeys.CAR_BASIC_INSIDE_TEMP,
             "OUTSIDE TEMP" to DockKeys.CAR_BASIC_OUTSIDE_TEMP,
             "OUTSIDE DISPLAY" to DockKeys.CAR_CONFIGURE_OUTSIDE_TEMP_DISPLAY,
-            "BATTERY VOLTAGE" to DockKeys.BATTERY_12V_VOLTAGE,
             "COOLANT TEMP" to DockKeys.CAR_BASIC_COOLANT_TEMP,
             "GEAR STATUS" to DockKeys.CAR_BASIC_GEAR_STATUS,
             "AVG FUEL" to DockKeys.CAR_BASIC_AVG_FUEL_CONSUMPTION,

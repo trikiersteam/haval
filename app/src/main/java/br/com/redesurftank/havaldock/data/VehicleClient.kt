@@ -1,5 +1,6 @@
 package br.com.redesurftank.havaldock.data
 
+import br.com.redesurftank.havaldock.DockKeys
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.IBinder
@@ -156,6 +157,7 @@ object VehicleClient {
         // chaves de HVAC abririam o painel do ar (com.beantechs.hvac) -> suprime em volta da escrita
         val hvac = HvacPanel.isHvacKey(key)
         if (hvac) HvacPanel.beforeWrite()
+        Log.d(TAG, "REAL VEHICLE WRITE: $key=$value")
         runCatching {
             if (ensureConnected()) service?.request(ACTION_SET, key, value)
         }.onFailure { Log.e(TAG, "set $key=$value", it) }

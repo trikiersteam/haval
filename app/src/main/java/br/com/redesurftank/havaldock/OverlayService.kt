@@ -42,12 +42,12 @@ import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.formatter.ValueFormatter
+import br.com.redesurftank.havaldock.DockKeys
 import br.com.redesurftank.havaldock.data.AirflowOption
 import br.com.redesurftank.havaldock.data.Battery
 import br.com.redesurftank.havaldock.data.Control
 import br.com.redesurftank.havaldock.data.DockColors
 import br.com.redesurftank.havaldock.data.DockControls
-import br.com.redesurftank.havaldock.data.DockKeys
 import br.com.redesurftank.havaldock.data.HvacPanel
 import br.com.redesurftank.havaldock.data.IconToggle
 import br.com.redesurftank.havaldock.data.Info
@@ -174,7 +174,7 @@ class OverlayService : Service() {
             mockIndex++
             v
         } else {
-            VehicleClient.getData(DockKeys.CAR_EV_INFO_POWER_BATTERY_CURRENT)?.toDoubleOrNull() ?: 0.0
+            VehicleClient.getData(DockKeys.CAR_EV_INFO_INSTANT_ENERGY_CONSUMPTION)?.toDoubleOrNull() ?: 0.0 //CAR_EV_INFO_INSTANT_ENERGY_CONSUMPTION antes CAR_EV_INFO_POWER_BATTERY_CURRENT
         }
         
         if (curr == 0.0 && !isSim) return 

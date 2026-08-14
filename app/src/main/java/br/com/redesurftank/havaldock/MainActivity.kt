@@ -46,12 +46,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import br.com.redesurftank.havaldock.DockKeys
 import br.com.redesurftank.havaldock.data.DockControls
 import br.com.redesurftank.havaldock.data.SettingsStore
 import br.com.redesurftank.havaldock.data.VehicleClient
 import br.com.redesurftank.havaldock.update.UpdateManager
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import rikka.shizuku.Shizuku
 
@@ -97,35 +99,36 @@ class MainActivity : ComponentActivity() {
         val mode by SettingsStore.visibilityMode
         val secs by SettingsStore.autoHideSecs
         val boot by SettingsStore.launchOnBoot
+        val simulation by SettingsStore.simulationEnabled
 
         var monitorEnabled by remember { mutableStateOf(false) }
         val debugValues = remember { mutableStateMapOf<String, MonitorValue>() }
+        val visibleEvKeys = remember { mutableStateListOf<Pair<String, String>>() } // Label to Key
 
         LaunchedEffect(monitorEnabled) {
             if (monitorEnabled) {
+                // Descobre todas as chaves CAR_EV_ via reflexão uma única vez
+                val evVars = DockKeys::class.java.declaredFields
+                    .filter { it.name.startsWith("CAR_EV_") && !it.name.endsWith("_DOCK") }
+                    .map { it.name.replace("_", " ") to it.get(null) as String }
+
                 while (true) {
+                    // 1. Monitora as variáveis fixas das categorias
                     DockControls.DEBUG_VARIABLES.values.forEach { vars ->
                         vars.forEach { (label, key) ->
-                            var newVal = VehicleClient.getData(key) ?: "—"
-                            
-                            // Formatação para Voltagens (2 casas decimais)
-                            if (key == br.com.redesurftank.havaldock.data.DockKeys.BATTERY_12V_VOLTAGE || 
-                                key == br.com.redesurftank.havaldock.data.DockKeys.CAR_EV_INFO_POWER_BATTERY_VOLTAGE) {
-                                newVal.toDoubleOrNull()?.let { 
-                                    newVal = String.format(java.util.Locale.US, "%.2f", it)
-                                }
-                            }
-
-                            val old = debugValues[label]
-                            if (old == null || old.history.last() != newVal) {
-                                val newHistory = (old?.history ?: emptyList()) + newVal
-                                debugValues[label] = MonitorValue(
-                                    history = newHistory.takeLast(3),
-                                    lastChanged = System.currentTimeMillis()
-                                )
-                            }
+                            updateMonitorValue(label, key, debugValues)
                         }
                     }
+
+                    // 2. Monitora variáveis CAR_EV_ dinâmicas
+                    evVars.forEach { (label, key) ->
+                        updateMonitorValue(label, key, debugValues)
+                        val history = debugValues[label]?.history ?: emptyList()
+                        if (history.size > 1 && visibleEvKeys.none { it.second == key }) {
+                            visibleEvKeys.add(label to key)
+                        }
+                    }
+
                     delay(1500)
                 }
             }
@@ -252,9 +255,8 @@ class MainActivity : ComponentActivity() {
                     SettingsStore.setItemFrameEnabled(it)
                 }
                 
-                Spacer(Modifier.height(14.dp))
-                val simulation by SettingsStore.simulationEnabled
-                RowSwitch("Modo Simulação", "Ativado automaticamente em ambiente de desenvolvimento.", simulation, enabled = false) {
+                val simulationEnabled by SettingsStore.simulationEnabled
+                RowSwitch("Modo Simulação", "Ativado automaticamente em ambiente de desenvolvimento.", simulationEnabled) {
                     SettingsStore.setSimulationEnabled(it)
                 }
             }
@@ -294,6 +296,28 @@ class MainActivity : ComponentActivity() {
                 if (monitorEnabled) {
                     Spacer(Modifier.height(14.dp))
                     Column {
+                        // Sessão dinâmica CAR_EV_
+                        if (visibleEvKeys.isNotEmpty()) {
+                            Text(
+                                "VARIÁVEIS EV (DINÂMICO)",
+                                color = Accent,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                            )
+                            val evItems = visibleEvKeys.toList()
+                            val chunk = (evItems.size + 3) / 4
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                repeat(4) { i ->
+                                    Column(Modifier.weight(1f)) {
+                                        evItems.drop(i * chunk).take(chunk).forEach { (label, _) ->
+                                            MonitorRow(label, debugValues[label])
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         DockControls.DEBUG_VARIABLES.forEach { (category, vars) ->
                             Text(
                                 category,
@@ -474,18 +498,29 @@ class MainActivity : ComponentActivity() {
         val isRecent = System.currentTimeMillis() - lastChanged < 5000
         val displayValue = history.joinToString(" -> ")
         val color = if (isRecent && history.size > 1) Amber else Color.White
+        val minMax = if (monitor != null) "[${monitor.min}|${monitor.max}] " else ""
 
         Column(Modifier.padding(vertical = 6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(label, color = Muted, fontSize = 11.sp, modifier = Modifier.weight(0.4f), maxLines = 1)
-                Text(
-                    displayValue,
-                    color = color,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(0.6f),
-                    maxLines = 1
-                )
+                Row(Modifier.weight(0.6f), verticalAlignment = Alignment.CenterVertically) {
+                    if (minMax.isNotEmpty()) {
+                        Text(
+                            minMax,
+                            color = Muted.copy(alpha = 0.7f),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Normal,
+                            maxLines = 1
+                        )
+                    }
+                    Text(
+                        displayValue,
+                        color = color,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
             }
             Box(Modifier.fillMaxWidth().padding(top = 4.dp).height(0.5.dp).background(Color.White.copy(alpha = 0.05f)))
         }
@@ -501,6 +536,66 @@ class MainActivity : ComponentActivity() {
 
     private data class MonitorValue(
         val history: List<String>,
-        val lastChanged: Long = 0
+        val lastChanged: Long = 0,
+        val min: String = "",
+        val max: String = ""
     )
+
+    private fun updateMonitorValue(label: String, key: String, map: MutableMap<String, MonitorValue>): Boolean {
+        var newVal = VehicleClient.getData(key) ?: "—"
+
+        // Formatação para Voltagens (2 casas decimais)
+        if (key == DockKeys.BATTERY_12V_VOLTAGE ||
+            key == DockKeys.CAR_EV_INFO_POWER_BATTERY_VOLTAGE ||
+            key == DockKeys.CAR_EV_INFO_POWER_BATTERY_VOLTAGE_DOCK
+        ) {
+            newVal.toDoubleOrNull()?.let {
+                newVal = String.format(java.util.Locale.US, "%.2f", it)
+            }
+        }
+
+        val old = map[label]
+        if (old == null || old.history.last() != newVal) {
+            val newHistory = (old?.history ?: emptyList()) + newVal
+            
+            // Cálculo de Min e Max (ignora o caractere de traço "—")
+            var newMin = newVal
+            var newMax = newVal
+            
+            if (old != null) {
+                if (newVal == "—") {
+                    // Se o novo valor for inválido, mantém os limites antigos
+                    newMin = old.min
+                    newMax = old.max
+                } else if (old.min == "—") {
+                    // Se o novo valor for válido mas o antigo era traço, inicializa com o novo
+                    newMin = newVal
+                    newMax = newVal
+                } else {
+                    // Comparação real
+                    val curD = newVal.toDoubleOrNull()
+                    val minD = old.min.toDoubleOrNull()
+                    val maxD = old.max.toDoubleOrNull()
+                    
+                    if (curD != null && minD != null && maxD != null) {
+                        newMin = if (curD < minD) newVal else old.min
+                        newMax = if (curD > maxD) newVal else old.max
+                    } else {
+                        // Fallback string
+                        newMin = if (newVal < old.min) newVal else old.min
+                        newMax = if (newVal > old.max) newVal else old.max
+                    }
+                }
+            }
+
+            map[label] = MonitorValue(
+                history = newHistory.takeLast(3),
+                lastChanged = System.currentTimeMillis(),
+                min = newMin,
+                max = newMax
+            )
+            return true
+        }
+        return false
+    }
 }
