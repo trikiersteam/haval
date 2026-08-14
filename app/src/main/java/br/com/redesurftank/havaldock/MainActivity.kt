@@ -256,7 +256,12 @@ class MainActivity : ComponentActivity() {
                 }
                 
                 val simulationEnabled by SettingsStore.simulationEnabled
-                RowSwitch("Modo Simulação", "Ativado automaticamente em ambiente de desenvolvimento.", simulationEnabled) {
+                RowSwitch(
+                    "Modo Simulação",
+                    "Ativado automaticamente em ambiente de desenvolvimento.",
+                    simulationEnabled,
+                    enabled = BuildConfig.DEV_ENVIRONMENT
+                ) {
                     SettingsStore.setSimulationEnabled(it)
                 }
             }

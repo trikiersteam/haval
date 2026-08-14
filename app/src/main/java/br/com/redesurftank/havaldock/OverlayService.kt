@@ -790,12 +790,15 @@ class OverlayService : Service() {
         
         // Header
         val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(40), dp(10), dp(40), 0) }
-        val tvHeader = TextView(this).apply { textSize = 18f; setTextColor(cTxt); setTypeface(typeface, Typeface.BOLD); letterSpacing = 0.05f }; header.addView(tvHeader)
+        val tvHeader = TextView(this).apply { textSize = 18f; setTextColor(cTxt); setTypeface(typeface, Typeface.BOLD); letterSpacing = 0.05f; layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) }; header.addView(tvHeader)
         updaters["header_info"] = { val sdf = java.text.SimpleDateFormat("EEEE, dd 'DE' MMMM 'DE' yyyy", java.util.Locale("pt", "BR")); tvHeader.text = sdf.format(java.util.Date()).uppercase() }
-        dashboardContainer.addView(header, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(50)))
-
+        
         // ViewPager para as Páginas
-        val viewPager = ViewPager(this).apply { id = View.generateViewId() }
+        val viewPager = NonSwipeViewPager(this).apply { id = View.generateViewId() }
+        
+        // Botões de Paginação no Header
+        header.addView(createPaginationButtons(viewPager, 2))
+        dashboardContainer.addView(header, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(60)))
         
         // Página 1: Controles
         val page1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; background = null; setPadding(dp(20), dp(10), dp(20), dp(20)); gravity = Gravity.BOTTOM }
@@ -837,12 +840,15 @@ class OverlayService : Service() {
         
         // Header
         val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(40), dp(4), dp(40), 0) }
-        val tvHeader = TextView(this).apply { textSize = 18f; setTextColor(cTxt); setTypeface(typeface, Typeface.BOLD); letterSpacing = 0.05f }; header.addView(tvHeader)
+        val tvHeader = TextView(this).apply { textSize = 18f; setTextColor(cTxt); setTypeface(typeface, Typeface.BOLD); letterSpacing = 0.05f; layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) }; header.addView(tvHeader)
         updaters["header_info"] = { val sdf = java.text.SimpleDateFormat("EEEE, dd 'DE' MMMM 'DE' yyyy", java.util.Locale("pt", "BR")); tvHeader.text = sdf.format(java.util.Date()).uppercase() }
-        dashboardContainer.addView(header, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(35)))
-
+        
         // ViewPager
-        val viewPager = ViewPager(this).apply { id = View.generateViewId() }
+        val viewPager = NonSwipeViewPager(this).apply { id = View.generateViewId() }
+        
+        // Botões de Paginação no Header
+        header.addView(createPaginationButtons(viewPager, 2))
+        dashboardContainer.addView(header, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(45)))
         val isFloating = SettingsStore.isLightFloatingEnabled(this); val cardBg = if (isFloating) DockColors.SCREEN else null; val cardStroke = if (isFloating) DockColors.SCREEN else null
 
         // Página 1 Light: Controles
@@ -888,6 +894,55 @@ class OverlayService : Service() {
                 else if (pos == 1) updaters["power_chart"]?.invoke(RenderState())
             }
         })
+        return row
+    }
+
+    private fun createPaginationButtons(pager: ViewPager, count: Int): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        val btnPrev = ImageView(this).apply {
+            setImageResource(R.drawable.page_previous)
+            setColorFilter(cTxt)
+            layoutParams = LinearLayout.LayoutParams(dp(44), dp(44))
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            isClickable = true
+            setOnClickListener {
+                onUserActivity()
+                pager.currentItem = (pager.currentItem - 1).coerceAtLeast(0)
+            }
+        }
+
+        val btnNext = ImageView(this).apply {
+            setImageResource(R.drawable.page_next)
+            setColorFilter(cTxt)
+            layoutParams = LinearLayout.LayoutParams(dp(44), dp(44))
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            isClickable = true
+            setOnClickListener {
+                onUserActivity()
+                pager.currentItem = (pager.currentItem + 1).coerceAtMost(count - 1)
+            }
+        }
+
+        row.addView(btnPrev)
+        row.addView(gapView(10, true))
+        row.addView(btnNext)
+
+        val updateVisibility = { pos: Int ->
+            btnPrev.visibility = if (pos > 0) View.VISIBLE else View.GONE
+            btnNext.visibility = if (pos < count - 1) View.VISIBLE else View.GONE
+        }
+
+        pager.addOnPageChangeListener(object : ViewPager.SimpleOnPageChangeListener() {
+            override fun onPageSelected(position: Int) {
+                updateVisibility(position)
+            }
+        })
+
+        updateVisibility(pager.currentItem)
         return row
     }
 
@@ -1176,6 +1231,15 @@ class OverlayService : Service() {
     private class TouchFrame(context: Context, val onTouch: () -> Unit, val onSwipeDown: () -> Unit, val onSwipeUp: () -> Unit) : FrameLayout(context) {
         private val threshold = 30 * context.resources.displayMetrics.density; private val hLockThreshold = 10 * context.resources.displayMetrics.density; private var downY = 0f; private var downX = 0f; private var fired = false; private var hLocked = false
         override fun dispatchTouchEvent(ev: MotionEvent?): Boolean { if (ev == null) return super.dispatchTouchEvent(ev); when (ev.actionMasked) { MotionEvent.ACTION_DOWN -> { downY = ev.y; downX = ev.x; fired = false; hLocked = false; onTouch() }; MotionEvent.ACTION_MOVE -> { if (fired) return true; val dy = ev.y - downY; val dx = ev.x - downX; val absDy = kotlin.math.abs(dy); val absDx = kotlin.math.abs(dx); if (!hLocked && absDx > hLockThreshold && absDx > absDy) hLocked = true; if (!hLocked && absDy > threshold && absDy > absDx) { fired = true; val cancel = MotionEvent.obtain(ev).also { it.action = MotionEvent.ACTION_CANCEL }; super.dispatchTouchEvent(cancel); cancel.recycle(); if (dy > 0) onSwipeDown() else onSwipeUp(); return true } }; MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { if (fired) { fired = false; return true } }; MotionEvent.ACTION_OUTSIDE -> { onSwipeDown(); return true } }; return super.dispatchTouchEvent(ev) }
+    }
+
+    /**
+     * ViewPager customizado que desabilita o gesto de deslizar (swipe).
+     * A navegação entre páginas passa a ser feita exclusivamente pelos botões.
+     */
+    private class NonSwipeViewPager(context: Context) : ViewPager(context) {
+        override fun onInterceptTouchEvent(ev: MotionEvent): Boolean = false
+        override fun onTouchEvent(ev: MotionEvent): Boolean = false
     }
 
     companion object {
