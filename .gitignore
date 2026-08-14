@@ -20,3 +20,6 @@ dev_marker
 /prototype/preview-on.png
 /prototype/preview-vol.png
 /prototype/zoom-*.png
+
+# Kotlin
+.kotlin/
