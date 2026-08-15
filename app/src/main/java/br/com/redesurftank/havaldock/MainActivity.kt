@@ -103,14 +103,20 @@ class MainActivity : ComponentActivity() {
 
         var monitorEnabled by remember { mutableStateOf(false) }
         val debugValues = remember { mutableStateMapOf<String, MonitorValue>() }
-        val visibleEvKeys = remember { mutableStateListOf<Pair<String, String>>() } // Label to Key
+        val visibleInfoKeys = remember { mutableStateListOf<Pair<String, String>>() }
+        val visibleSettingKeys = remember { mutableStateListOf<Pair<String, String>>() }
 
         LaunchedEffect(monitorEnabled) {
             if (monitorEnabled) {
                 // Descobre todas as chaves CAR_EV_ via reflexão uma única vez
-                val evVars = DockKeys::class.java.declaredFields
+                val fields = DockKeys::class.java.declaredFields
                     .filter { it.name.startsWith("CAR_EV_") && !it.name.endsWith("_DOCK") }
-                    .map { it.name.replace("_", " ") to it.get(null) as String }
+                
+                val infoVars = fields.filter { it.name.startsWith("CAR_EV_INFO_") }
+                    .map { it.name.removePrefix("CAR_EV_INFO_") to it.get(null) as String }
+                
+                val settingVars = fields.filter { it.name.startsWith("CAR_EV_SETTING_") }
+                    .map { it.name.removePrefix("CAR_EV_SETTING_") to it.get(null) as String }
 
                 while (true) {
                     // 1. Monitora as variáveis fixas das categorias
@@ -120,12 +126,21 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // 2. Monitora variáveis CAR_EV_ dinâmicas
-                    evVars.forEach { (label, key) ->
+                    // 2. Monitora variáveis CAR_EV_INFO_ dinâmicas
+                    infoVars.forEach { (label, key) ->
                         updateMonitorValue(label, key, debugValues)
                         val history = debugValues[label]?.history ?: emptyList()
-                        if (history.size > 1 && visibleEvKeys.none { it.second == key }) {
-                            visibleEvKeys.add(label to key)
+                        if (history.size > 1 && visibleInfoKeys.none { it.second == key }) {
+                            visibleInfoKeys.add(label to key)
+                        }
+                    }
+
+                    // 3. Monitora variáveis CAR_EV_SETTING_ dinâmicas
+                    settingVars.forEach { (label, key) ->
+                        updateMonitorValue(label, key, debugValues)
+                        val history = debugValues[label]?.history ?: emptyList()
+                        if (history.size > 1 && visibleSettingKeys.none { it.second == key }) {
+                            visibleSettingKeys.add(label to key)
                         }
                     }
 
@@ -301,19 +316,41 @@ class MainActivity : ComponentActivity() {
                 if (monitorEnabled) {
                     Spacer(Modifier.height(14.dp))
                     Column {
-                        // Sessão dinâmica CAR_EV_
-                        if (visibleEvKeys.isNotEmpty()) {
+                        // Sessão dinâmica CAR_EV_INFO_
+                        if (visibleInfoKeys.isNotEmpty()) {
                             Text(
-                                "VARIÁVEIS EV (DINÂMICO)",
+                                "CAR_EV_INFO",
                                 color = Accent,
-                                fontSize = 14.sp,
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                             )
-                            val evItems = visibleEvKeys.toList()
-                            val chunk = (evItems.size + 3) / 4
+                            val evItems = visibleInfoKeys.toList()
+                            val chunk = (evItems.size + 2) / 3
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                repeat(4) { i ->
+                                repeat(3) { i ->
+                                    Column(Modifier.weight(1f)) {
+                                        evItems.drop(i * chunk).take(chunk).forEach { (label, _) ->
+                                            MonitorRow(label, debugValues[label])
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Sessão dinâmica CAR_EV_SETTINGS_
+                        if (visibleSettingKeys.isNotEmpty()) {
+                            Text(
+                                "CAR_EV_SETTINGS",
+                                color = Accent,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                            )
+                            val evItems = visibleSettingKeys.toList()
+                            val chunk = (evItems.size + 2) / 3
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                repeat(3) { i ->
                                     Column(Modifier.weight(1f)) {
                                         evItems.drop(i * chunk).take(chunk).forEach { (label, _) ->
                                             MonitorRow(label, debugValues[label])
@@ -327,7 +364,7 @@ class MainActivity : ComponentActivity() {
                             Text(
                                 category,
                                 color = Accent,
-                                fontSize = 14.sp,
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                             )
@@ -484,8 +521,8 @@ class MainActivity : ComponentActivity() {
     private fun SectionPosRow(label: String, value: Int, max: Float, onValueChange: (Int) -> Unit) {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(label, color = Muted, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                Text("${value}dp", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(label, color = Muted, fontSize = 16.sp, modifier = Modifier.weight(1f))
+                Text("${value}dp", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
             Slider(
                 value = value.toFloat(),
@@ -507,13 +544,13 @@ class MainActivity : ComponentActivity() {
 
         Column(Modifier.padding(vertical = 6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(label, color = Muted, fontSize = 11.sp, modifier = Modifier.weight(0.4f), maxLines = 1)
+                Text(label, color = Muted, fontSize = 15.sp, modifier = Modifier.weight(0.4f), maxLines = 1)
                 Row(Modifier.weight(0.6f), verticalAlignment = Alignment.CenterVertically) {
                     if (minMax.isNotEmpty()) {
                         Text(
                             minMax,
                             color = Muted.copy(alpha = 0.7f),
-                            fontSize = 10.sp,
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.Normal,
                             maxLines = 1
                         )
@@ -521,7 +558,7 @@ class MainActivity : ComponentActivity() {
                     Text(
                         displayValue,
                         color = color,
-                        fontSize = 11.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1
                     )

@@ -174,7 +174,8 @@ class OverlayService : Service() {
             mockIndex++
             v
         } else {
-            VehicleClient.getData(DockKeys.CAR_EV_INFO_INSTANT_ENERGY_CONSUMPTION)?.toDoubleOrNull() ?: 0.0 //CAR_EV_INFO_INSTANT_ENERGY_CONSUMPTION antes CAR_EV_INFO_POWER_BATTERY_CURRENT
+            VehicleClient.getData(DockKeys.CAR_EV_INFO_CUR_CHARGE_CURRENT )?.toDoubleOrNull() ?: 0.0 //CAR_EV_INFO_INSTANT_ENERGY_CONSUMPTION antes CAR_EV_INFO_POWER_BATTERY_CURRENT
+
         }
         
         if (curr == 0.0 && !isSim) return 
