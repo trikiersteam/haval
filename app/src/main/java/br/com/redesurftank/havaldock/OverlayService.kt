@@ -748,6 +748,7 @@ class OverlayService : Service() {
             main.post {
                 // Se estiver no Dashboard e na página do Gráfico, atualiza apenas o gráfico e itens globais (projeção)
                 if (isDash && currentDashPage == 1) {
+                    updaters["energy_info"]?.invoke(RenderState())
                     updaters["power_chart"]?.invoke(RenderState())
                     updaters["proj"]?.invoke(RenderState())
                     updaters["dash_proj"]?.invoke(RenderState())
@@ -861,7 +862,10 @@ class OverlayService : Service() {
         
         viewPager.post { 
             viewPager.currentItem = currentDashPage
-            if (currentDashPage == 1) main.postDelayed({ updaters["power_chart"]?.invoke(RenderState()) }, 500)
+            if (currentDashPage == 1) main.postDelayed({ 
+                updaters["energy_info"]?.invoke(RenderState())
+                updaters["power_chart"]?.invoke(RenderState()) 
+            }, 500)
         }
     }
 
@@ -878,9 +882,14 @@ class OverlayService : Service() {
                 dots.forEachIndexed { i, d -> d.background = pill(if (i == pos) cAccent else cLine, dp(4)) }
                 if (pos == 0) refreshAll()
                 else if (pos == 1) {
-                    main.postDelayed({ updaters["power_chart"]?.invoke(RenderState()) }, 300)
-                    // Segunda tentativa caso a primeira falhe por falta de medida
-                    main.postDelayed({ updaters["power_chart"]?.invoke(RenderState()) }, 1000)
+                    main.postDelayed({ 
+                        updaters["energy_info"]?.invoke(RenderState())
+                        updaters["power_chart"]?.invoke(RenderState()) 
+                    }, 300)
+                    main.postDelayed({ 
+                        updaters["energy_info"]?.invoke(RenderState())
+                        updaters["power_chart"]?.invoke(RenderState()) 
+                    }, 1000)
                 }
             }
         })
@@ -900,15 +909,30 @@ class OverlayService : Service() {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT)
         }
         
+        // Linha de Informações (Fora do card do gráfico)
+        val infoTv = TextView(this).apply {
+            textSize = 22f; setTextColor(cMuted); setTypeface(null, Typeface.BOLD)
+            setPadding(0, 0, 0, dp(16))
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+        page.addView(infoTv)
+        
+        updaters["energy_info"] = {
+            val battery = VehicleClient.getData(DockKeys.CAR_EV_INFO_CUR_BATTERY_POWER_PERCENTAGE) ?: "—"
+            val range = VehicleClient.getData(DockKeys.CAR_EV_INFO_ELECTRIC_MODE_REMAIN_ODOMETER) ?: "—"
+            val time = VehicleClient.getData(DockKeys.CAR_EV_INFO_CHARGE_REMAINING_TIME)?.toIntOrNull() ?: 0
+            val timeText = if (time > 0) " - Tempo de Recarga $time minutos." else "."
+            infoTv.text = "$battery% - $range km$timeText"
+        }
+        
         val card = createDashboardCard(
             "Consumo vs Regeneração (kW)", 
-            createPowerChart(heightDp = 0), // 0 indica para usar weight=1f
+            createPowerChart(heightDp = 0), 
             radius = radius, 
             bgColor = cardBg, 
             strokeColor = cardStroke
         )
         
-        // Garante que o card ocupe o espaço da página e o gráfico ocupe o espaço do card
         val cardLp = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
         page.addView(card, cardLp)
         
