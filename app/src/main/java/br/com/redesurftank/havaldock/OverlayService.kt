@@ -796,12 +796,13 @@ class OverlayService : Service() {
         val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(40), dp(10), dp(40), 0) }
         val tvHeader = TextView(this).apply { textSize = 18f; setTextColor(cTxt); setTypeface(typeface, Typeface.BOLD); letterSpacing = 0.05f; layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) }; header.addView(tvHeader)
         updaters["header_info"] = { val sdf = java.text.SimpleDateFormat("EEEE, dd 'DE' MMMM 'DE' yyyy", java.util.Locale("pt", "BR")); tvHeader.text = sdf.format(java.util.Date()).uppercase() }
+        dashboardContainer.addView(header, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(60)))
         
         // Página 1: Controles
         val page1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; background = null; setPadding(dp(20), dp(10), dp(20), dp(20)); gravity = Gravity.BOTTOM }
-        val col1 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }; page1.addView(col1, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
-        page1.addView(gapView(12, true)); val col2 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }; page1.addView(col2, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
-        page1.addView(gapView(12, true)); val col3 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }; page1.addView(col3, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
+        val col1 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }; page1.addView(col1, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        page1.addView(gapView(12, true)); val col2 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }; page1.addView(col2, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        page1.addView(gapView(12, true)); val col3 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }; page1.addView(col3, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         
         col1.addView(createDashboardCard("", createHvacQuickControls("D"))); col1.addView(gapView(12)); col1.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempD" } as Temp))); col1.addView(gapView(12)); col1.addView(createDashboardCard("", createAirflowSelection("D"))); col1.addView(gapView(12)); col1.addView(createDashboardCard("", createLevelControl(DockControls.FAN, R.drawable.ic_fan))); col1.addView(gapView(12)); col1.addView(createDashboardCard("", createLevelControl(DockControls.VENT_D, R.drawable.ic_carseat_cooler)))
         col2.addView(createDashboardCard("", createBatteryCard(DockControls.ALL.find { it.id == "bat" } as Battery, segmented = false))); col2.addView(gapView(12)); col2.addView(createDashboardCard("MODO DE CONDUÇÃO", createDriveModeSelectionLight(DockControls.DRIVE), iconRes = R.drawable.ic_bolt, titleSize = 18f)); col2.addView(gapView(12)); col2.addView(createDashboardCard("", createAmbientTempCard(DockControls.ALL.find { it.id == "recirc" } as IconToggle)))
@@ -817,7 +818,7 @@ class OverlayService : Service() {
         val rootLayout = FrameLayout(this).apply { layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT); setBackgroundColor(Color.TRANSPARENT) }
         dashboard = rootLayout; root.removeAllViews(); root.addView(rootLayout)
         val dashboardContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; background = pill((0xFF shl 24) or (DockColors.SCREEN and 0x00FFFFFF), dp(40)); setPadding(dp(10), dp(5), dp(10), dp(10)) }
-        rootLayout.addView(dashboardContainer, FrameLayout.LayoutParams(1770, 720 - dp(150), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = dp(2) })
+        rootLayout.addView(dashboardContainer, FrameLayout.LayoutParams(1770, 720 - dp(40), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = dp(2) })
         
         // Header
         val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(40), dp(4), dp(40), 0) }
