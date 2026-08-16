@@ -4,11 +4,12 @@ Este arquivo contém diretrizes essenciais para assistentes de IA (Gemini/Gomini
 
 ## 🚀 Procedimento de Lançamento (Release)
 1. **Versão:** Incrementar `versionCode` e `versionName` em `app/build.gradle.kts`.
-2. **Git:** 
+2. **Sincronização:** A tag do Git deve ser **identica** ao `versionName` (ex: `v0.2.68` para `versionName = "0.2.68"`).
+3. **Git:** 
    - Commitar as mudanças.
-   - Criar tag: `git tag <versionName>`.
+   - Criar tag: `git tag v<versionName>`.
    - Push: `git push origin main --tags`.
-3. **CI/CD:** O build é disparado automaticamente via **GitHub Actions/CI/CD**. NÃO gerar o APK localmente para evitar inconsistências de assinatura.
+4. **CI/CD:** O build é disparado automaticamente via **GitHub Actions/CI/CD**. NÃO gerar o APK localmente para evitar inconsistências de assinatura.
 
 ## 📱 Especificações do Hardware (Carro)
 - **Resolução da Tela:** 1920x720 pixels (Ultra-wide landscape).
