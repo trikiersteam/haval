@@ -27,6 +27,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.widget.RelativeLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -35,6 +36,7 @@ import androidx.viewpager.widget.ViewPager
 import com.github.mikephil.charting.charts.BarChart
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.components.XAxis
+import com.github.mikephil.charting.components.YAxis
 import com.github.mikephil.charting.data.BarData
 import com.github.mikephil.charting.data.BarDataSet
 import com.github.mikephil.charting.data.BarEntry
@@ -42,6 +44,7 @@ import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.formatter.ValueFormatter
+import com.github.mikephil.charting.utils.MPPointD
 import br.com.redesurftank.havaldock.DockKeys
 import br.com.redesurftank.havaldock.data.AirflowOption
 import br.com.redesurftank.havaldock.data.Battery
@@ -864,7 +867,7 @@ class OverlayService : Service() {
 
         // Página 2 Light: Gráfico ampliado
         val page2 = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(dp(60), dp(10), dp(60), dp(20)) }
-        page2.addView(createDashboardCard("Consumo vs Regeneração (kW)", createPowerChart(heightDp = 300), radius = 16, bgColor = cardBg, strokeColor = cardStroke))
+        page2.addView(createDashboardCard("Consumo vs Regeneração (kW)", createPowerChart(heightDp = 340), radius = 16, bgColor = cardBg, strokeColor = cardStroke))
 
         val pages = listOf(page1, page2)
         viewPager.adapter = object : PagerAdapter() {
@@ -1005,8 +1008,22 @@ class OverlayService : Service() {
 
     private fun createBatteryCard(c: Battery, segmented: Boolean = false): View {
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(4), 0, 0) }
-        val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }; val ic = icon(R.drawable.battery_charging_medium, dp(35), DockColors.GREEN); top.addView(ic); top.addView(TextView(this).apply { text = "BATERIA"; textSize = 20f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD); letterSpacing = 0.2f; setPadding(dp(8), 0, 0, 0) }); layout.addView(top)
-        val track = FrameLayout(this).apply { background = if (segmented) null else pill(cTrack, dp(48)); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(48)).apply { topMargin = dp(16) } }
+        val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val ic = icon(R.drawable.battery_charging_medium, dp(35), DockColors.GREEN)
+        top.addView(ic)
+        
+        val titleTv = TextView(this).apply { text = "BATERIA"; textSize = 20f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD); letterSpacing = 0.2f; setPadding(dp(8), 0, 0, 0) }
+        top.addView(titleTv)
+        
+        val rangeTv = TextView(this).apply { textSize = 20f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD); setPadding(dp(4), 0, 0, 0) }
+        top.addView(rangeTv)
+        
+        layout.addView(top)
+        
+        val infoTv = TextView(this).apply { textSize = 15f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD); setPadding(dp(43), dp(2), 0, 0) }
+        layout.addView(infoTv)
+
+        val track = FrameLayout(this).apply { background = if (segmented) null else pill(cTrack, dp(48)); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(48)).apply { topMargin = dp(10) } }
         if (segmented) { val r = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }; for (i in 0 until 20) r.addView(View(this).apply { background = pill(cTrack, dp(4)) }, LinearLayout.LayoutParams(0, dp(48), 1f).apply { if (i > 0) marginStart = dp(4) }); track.addView(r, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)) }
         else track.addView(View(this).apply { background = pill(DockColors.GREEN, dp(48)) }, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
         val tv = TextView(this).apply { textSize = 26f; setTextColor(Color.WHITE); setTypeface(typeface, Typeface.BOLD); text = "0%"; gravity = Gravity.CENTER; includeFontPadding = false; setShadowLayer(dp(6).toFloat(), 0f, 1f, Color.BLACK) }; track.addView(tv, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.MATCH_PARENT, Gravity.CENTER)); layout.addView(track)
@@ -1015,6 +1032,13 @@ class OverlayService : Service() {
             val (s, e) = when { v > 75 -> Color.parseColor("#00838F") to DockColors.CYAN; v >= 31 -> Color.parseColor("#2E7D32") to DockColors.GREEN; v > 15 -> Color.parseColor("#FF8F00") to Color.parseColor("#ffcf00"); else -> Color.parseColor("#C62828") to DockColors.RED }
             if (segmented) { val r = track.getChildAt(0) as LinearLayout; val count = (v / 5).coerceIn(0, 20); for (i in 0 until 20) r.getChildAt(i).background = if (i < count) pill(blend(s, e, i / 19f), dp(4)) else pill(cTrack, dp(4)) }
             else { val f = track.getChildAt(0); f.background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(s, e)).apply { cornerRadius = dp(48).toFloat() }; val lp = f.layoutParams as FrameLayout.LayoutParams; track.post { lp.width = (track.width * (v / 100f)).toInt(); f.layoutParams = lp } }
+            
+            val range = VehicleClient.getData(DockKeys.CAR_EV_INFO_ELECTRIC_MODE_REMAIN_ODOMETER) ?: "—"
+            val time = VehicleClient.getData(DockKeys.CAR_EV_INFO_CHARGE_REMAINING_TIME)?.toIntOrNull() ?: 0
+            
+            rangeTv.text = "- $range Km"
+            infoTv.text = if (time > 0) "Tempo de Recarga $time minutos." else ""
+            infoTv.visibility = if (time > 0) View.VISIBLE else View.GONE
         }; layout.addView(gapView(6)); return layout
     }
 
@@ -1115,9 +1139,13 @@ class OverlayService : Service() {
         accumContainer.addView(consBar)
         container.addView(accumContainer)
 
-        // 2. Gráfico de Linha (Instantâneo)
-        val lineChart = LineChart(this).apply {
+        // 2. Gráfico de Linha + Valores à Direita (Instantâneo)
+        val chartWrapper = RelativeLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+        }
+
+        val lineChart = LineChart(this).apply {
+            layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT)
             description.isEnabled = false; legend.isEnabled = false; setTouchEnabled(false)
             xAxis.isEnabled = false; axisRight.isEnabled = false; setDrawGridBackground(false)
             axisLeft.apply {
@@ -1125,7 +1153,27 @@ class OverlayService : Service() {
                 textColor = cMuted; textSize = 22f; setLabelCount(3, true); setDrawAxisLine(false)
             }
         }
-        container.addView(lineChart)
+        chartWrapper.addView(lineChart)
+
+        // Labels flutuantes na direita
+        val currConsText = TextView(this).apply {
+            setTextColor(cEmerald); setTypeface(null, Typeface.BOLD); textSize = 28f
+            layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
+                addRule(RelativeLayout.ALIGN_PARENT_RIGHT)
+                rightMargin = dp(8)
+            }
+        }
+        val currRegenText = TextView(this).apply {
+            setTextColor(cAccent); setTypeface(null, Typeface.BOLD); textSize = 28f
+            layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
+                addRule(RelativeLayout.ALIGN_PARENT_RIGHT)
+                rightMargin = dp(8)
+            }
+        }
+        chartWrapper.addView(currConsText)
+        chartWrapper.addView(currRegenText)
+        
+        container.addView(chartWrapper)
 
         // Interação: Clique Duplo para alternar histórico
         val gd = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
@@ -1201,6 +1249,39 @@ class OverlayService : Service() {
             
             lineChart.data = LineData(ds1, ds2)
             lineChart.invalidate()
+
+            // Atualiza Valores Atuais à Direita (acompanhando a linha)
+            val lastPair = history.lastOrNull() ?: (0f to 0f)
+            currConsText.text = if (lastPair.first > 0.05) String.format(java.util.Locale.US, "%.1f", lastPair.first) else ""
+            currRegenText.text = if (lastPair.second > 0.05) String.format(java.util.Locale.US, "%.1f", lastPair.second) else ""
+
+            lineChart.post {
+                val transformer = lineChart.getTransformer(YAxis.AxisDependency.LEFT)
+                val xPos = (history.size - 1).coerceAtLeast(0).toFloat()
+                
+                val p1 = transformer.getPixelForValues(xPos, lastPair.first)
+                val p2 = transformer.getPixelForValues(xPos, lastPair.second)
+                
+                currConsText.translationY = p1.y.toFloat() - currConsText.height / 2f
+                currRegenText.translationY = p2.y.toFloat() - currRegenText.height / 2f
+
+                MPPointD.recycleInstance(p1)
+                MPPointD.recycleInstance(p2)
+
+                // Evita sobreposição se estiverem muito próximos
+                if (currConsText.text.isNotEmpty() && currRegenText.text.isNotEmpty()) {
+                    val diff = kotlin.math.abs(currConsText.translationY - currRegenText.translationY)
+                    if (diff < dp(25)) {
+                        if (currConsText.translationY < currRegenText.translationY) {
+                            currConsText.translationY -= dp(12)
+                            currRegenText.translationY += dp(12)
+                        } else {
+                            currConsText.translationY += dp(12)
+                            currRegenText.translationY -= dp(12)
+                        }
+                    }
+                }
+            }
         }
 
         return container

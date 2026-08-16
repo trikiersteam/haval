@@ -64,6 +64,7 @@ object VehicleClient {
             DockKeys.CAR_EV_INFO_CUR_BATTERY_POWER_PERCENTAGE to "30",
             DockKeys.CAR_EV_INFO_ECONOMIC_GUIDE_LEVEL to "65",
             DockKeys.CAR_EV_INFO_ELECTRIC_MODE_REMAIN_ODOMETER to "45",
+            DockKeys.CAR_EV_INFO_CHARGE_REMAINING_TIME to "120",
             DockKeys.CAR_EV_SETTING_POWER_MODEL_CONFIG to "3",
             DockKeys.MEDIA_VOLUME to "10",
             DockKeys.CAR_BASIC_INSIDE_TEMP to "24",
