@@ -176,8 +176,8 @@ class MainActivity : ComponentActivity() {
                 Segmented(
                     options = listOf(
                         "Barra" to SettingsStore.VISUAL_BAR,
-                        "Dashboard" to SettingsStore.VISUAL_DASHBOARD,
-                        "Light" to SettingsStore.VISUAL_DASHBOARD_LIGHT
+                        "Dual_Dash" to SettingsStore.VISUAL_DASHBOARD,
+                        "Light_Dash" to SettingsStore.VISUAL_DASHBOARD_LIGHT
                     ),
                     selected = visualMode
                 ) {
