@@ -117,6 +117,8 @@ class OverlayService : Service() {
     private var lastManualTempP: Double = -1.0
     private var lastManualTempPTime: Long = 0
 
+    private var sessionStartOdo: Double = 0.0
+
     private var flashView: TextView? = null
     private val flashHideRunnable = Runnable {
         flashView?.let { runCatching { wm.removeView(it) } }
@@ -752,11 +754,13 @@ class OverlayService : Service() {
                     updaters["power_chart"]?.invoke(RenderState())
                     updaters["proj"]?.invoke(RenderState())
                     updaters["dash_proj"]?.invoke(RenderState())
+                    updaters["telemetry"]?.invoke(RenderState())
                     return@post
                 }
 
                 // Atualiza controles normais (Página 1 ou Modo Barra)
                 snap.forEach { (id, st) -> updaters[id]?.invoke(st) }
+                updaters["telemetry"]?.invoke(RenderState())
                 updaters["fan_popup"]?.invoke(RenderState()); updaters["vent_popup"]?.invoke(RenderState()); updaters["auto_popup"]?.invoke(RenderState()); updaters["pwr_popup"]?.invoke(RenderState()); updaters["ac_popup"]?.invoke(RenderState()); updaters["air_popup"]?.invoke(RenderState())
                 DockControls.AIRFLOW_OPTIONS.forEach { opt -> updaters["air_${opt.label}"]?.invoke(RenderState()) }
                 updaters["proj"]?.invoke(RenderState()); updaters["header_info"]?.invoke(RenderState()); updaters["tempD_sync"]?.invoke(RenderState())
@@ -842,7 +846,7 @@ class OverlayService : Service() {
         
         col1.addView(createDashboardCard("", createHvacQuickControls("D"), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col1.addView(gapView(4)); col1.addView(createDashboardCard("", createAirflowSelection("D"), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col1.addView(gapView(4)); col1.addView(createDashboardCard("", createLevelControl(DockControls.FAN, R.drawable.ic_fan, iconSize = 42), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col1.addView(gapView(4)); col1.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempD" } as Temp), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col1.addView(gapView(4)); col1.addView(createDashboardCard("", createLevelControl(DockControls.VENT_D, R.drawable.ic_carseat_cooler), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
         col2.addView(createDashboardCard("", createBatteryCard(DockControls.ALL.find { it.id == "bat" } as Battery, segmented = true), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col2.addView(gapView(4)); col2.addView(createDashboardCard("MODO DE CONDUÇÃO", createDriveModeSelectionLight(DockControls.DRIVE), iconRes = R.drawable.ic_bolt, titleSize = 18f, radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col2.addView(gapView(4)); col2.addView(createDashboardCard("", createAmbientTempCard(DockControls.ALL.find { it.id == "recirc" } as IconToggle), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
-        col3.addView(createDashboardCard("", createVolumeControl(DockControls.ALL.find { it.id == "vol" } as Volume), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col3.addView(gapView(4)); col3.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempP" } as Temp), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col3.addView(gapView(4)); col3.addView(createDashboardCard("", createLevelControl(DockControls.VENT_P, R.drawable.ic_carseat_cooler), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
+        col3.addView(createDashboardCard("TELEMETRIA", createTelemetryCardContent(), iconRes = R.drawable.ic_bolt, radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col3.addView(gapView(4)); col3.addView(createDashboardCard("", createVolumeControl(DockControls.ALL.find { it.id == "vol" } as Volume), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col3.addView(gapView(4)); col3.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempP" } as Temp), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col3.addView(gapView(4)); col3.addView(createDashboardCard("", createLevelControl(DockControls.VENT_P, R.drawable.ic_carseat_cooler), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
 
         // Página 2 Light: Gráfico ampliado (Unificado)
         val page2 = createEnergyAnalysisPage(isLight = true, cardBg = cardBg, cardStroke = cardStroke)
@@ -942,6 +946,74 @@ class OverlayService : Service() {
         }
         
         return page
+    }
+
+    private fun createTelemetryCardContent(): View {
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(0, dp(4), 0, dp(4))
+        }
+        
+        val autonomyTv = TextView(this).apply {
+            textSize = 28f; setTextColor(cAccent); setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+        val statsTv = TextView(this).apply {
+            textSize = 14f; setTextColor(cMuted); setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(0, dp(4), 0, 0)
+        }
+        
+        layout.addView(autonomyTv)
+        layout.addView(statsTv)
+        
+        updaters["telemetry"] = {
+            val totalOdo = VehicleClient.getData(DockKeys.CAR_EV_INFO_TOTAL_ODOMETER)?.toDoubleOrNull() ?: 0.0
+            if (sessionStartOdo <= 0.0 && totalOdo > 0.0) {
+                // Se em simulação, finge que já rodamos 3km para o card aparecer com dados
+                if (SettingsStore.simulationEnabled.value) {
+                    sessionStartOdo = totalOdo - 3.0
+                } else {
+                    sessionStartOdo = totalOdo
+                }
+            }
+            
+            val batteryPct = VehicleClient.getData(DockKeys.CAR_EV_INFO_CUR_BATTERY_POWER_PERCENTAGE)?.toDoubleOrNull() ?: 0.0
+            val consumed = VehicleClient.getData(DockKeys.CAR_EV_INFO_ENERGY_CONSUME_INFO)?.toDoubleOrNull() ?: 0.0
+            val recovered = VehicleClient.getData(DockKeys.CAR_EV_INFO_ENERGY_RECOVERY_INFO)?.toDoubleOrNull() ?: 0.0
+            
+            val distance = totalOdo - sessionStartOdo
+            val netEnergy = consumed - recovered
+            
+            if (distance >= 0.1 && netEnergy > 0.01) {
+                val efficiency = netEnergy / distance // kWh / km
+                val kmPerKwh = distance / netEnergy
+                val remainingEnergy = (batteryPct / 100.0) * 19.0
+                val autonomy = if (efficiency > 0) remainingEnergy / efficiency else 0.0
+                
+                val text = String.format(java.util.Locale.US, "%.0f km / %.1f km/kWh", autonomy, kmPerKwh)
+                val ssb = SpannableStringBuilder(text)
+                
+                // Diminui "km" e "km/kWh"
+                val units = listOf("km", "km/kWh")
+                units.forEach { unit ->
+                    var start = text.indexOf(unit)
+                    while (start != -1) {
+                        ssb.setSpan(RelativeSizeSpan(0.5f), start, start + unit.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        start = text.indexOf(unit, start + unit.length)
+                    }
+                }
+                autonomyTv.text = ssb
+                
+                statsTv.text = String.format(java.util.Locale.US, "%.1f km | %.1f kWh", distance, netEnergy)
+            } else {
+                autonomyTv.text = "-- km / -- km/kWh"
+                statsTv.text = "Calculando..."
+            }
+        }
+        
+        return layout
     }
 
     private fun createPaginationButtons(pager: ViewPager, count: Int): View {
@@ -1241,7 +1313,7 @@ class OverlayService : Service() {
 
         updaters["power_chart"] = {
             // Atualiza Barra Acumulada
-            val cycleEnergy = VehicleClient.getData(DockKeys.CAR_EV_INFO_CYCLE_ENERGY_CONSUME_INFO)?.toFloatOrNull() ?: 0f
+            val cycleEnergy = VehicleClient.getData(DockKeys.CAR_EV_INFO_CYCLE_ENERGY_CONSUME_INFO)?.toFloatOrNull() ?: 0f //rever acho que esta com a variavel errada
             val energyRecovery = VehicleClient.getData(DockKeys.CAR_EV_INFO_ENERGY_RECOVERY_INFO)?.toFloatOrNull() ?: 0f
             val total = cycleEnergy + energyRecovery
 

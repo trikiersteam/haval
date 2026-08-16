@@ -72,8 +72,10 @@ object VehicleClient {
             DockKeys.CAR_EV_SETTING_CHARGE_SOC_TARGET_CONFIG to "22",
             DockKeys.BATTERY_12V_VOLTAGE to "12.8",
             DockKeys.CAR_EV_INFO_POWER_BATTERY_VOLTAGE to "328.0",
-            DockKeys.CAR_EV_INFO_CYCLE_ENERGY_CONSUME_INFO to "15.5",
-            DockKeys.CAR_EV_INFO_ENERGY_RECOVERY_INFO to "4.2"
+            DockKeys.CAR_EV_INFO_TOTAL_ODOMETER to "18730.2",
+            DockKeys.CAR_EV_INFO_ENERGY_CONSUME_INFO to "0.9",
+            DockKeys.CAR_EV_INFO_ENERGY_RECOVERY_INFO to "0.1",
+            DockKeys.CAR_EV_INFO_CYCLE_ENERGY_CONSUME_INFO to "15.5"
         )
     }
 
