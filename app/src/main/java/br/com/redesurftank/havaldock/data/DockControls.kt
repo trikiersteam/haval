@@ -392,7 +392,10 @@ object DockControls {
         DockKeys.CAR_EV_INFO_TOTAL_ODOMETER,
         DockKeys.CAR_EV_INFO_ENERGY_CONSUME_INFO,
         DockKeys.CAR_EV_INFO_ENERGY_RECOVERY_INFO,
-        DockKeys.CAR_EV_INFO_CYCLE_ENERGY_CONSUME_INFO
+        DockKeys.CAR_EV_INFO_CYCLE_ENERGY_CONSUME_INFO,
+        DockKeys.CAR_EV_INFO_CHARGING_GUN_CONN_STATE,
+        DockKeys.CAR_EV_INFO_LAST_CHARGE_TIME_ODOMETER,
+        DockKeys.CAR_EV_INFO_ENERGY_OUTPUT_PERCENTAGE
     )
 
     val DEBUG_VARIABLES: Map<String, Map<String, String>> = linkedMapOf(

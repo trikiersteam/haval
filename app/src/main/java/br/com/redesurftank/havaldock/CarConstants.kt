@@ -387,7 +387,7 @@ object DockKeys {
     const val CAR_EV_INFO_FUEL_CONSUME_INFO = "car.ev_info.fuel_consume_info"
     const val CAR_EV_INFO_FUEL_MODE_REMAIN_ODOMETER = "car.ev_info.fuel_mode_remain_odometer"
     const val CAR_EV_INFO_HCU_POWER_TRAIN_STATE = "car.ev_info.hcu_power_train_state"
-    const val CAR_EV_INFO_INSTANT_ENERGY_CONSUMPTION = "car.ev_info.Instant_energy_consumption"
+    const val CAR_EV_INFO_INSTANT_ENERGY_CONSUMPTION = "car.ev_info.Instant_energy_consumption" //sempre -1
     const val CAR_EV_INFO_LAST_CHARGE_TIME_ODOMETER = "car.ev_info.last_charge.time_odometer"
     const val CAR_EV_INFO_MOTOR_POWER = "car.ev_info.motor_power"
     const val CAR_EV_INFO_MOTOR_SPEED = "car.ev_info.motor_speed"

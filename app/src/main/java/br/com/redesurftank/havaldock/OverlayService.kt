@@ -152,8 +152,10 @@ class OverlayService : Service() {
 
     private var currentDashPage = 0
 
+    private data class PowerPoint(val consumption: Float, val regen: Float, val outputPct: Float)
+
     // Histórico para o Gráfico de Energia
-    private val powerHistory = ArrayList<Pair<Float, Float>>() // Consumo, Regeneração
+    private val powerHistory = ArrayList<PowerPoint>() //consumo, regeneracao e percentual de acelerador eletrico
     private var chartLimit = 30 // 1min=30, 3min=90, 5min=150
     private val CHART_MAX_POINTS = 150
     private var mockIndex = 0
@@ -173,13 +175,13 @@ class OverlayService : Service() {
         if (!isDash) return
 
         val isSim = SettingsStore.simulationEnabled.value
-        val volt = if (isSim) 328.0 else (VehicleClient.getData(DockKeys.CAR_EV_INFO_POWER_BATTERY_VOLTAGE)?.toDoubleOrNull() ?: 0.0)
+        val volt = if (isSim) 328.0 else (VehicleClient.getData(DockKeys.CAR_EV_INFO_POWER_BATTERY_VOLTAGE)?.toDoubleOrNull() ?: 0.0) //CAR_EV_INFO_POWER_BATTERY_VOLTAGE voltagem da bateria de tracao
         val curr = if (isSim) {
             val v = mockSequence[mockIndex % mockSequence.size]
             mockIndex++
             v
         } else {
-            VehicleClient.getData(DockKeys.CAR_EV_INFO_CUR_CHARGE_CURRENT )?.toDoubleOrNull() ?: 0.0 //CAR_EV_INFO_INSTANT_ENERGY_CONSUMPTION antes CAR_EV_INFO_POWER_BATTERY_CURRENT
+            VehicleClient.getData(DockKeys.CAR_EV_INFO_CUR_CHARGE_CURRENT )?.toDoubleOrNull() ?: 0.0 //CAR_EV_INFO_CUR_CHARGE_CURRENT corrente da bateria de tracao
 
         }
         
@@ -189,8 +191,9 @@ class OverlayService : Service() {
         val pKw = (kotlin.math.abs(volt * curr) / 1000.0).toFloat()
         val consumption = if (curr > 0) pKw else 0f
         val regen = if (curr < 0) pKw else 0f
+        val outputPct = VehicleClient.getData(DockKeys.CAR_EV_INFO_ENERGY_OUTPUT_PERCENTAGE)?.toFloatOrNull() ?: 0f
         
-        powerHistory.add(consumption to regen)
+        powerHistory.add(PowerPoint(consumption, regen, outputPct))
         if (powerHistory.size > CHART_MAX_POINTS) powerHistory.removeAt(0)
         
         if (currentDashPage == 1) {
@@ -925,8 +928,21 @@ class OverlayService : Service() {
             val battery = VehicleClient.getData(DockKeys.CAR_EV_INFO_CUR_BATTERY_POWER_PERCENTAGE) ?: "—"
             val range = VehicleClient.getData(DockKeys.CAR_EV_INFO_ELECTRIC_MODE_REMAIN_ODOMETER) ?: "—"
             val time = VehicleClient.getData(DockKeys.CAR_EV_INFO_CHARGE_REMAINING_TIME)?.toIntOrNull() ?: 0
-            val timeText = if (time > 0) " - Tempo de Recarga $time minutos." else "."
-            infoTv.text = "$battery% - $range km$timeText"
+            val isCharging = VehicleClient.getData(DockKeys.CAR_EV_INFO_CHARGING_GUN_CONN_STATE) == "1"
+            
+            val timeText = if (time > 0 && isCharging) " - Tempo de Recarga $time minutos." else "."
+            var baseText = "$battery% - $range km$timeText"
+            
+            if (isCharging) {
+                val lastChargeRaw = VehicleClient.getData(DockKeys.CAR_EV_INFO_LAST_CHARGE_TIME_ODOMETER)
+                val lastInfo = parseLastCharge(lastChargeRaw)
+                if (lastInfo != null) {
+                    val totalOdo = VehicleClient.getData(DockKeys.CAR_EV_INFO_TOTAL_ODOMETER)?.toDoubleOrNull() ?: 0.0
+                    val diff = (totalOdo - lastInfo.second).coerceAtLeast(0.0)
+                    baseText += String.format(java.util.Locale.US, "\nÚltima recarga %s - %.1f Km rodados", lastInfo.first, diff)
+                }
+            }
+            infoTv.text = baseText
         }
         
         val card = createDashboardCard(
@@ -978,9 +994,11 @@ class OverlayService : Service() {
                     sessionStartOdo = totalOdo
                 }
             }
-            
+            //CAR_EV_INFO_POWER_BATTERY_VOLTAGE voltagem da bateria de tracao
+            //CAR_EV_INFO_CUR_CHARGE_CURRENT corrente da bateria de tracao
+
             val batteryPct = VehicleClient.getData(DockKeys.CAR_EV_INFO_CUR_BATTERY_POWER_PERCENTAGE)?.toDoubleOrNull() ?: 0.0
-            val consumed = VehicleClient.getData(DockKeys.CAR_EV_INFO_ENERGY_CONSUME_INFO)?.toDoubleOrNull() ?: 0.0
+            val consumed = VehicleClient.getData(DockKeys.CAR_EV_INFO_CYCLE_ENERGY_CONSUME_INFO)?.toDoubleOrNull() ?: 0.0
             val recovered = VehicleClient.getData(DockKeys.CAR_EV_INFO_ENERGY_RECOVERY_INFO)?.toDoubleOrNull() ?: 0.0
             
             val distance = totalOdo - sessionStartOdo
@@ -992,11 +1010,11 @@ class OverlayService : Service() {
                 val remainingEnergy = (batteryPct / 100.0) * 19.0
                 val autonomy = if (efficiency > 0) remainingEnergy / efficiency else 0.0
                 
-                val text = String.format(java.util.Locale.US, "%.0f km / %.1f km/kWh", autonomy, kmPerKwh)
+                val text = String.format(java.util.Locale.US, "Autonomia %.0f km / %.1f km/kWh", autonomy, kmPerKwh)
                 val ssb = SpannableStringBuilder(text)
                 
                 // Diminui "km" e "km/kWh"
-                val units = listOf("km", "km/kWh")
+                val units = listOf("Autonomia", "km", "km/kWh")
                 units.forEach { unit ->
                     var start = text.indexOf(unit)
                     while (start != -1) {
@@ -1006,7 +1024,7 @@ class OverlayService : Service() {
                 }
                 autonomyTv.text = ssb
                 
-                statsTv.text = String.format(java.util.Locale.US, "%.1f km | %.1f kWh", distance, netEnergy)
+                statsTv.text = String.format(java.util.Locale.US, "Distância %.1f km | %.1f kWh", distance, netEnergy)
             } else {
                 autonomyTv.text = "-- km / -- km/kWh"
                 statsTv.text = "Calculando..."
@@ -1150,10 +1168,25 @@ class OverlayService : Service() {
             
             val range = VehicleClient.getData(DockKeys.CAR_EV_INFO_ELECTRIC_MODE_REMAIN_ODOMETER) ?: "—"
             val time = VehicleClient.getData(DockKeys.CAR_EV_INFO_CHARGE_REMAINING_TIME)?.toIntOrNull() ?: 0
+            val isCharging = VehicleClient.getData(DockKeys.CAR_EV_INFO_CHARGING_GUN_CONN_STATE) == "1"
             
             rangeTv.text = "- $range Km"
-            infoTv.text = if (time > 0) "Tempo de Recarga $time minutos." else ""
-            infoTv.visibility = if (time > 0) View.VISIBLE else View.GONE
+            val showTime = time > 0 && isCharging
+            
+            if (showTime) {
+                var text = "Tempo de Recarga $time minutos."
+                val lastChargeRaw = VehicleClient.getData(DockKeys.CAR_EV_INFO_LAST_CHARGE_TIME_ODOMETER)
+                val lastInfo = parseLastCharge(lastChargeRaw)
+                if (lastInfo != null) {
+                    val totalOdo = VehicleClient.getData(DockKeys.CAR_EV_INFO_TOTAL_ODOMETER)?.toDoubleOrNull() ?: 0.0
+                    val diff = (totalOdo - lastInfo.second).coerceAtLeast(0.0)
+                    text += String.format(java.util.Locale.US, "\nÚltima recarga %s - %.1f Km rodados", lastInfo.first, diff)
+                }
+                infoTv.text = text
+                infoTv.visibility = View.VISIBLE
+            } else {
+                infoTv.visibility = View.GONE
+            }
         }; layout.addView(gapView(6)); return layout
     }
 
@@ -1336,9 +1369,9 @@ class OverlayService : Service() {
             // Atualiza Gráfico de Linha
             val consumptionEntries = ArrayList<Entry>()
             val regenEntries = ArrayList<Entry>()
-            history.forEachIndexed { i, pair ->
-                consumptionEntries.add(Entry(i.toFloat(), pair.first))
-                regenEntries.add(Entry(i.toFloat(), pair.second))
+            history.forEachIndexed { i, p ->
+                consumptionEntries.add(Entry(i.toFloat(), p.consumption, p.outputPct))
+                regenEntries.add(Entry(i.toFloat(), p.regen, p.outputPct))
             }
 
             fun setupDataSet(entries: List<Entry>, label: String, colorRes: Int): LineDataSet {
@@ -1356,7 +1389,8 @@ class OverlayService : Service() {
                             val cur = entry.y
                             // Detecta topo local (maior que vizinhos e maior que um limiar mínimo de ruído)
                             if (cur > prev && cur > next && cur > 1.0f) {
-                                return String.format(java.util.Locale.US, "%.1f", cur)
+                                val pct = entry.data as? Float ?: 0f
+                                return String.format(java.util.Locale.US, "%.1f\n [%.0f%%]", cur, pct)
                             }
                             return ""
                         }
@@ -1371,16 +1405,16 @@ class OverlayService : Service() {
             lineChart.invalidate()
 
             // Atualiza Valores Atuais à Direita (acompanhando a linha)
-            val lastPair = history.lastOrNull() ?: (0f to 0f)
-            currConsText.text = if (lastPair.first > 0.05) String.format(java.util.Locale.US, "%.1f", lastPair.first) else ""
-            currRegenText.text = if (lastPair.second > 0.05) String.format(java.util.Locale.US, "%.1f", lastPair.second) else ""
+            val lastPoint = history.lastOrNull() ?: PowerPoint(0f, 0f, 0f)
+            currConsText.text = if (lastPoint.consumption > 0.05) String.format(java.util.Locale.US, "%.1f\n [%.0f%%]", lastPoint.consumption, lastPoint.outputPct) else ""
+            currRegenText.text = if (lastPoint.regen > 0.05) String.format(java.util.Locale.US, "%.1f\n [%.0f%%]", lastPoint.regen, lastPoint.outputPct) else ""
 
             lineChart.post {
                 val transformer = lineChart.getTransformer(YAxis.AxisDependency.LEFT)
                 val xPos = (history.size - 1).coerceAtLeast(0).toFloat()
                 
-                val p1 = transformer.getPixelForValues(xPos, lastPair.first)
-                val p2 = transformer.getPixelForValues(xPos, lastPair.second)
+                val p1 = transformer.getPixelForValues(xPos, lastPoint.consumption)
+                val p2 = transformer.getPixelForValues(xPos, lastPoint.regen)
                 
                 currConsText.translationY = p1.y.toFloat() - currConsText.height / 2f
                 currRegenText.translationY = p2.y.toFloat() - currRegenText.height / 2f
@@ -1408,6 +1442,25 @@ class OverlayService : Service() {
     }
 
     private fun gapView(size: Int, horizontal: Boolean = false): View = View(this).apply { layoutParams = if (horizontal) LinearLayout.LayoutParams(dp(size), 1) else LinearLayout.LayoutParams(1, dp(size)) }
+
+    private fun parseLastCharge(raw: String?): Pair<String, Double>? {
+        if (raw == null || raw.length < 5) return null
+        return runCatching {
+            // Remove chaves se existirem e separa por vírgula
+            val clean = raw.replace("{", "").replace("}", "").trim()
+            val parts = clean.split(",").map { it.trim() }
+            if (parts.size >= 2) {
+                val ts = parts[0].toLongOrNull() ?: 0L
+                val odo = parts[1].toDoubleOrNull() ?: 0.0
+                
+                // Timestamp pode estar em segundos ou milissegundos
+                val millis = if (ts < 1000000000000L) ts * 1000 else ts
+                val date = java.util.Date(millis)
+                val fmt = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.US)
+                fmt.format(date) to odo
+            } else null
+        }.getOrNull()
+    }
 
     /**
      * Restaura a visibilidade da interface, expandindo a janela do WindowManager

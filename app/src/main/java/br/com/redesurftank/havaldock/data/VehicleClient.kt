@@ -75,7 +75,10 @@ object VehicleClient {
             DockKeys.CAR_EV_INFO_TOTAL_ODOMETER to "18730.2",
             DockKeys.CAR_EV_INFO_ENERGY_CONSUME_INFO to "0.9",
             DockKeys.CAR_EV_INFO_ENERGY_RECOVERY_INFO to "0.1",
-            DockKeys.CAR_EV_INFO_CYCLE_ENERGY_CONSUME_INFO to "15.5"
+            DockKeys.CAR_EV_INFO_CYCLE_ENERGY_CONSUME_INFO to "15.5",
+            DockKeys.CAR_EV_INFO_CHARGING_GUN_CONN_STATE to "1",
+            DockKeys.CAR_EV_INFO_LAST_CHARGE_TIME_ODOMETER to "{1723932000, 18650.0}",
+            DockKeys.CAR_EV_INFO_ENERGY_OUTPUT_PERCENTAGE to "45.0"
         )
     }
 
