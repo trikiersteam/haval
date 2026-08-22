@@ -1,4 +1,4 @@
-package br.com.redesurftank.havaldock
+package br.com.redesurftank.havaldash
 
 /**
  * Ponto único de verdade para todas as chaves do veículo (CAN Bus).

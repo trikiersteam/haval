@@ -1,9 +1,9 @@
-package br.com.redesurftank.havaldock
+package br.com.redesurftank.havaldash
 
 import android.app.Application
-import br.com.redesurftank.havaldock.data.MaxAcStore
-import br.com.redesurftank.havaldock.data.SettingsStore
-import br.com.redesurftank.havaldock.data.VehicleClient
+import br.com.redesurftank.havaldash.data.MaxAcStore
+import br.com.redesurftank.havaldash.data.SettingsStore
+import br.com.redesurftank.havaldash.data.VehicleClient
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 
 class App : Application() {

@@ -6,7 +6,7 @@ O objetivo é otimizar o espaço no cartão de bateria, movendo as informações
 
 ### Overlay Service
 
-#### [MODIFY] [OverlayService.kt](file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/OverlayService.kt)
+#### [MODIFY] [OverlayService.kt](file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br.com.redesurftank.havaldash/OverlayService.kt)
 
 **1. Reestruturação da Linha Superior (`topRow`)**
 - Manter o ícone da bateria.

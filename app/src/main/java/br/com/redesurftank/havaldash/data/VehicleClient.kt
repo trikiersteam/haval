@@ -1,6 +1,6 @@
-package br.com.redesurftank.havaldock.data
+package br.com.redesurftank.havaldash.data
 
-import br.com.redesurftank.havaldock.DockKeys
+import br.com.redesurftank.havaldash.DockKeys
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.IBinder
@@ -31,7 +31,7 @@ import java.util.concurrent.TimeUnit
 object VehicleClient {
     private const val TAG = "HavalDash"
     private const val SERVICE_NAME = "com.beantechs.intelligentvehiclecontrol"
-    private const val PKG = "br.com.redesurftank.havaldock"
+    private const val PKG = "br.com.redesurftank.havaldash"
     private const val ACTION_SET = "cmd.common.request.set"
 
     private val lock = Any()

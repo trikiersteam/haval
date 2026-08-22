@@ -1,12 +1,12 @@
-package br.com.redesurftank.havaldock.data
+package br.com.redesurftank.havaldash.data
 
 import android.content.Context
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import androidx.annotation.DrawableRes
-import br.com.redesurftank.havaldock.DockKeys
-import br.com.redesurftank.havaldock.R
+import br.com.redesurftank.havaldash.DockKeys
+import br.com.redesurftank.havaldash.R
 import java.util.Locale
 
 

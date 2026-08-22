@@ -6,16 +6,16 @@ The goal is to move the `DockKeys` object from `DockControls.kt` to `CarConstant
 
 ### [Component: Data Constants]
 
-#### [MODIFY] [CarConstants.kt](file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/CarConstants.kt)
+#### [MODIFY] [CarConstants.kt](file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br.com.redesurftank.havaldash/CarConstants.kt)
 - Convert the `class CarConstants` into an `object CarConstants`.
 - Transform the existing "enum-like" entries into proper `const val` declarations.
 - Add the `DockKeys` object to this file.
 - Ensure all keys used in `DockKeys` (from `DockControls.kt`) are represented as constants in `CarConstants`.
 - Map `DockKeys` constants to the corresponding `CarConstants` values to avoid duplication of string literals.
 
-#### [MODIFY] [DockControls.kt](file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/data/DockControls.kt)
+#### [MODIFY] [DockControls.kt](file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br.com.redesurftank.havaldash/data/DockControls.kt)
 - Remove the `object DockKeys` declaration.
-- Add the necessary import for `br.com.redesurftank.havaldock.DockKeys` (or `br.com.redesurftank.havaldock.CarConstants.DockKeys`).
+- Add the necessary import for `br.com.redesurftank.havaldash.DockKeys` (or `br.com.redesurftank.havaldash.CarConstants.DockKeys`).
 
 ## Verification Plan
 

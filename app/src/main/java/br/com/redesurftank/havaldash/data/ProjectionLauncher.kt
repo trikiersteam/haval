@@ -1,4 +1,4 @@
-package br.com.redesurftank.havaldock.data
+package br.com.redesurftank.havaldash.data
 
 /**
  * Atalho de projeção (CarPlay / Android Auto).

@@ -5,15 +5,15 @@ plugins {
 }
 
 android {
-    namespace = "br.com.redesurftank.havaldock"
+    namespace = "br.com.redesurftank.havaldash"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "br.com.redesurftank.havaldock"
+        applicationId = "br.com.redesurftank.havaldash"
         minSdk = 28
         targetSdk = 28
-        versionCode = 62
-        versionName = "0.2.73"
+        versionCode = 63
+        versionName = "0.2.74"
 
         val isDev = file("../dev_marker").exists()
         buildConfigField("boolean", "DEV_ENVIRONMENT", isDev.toString())

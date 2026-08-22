@@ -1,9 +1,9 @@
-package br.com.redesurftank.havaldock.data
+package br.com.redesurftank.havaldash.data
 
 import android.content.Context
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import br.com.redesurftank.havaldock.BuildConfig
+import br.com.redesurftank.havaldash.BuildConfig
 
 /**
  * Preferências do app (persistidas localmente). Estados observáveis pelo Compose (tela de Configs).

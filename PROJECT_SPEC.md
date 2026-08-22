@@ -34,5 +34,5 @@ O **HavalDash** é uma barra de ferramentas (dock) e painel de instrumentos (das
 
 ## 🏗️ Estrutura de Pastas
 - `:app`: Módulo principal contendo a lógica de UI e serviços.
-- `br.com.redesurftank.havaldock.data`: Camada de dados e clientes de comunicação com o veículo (`VehicleClient`).
-- `br.com.redesurftank.havaldock.OverlayService`: O coração do aplicativo que gerencia toda a interface sobreposta.
+- `br.com.redesurftank.havaldash.data`: Camada de dados e clientes de comunicação com o veículo (`VehicleClient`).
+- `br.com.redesurftank.havaldash.OverlayService`: O coração do aplicativo que gerencia toda a interface sobreposta.

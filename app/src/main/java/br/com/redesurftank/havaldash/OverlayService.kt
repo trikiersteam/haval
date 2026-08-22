@@ -1,4 +1,4 @@
-package br.com.redesurftank.havaldock
+package br.com.redesurftank.havaldash
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -45,26 +45,26 @@ import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.formatter.ValueFormatter
 import com.github.mikephil.charting.utils.MPPointD
-import br.com.redesurftank.havaldock.DockKeys
-import br.com.redesurftank.havaldock.data.AirflowOption
-import br.com.redesurftank.havaldock.data.Battery
-import br.com.redesurftank.havaldock.data.Control
-import br.com.redesurftank.havaldock.data.DockColors
-import br.com.redesurftank.havaldock.data.DockControls
-import br.com.redesurftank.havaldock.data.HvacPanel
-import br.com.redesurftank.havaldock.data.IconToggle
-import br.com.redesurftank.havaldock.data.Info
-import br.com.redesurftank.havaldock.data.Level
-import br.com.redesurftank.havaldock.data.MaxAc
-import br.com.redesurftank.havaldock.data.Mode
-import br.com.redesurftank.havaldock.data.ProjectionLauncher
-import br.com.redesurftank.havaldock.data.Regen
-import br.com.redesurftank.havaldock.data.RenderState
-import br.com.redesurftank.havaldock.data.SettingsStore
-import br.com.redesurftank.havaldock.data.Temp
-import br.com.redesurftank.havaldock.data.TxtToggle
-import br.com.redesurftank.havaldock.data.VehicleClient
-import br.com.redesurftank.havaldock.data.Volume
+import br.com.redesurftank.havaldash.DockKeys
+import br.com.redesurftank.havaldash.data.AirflowOption
+import br.com.redesurftank.havaldash.data.Battery
+import br.com.redesurftank.havaldash.data.Control
+import br.com.redesurftank.havaldash.data.DockColors
+import br.com.redesurftank.havaldash.data.DockControls
+import br.com.redesurftank.havaldash.data.HvacPanel
+import br.com.redesurftank.havaldash.data.IconToggle
+import br.com.redesurftank.havaldash.data.Info
+import br.com.redesurftank.havaldash.data.Level
+import br.com.redesurftank.havaldash.data.MaxAc
+import br.com.redesurftank.havaldash.data.Mode
+import br.com.redesurftank.havaldash.data.ProjectionLauncher
+import br.com.redesurftank.havaldash.data.Regen
+import br.com.redesurftank.havaldash.data.RenderState
+import br.com.redesurftank.havaldash.data.SettingsStore
+import br.com.redesurftank.havaldash.data.Temp
+import br.com.redesurftank.havaldash.data.TxtToggle
+import br.com.redesurftank.havaldash.data.VehicleClient
+import br.com.redesurftank.havaldash.data.Volume
 import com.beantechs.intelligentvehiclecontrol.sdk.IListener
 import java.util.concurrent.Executors
 
@@ -1499,7 +1499,7 @@ class OverlayService : Service() {
     }
 
     companion object {
-        private const val NOTIF_ID = 42; const val HANDLE_DP = 22; const val ACTION_BAR_STATE = "br.com.redesurftank.havaldock.BAR_STATE"; const val ACTION_REQUEST_STATE = "br.com.redesurftank.havaldock.REQUEST_BAR_STATE"; const val EXTRA_VISIBLE = "visible"; const val EXTRA_HEIGHT_DP = "height_dp"
+        private const val NOTIF_ID = 42; const val HANDLE_DP = 22; const val ACTION_BAR_STATE = "br.com.redesurftank.havaldash.BAR_STATE"; const val ACTION_REQUEST_STATE = "br.com.redesurftank.havaldash.REQUEST_BAR_STATE"; const val EXTRA_VISIBLE = "visible"; const val EXTRA_HEIGHT_DP = "height_dp"
         fun start(context: Context) { context.startForegroundService(Intent(context, OverlayService::class.java)) }
         fun stop(context: Context) { context.stopService(Intent(context, OverlayService::class.java)) }
     }

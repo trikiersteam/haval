@@ -32,5 +32,5 @@ Esta versão traz uma evolução significativa no design e na performance da int
 3.  Observe o cartão de bateria com o SOC em destaque e a autonomia em branco.
 4.  Verifique no rodapé que a versão exibida é a `0.2.49`.
 
-render_diffs(file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/OverlayService.kt)
-render_diffs(file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/data/VehicleClient.kt)
+render_diffs(file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br.com.redesurftank.havaldash/OverlayService.kt)
+render_diffs(file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br.com.redesurftank.havaldash/data/VehicleClient.kt)

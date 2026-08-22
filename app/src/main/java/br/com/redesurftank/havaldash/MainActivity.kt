@@ -1,4 +1,4 @@
-package br.com.redesurftank.havaldock
+package br.com.redesurftank.havaldash
 
 import android.content.Intent
 import android.net.Uri
@@ -46,11 +46,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import br.com.redesurftank.havaldock.DockKeys
-import br.com.redesurftank.havaldock.data.DockControls
-import br.com.redesurftank.havaldock.data.SettingsStore
-import br.com.redesurftank.havaldock.data.VehicleClient
-import br.com.redesurftank.havaldock.update.UpdateManager
+import br.com.redesurftank.havaldash.DockKeys
+import br.com.redesurftank.havaldash.data.DockControls
+import br.com.redesurftank.havaldash.data.SettingsStore
+import br.com.redesurftank.havaldash.data.VehicleClient
+import br.com.redesurftank.havaldash.update.UpdateManager
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
@@ -315,9 +315,9 @@ class MainActivity : ComponentActivity() {
                 val batteryCapacity by SettingsStore.batteryCapacity
                 Segmented(
                     options = listOf(
-                        "HEV (1.12)" to SettingsStore.BATTERY_HEV,
-                        "PHEV19 (19.0)" to SettingsStore.BATTERY_PHEV19,
-                        "PHEV34 (35.4)" to SettingsStore.BATTERY_PHEV34
+                        "HEV" to SettingsStore.BATTERY_HEV,
+                        "PHEV19" to SettingsStore.BATTERY_PHEV19,
+                        "PHEV34" to SettingsStore.BATTERY_PHEV34
                     ),
                     selected = batteryCapacity
                 ) {

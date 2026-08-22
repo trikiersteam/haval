@@ -6,7 +6,7 @@ Este plano descreve a implementação simplificada dos indicadores de eficiênci
 
 ### [UI Components]
 
-#### [MODIFY] [OverlayService.kt](file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br/com/redesurftank/havaldock/OverlayService.kt)
+#### [MODIFY] [OverlayService.kt](file:///Users/rodrigo/StudioProjects/haval/app/src/main/java/br.com.redesurftank.havaldash/OverlayService.kt)
 
 - **Variáveis de Estado**:
     - Adicionar `private var maxEconomicLevel = 0f` para rastrear o maior valor desde o início do serviço.

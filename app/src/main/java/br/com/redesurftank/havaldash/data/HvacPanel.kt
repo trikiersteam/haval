@@ -1,6 +1,6 @@
-package br.com.redesurftank.havaldock.data
+package br.com.redesurftank.havaldash.data
 
-import br.com.redesurftank.havaldock.DockKeys
+import br.com.redesurftank.havaldash.DockKeys
 import android.os.SystemClock
 import android.util.Log
 import java.util.concurrent.Executors

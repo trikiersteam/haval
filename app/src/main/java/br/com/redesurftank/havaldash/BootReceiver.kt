@@ -1,10 +1,10 @@
-package br.com.redesurftank.havaldock
+package br.com.redesurftank.havaldash
 
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
-import br.com.redesurftank.havaldock.data.SettingsStore
+import br.com.redesurftank.havaldash.data.SettingsStore
 
 /** Religa a barra quando o carro liga, se habilitado e com permissão de overlay. */
 class BootReceiver : BroadcastReceiver() {
