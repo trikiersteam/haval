@@ -20,7 +20,7 @@ import java.util.concurrent.Executors
  * deterministicamente (o CI publica o asset como app-release.apk).
  */
 object UpdateManager {
-    private const val TAG = "HavalDockUpdate"
+    private const val TAG = "HavalDashUpdate"
     private const val REPO = "trikiersteam/haval"
 
     private val main = Handler(Looper.getMainLooper())
@@ -74,7 +74,7 @@ object UpdateManager {
         io.execute {
             try {
                 val dir = appCtx.getExternalFilesDir(null) ?: appCtx.filesDir
-                val file = File(dir, "haval-dock-${rel.version}.apk")
+                val file = File(dir, "haval-dash-${rel.version}.apk")
                 downloadTo(rel.apkUrl, file) { p -> post { progress.intValue = p } }
                 post { downloading.value = false; message.value = "Baixado. Abrindo instalador…" }
                 main.post { install(appCtx, file) }
@@ -113,7 +113,7 @@ object UpdateManager {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             setRequestProperty("Accept", "application/atom+xml, */*")
-            setRequestProperty("User-Agent", "haval-dock")
+            setRequestProperty("User-Agent", "haval-dash")
             connectTimeout = 10_000; readTimeout = 15_000
         }
         try {

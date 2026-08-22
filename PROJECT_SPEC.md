@@ -1,9 +1,9 @@
-# HavalDock - Project Specifications for AI
+# HavalDash - Project Specifications for AI
 
-Este arquivo contém as especificações técnicas e de design do projeto **HavalDock** para orientar IAs no desenvolvimento e manutenção do código.
+Este arquivo contém as especificações técnicas e de design do projeto **HavalDash** para orientar IAs no desenvolvimento e manutenção do código.
 
 ## 🚗 Visão Geral do Projeto
-O **HavalDock** é uma barra de ferramentas (dock) e painel de instrumentos (dashboard) customizado para centrais multimídia de veículos (especificamente da linha Haval). O app roda como um serviço de overlay (`OverlayService`) para fornecer acesso rápido a controles do veículo sem sair de outras aplicações (como Waze ou Spotify).
+O **HavalDash** é uma barra de ferramentas (dock) e painel de instrumentos (dashboard) customizado para centrais multimídia de veículos (especificamente da linha Haval). O app roda como um serviço de overlay (`OverlayService`) para fornecer acesso rápido a controles do veículo sem sair de outras aplicações (como Waze ou Spotify).
 
 ## 🛠️ Stack Tecnológica
 - **Linguagem:** Kotlin.

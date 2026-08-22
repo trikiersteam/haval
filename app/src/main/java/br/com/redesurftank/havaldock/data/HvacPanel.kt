@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit
  * por esse app — então desabilitar o painel não afeta o funcionamento do ar.
  */
 object HvacPanel {
-    private const val TAG = "HavalDock"
+    private const val TAG = "HavalDash"
     private const val PKG = "com.beantechs.hvac"
     private const val RESUME_DELAY_MS = 300L
 

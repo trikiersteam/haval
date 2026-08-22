@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit
  *   4. callbacks de conexão avisam os consumidores p/ relerem o snapshot ao (re)conectar.
  */
 object VehicleClient {
-    private const val TAG = "HavalDock"
+    private const val TAG = "HavalDash"
     private const val SERVICE_NAME = "com.beantechs.intelligentvehiclecontrol"
     private const val PKG = "br.com.redesurftank.havaldock"
     private const val ACTION_SET = "cmd.common.request.set"

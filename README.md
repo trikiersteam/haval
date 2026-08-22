@@ -1,6 +1,6 @@
-# Haval Dock
+# Haval Dash
 
-Projeto de estudo, copia de projeto haval-dock de licença MIT aberta.
+Projeto de estudo, copia de projeto haval-dash de licença MIT aberta.
 Agradecimento especial aos HavaleirosBrasil.
 
 Uma **toolbar inferior** (barra de atalhos) para a central Haval/GWM, desenhada como **overlay**

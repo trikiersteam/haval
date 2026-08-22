@@ -1,6 +1,6 @@
 # 🧠 Contexto para IA (README_AI)
 
-Este arquivo contém diretrizes essenciais para assistentes de IA (Gemini/Gomini) trabalharem no projeto **HavalDock**.
+Este arquivo contém diretrizes essenciais para assistentes de IA (Gemini/Gomini) trabalharem no projeto **HavalDash**.
 
 ## 🚀 Procedimento de Lançamento (Release)
 1. **Versão:** Incrementar `versionCode` e `versionName` em `app/build.gradle.kts`.

@@ -23,5 +23,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "HavalDock"
+rootProject.name = "HavalDash"
 include(":app")

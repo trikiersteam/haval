@@ -154,7 +154,7 @@ class MainActivity : ComponentActivity() {
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            Text("Haval Dock", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+            Text("Haval Dash", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
             Text("Configurações da barra inferior", color = Muted, fontSize = 15.sp)
 
             // ---- permissões ----

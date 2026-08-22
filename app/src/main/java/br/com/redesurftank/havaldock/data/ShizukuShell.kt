@@ -12,7 +12,7 @@ import java.io.FileInputStream
  * que o dock já usa. Usado para `pm`/`am` (suprimir o pop-up do painel de HVAC).
  */
 object ShizukuShell {
-    private const val TAG = "HavalDock"
+    private const val TAG = "HavalDash"
 
     private fun service(): IShizukuService? =
         runCatching { Shizuku.getBinder()?.let { IShizukuService.Stub.asInterface(it) } }.getOrNull()
