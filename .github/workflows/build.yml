@@ -67,7 +67,7 @@ jobs:
         run: |
           TAG="${{ steps.get_version.outputs.TAG }}"
           gh release create "$TAG" \
-            --title "haval-dock-${{ steps.get_version.outputs.VERSION }}" \
+            --title "haval-dash-${{ steps.get_version.outputs.VERSION }}" \
             --generate-notes \
             app/build/outputs/apk/release/app-release.apk \
           || gh release upload "$TAG" \

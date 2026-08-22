@@ -146,7 +146,7 @@ object UpdateManager {
     private fun open(url: String): HttpURLConnection =
         (URL(url).openConnection() as HttpURLConnection).apply {
             instanceFollowRedirects = false
-            setRequestProperty("User-Agent", "haval-dock")
+            setRequestProperty("User-Agent", "haval-dash")
             connectTimeout = 10_000; readTimeout = 30_000
         }
 
