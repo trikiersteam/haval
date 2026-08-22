@@ -30,6 +30,7 @@ object SettingsStore {
     const val KEY_BOOT = "launch_on_boot"
     const val KEY_VISUAL_MODE = "visual_mode"
     const val KEY_LIGHT_FLOATING = "light_floating"
+    const val KEY_BATTERY_CAPACITY = "battery_capacity"
 
     const val MODE_ALWAYS = "always"
     const val MODE_AUTO = "auto"
@@ -54,6 +55,14 @@ object SettingsStore {
     const val VISUAL_DASHBOARD_LIGHT = "dashboard_light"
     const val VISUAL_BALLOONS = "balloons"
 
+    const val BATTERY_HEV = "HEV"
+    const val BATTERY_PHEV19 = "PHEV19"
+    const val BATTERY_PHEV34 = "PHEV34"
+
+    const val CAPACITY_HEV = 1.12
+    const val CAPACITY_PHEV19 = 19.09
+    const val CAPACITY_PHEV34 = 35.43
+
     private lateinit var appCtx: Context
 
     val overlayEnabled = mutableStateOf(false)
@@ -71,6 +80,7 @@ object SettingsStore {
     val launchOnBoot = mutableStateOf(true)
     val visualMode = mutableStateOf(VISUAL_BAR)
     val lightFloatingEnabled = mutableStateOf(false)
+    val batteryCapacity = mutableStateOf(BATTERY_PHEV19)
 
     fun init(context: Context) {
         appCtx = context.applicationContext
@@ -91,6 +101,7 @@ object SettingsStore {
         val mode = p.getString(KEY_VISUAL_MODE, VISUAL_BAR) ?: VISUAL_BAR
         visualMode.value = if (mode == VISUAL_BALLOONS) VISUAL_BAR else mode
         lightFloatingEnabled.value = p.getBoolean(KEY_LIGHT_FLOATING, false)
+        batteryCapacity.value = p.getString(KEY_BATTERY_CAPACITY, BATTERY_PHEV19) ?: BATTERY_PHEV19
     }
 
     fun setOverlayEnabled(v: Boolean) {
@@ -167,6 +178,19 @@ object SettingsStore {
     fun setLightFloatingEnabled(v: Boolean) {
         lightFloatingEnabled.value = v
         prefs(appCtx).edit().putBoolean(KEY_LIGHT_FLOATING, v).apply()
+    }
+
+    fun setBatteryCapacity(v: String) {
+        batteryCapacity.value = v
+        prefs(appCtx).edit().putString(KEY_BATTERY_CAPACITY, v).apply()
+    }
+
+    fun getBatteryCapacityValue(context: Context): Double {
+        return when(prefs(context).getString(KEY_BATTERY_CAPACITY, BATTERY_PHEV19)) {
+            BATTERY_HEV -> CAPACITY_HEV
+            BATTERY_PHEV34 -> CAPACITY_PHEV34
+            else -> CAPACITY_PHEV19
+        }
     }
 
     fun isLaunchOnBoot(context: Context): Boolean =

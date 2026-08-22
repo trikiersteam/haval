@@ -306,6 +306,23 @@ class MainActivity : ComponentActivity() {
                 RowSwitch("Religar ao ligar o carro", "Mostra a barra automaticamente no boot.", boot) {
                     SettingsStore.setLaunchOnBoot(it)
                 }
+
+                Spacer(Modifier.height(14.dp))
+                Text("Modelo do Veículo / Bateria", color = Color.White, fontSize = 16.sp)
+                Text("Ajusta o cálculo de autonomia baseado na capacidade real.", color = Muted, fontSize = 13.sp)
+                Spacer(Modifier.height(12.dp))
+
+                val batteryCapacity by SettingsStore.batteryCapacity
+                Segmented(
+                    options = listOf(
+                        "HEV (1.12)" to SettingsStore.BATTERY_HEV,
+                        "PHEV19 (19.0)" to SettingsStore.BATTERY_PHEV19,
+                        "PHEV34 (35.4)" to SettingsStore.BATTERY_PHEV34
+                    ),
+                    selected = batteryCapacity
+                ) {
+                    SettingsStore.setBatteryCapacity(it)
+                }
             }
 
             // ---- monitor ----

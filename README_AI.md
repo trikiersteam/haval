@@ -4,7 +4,7 @@ Este arquivo contém diretrizes essenciais para assistentes de IA (Gemini/Gomini
 
 ## 🚀 Procedimento de Lançamento (Release)
 1. **Versão:** Incrementar `versionCode` e `versionName` em `app/build.gradle.kts`.
-2. **Sincronização:** A tag do Git deve ser **identica** ao `versionName` (ex: `v0.2.68` para `versionName = "0.2.68"`).
+2. **Sincronização:** A tag do Git deve ser **obrigatoriamente idêntica** ao `versionName` definido no `build.gradle.kts` (ex: se `versionName = "0.2.71"`, a tag deve ser `v0.2.71`).
 3. **Git:** 
    - Commitar as mudanças.
    - Criar tag: `git tag v<versionName>`.

@@ -1007,7 +1007,8 @@ class OverlayService : Service() {
             if (distance >= 0.1 && netEnergy > 0.01) {
                 val efficiency = netEnergy / distance // kWh / km
                 val kmPerKwh = distance / netEnergy
-                val remainingEnergy = (batteryPct / 100.0) * 19.0
+                val cap = SettingsStore.getBatteryCapacityValue(this@OverlayService)
+                val remainingEnergy = (batteryPct / 100.0) * cap
                 val autonomy = if (efficiency > 0) remainingEnergy / efficiency else 0.0
                 
                 val text = String.format(java.util.Locale.US, "Autonomia %.0f km / %.1f km/kWh", autonomy, kmPerKwh)
