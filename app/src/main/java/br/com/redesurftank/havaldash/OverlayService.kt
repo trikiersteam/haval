@@ -20,6 +20,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.text.SpannableStringBuilder
 import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import android.text.style.RelativeSizeSpan
 import android.view.GestureDetector
 import android.view.Gravity
@@ -102,6 +103,7 @@ class OverlayService : Service() {
     private var projShownState: String? = null
     private var lastProjection: String? = null
     private var lastCentralApp: String? = null
+    private var lastChargingState: String? = null
 
     // Proteção Anti-Flicker e Estado Manual
     private var lastManualSoc: Int = -1
@@ -234,6 +236,13 @@ class OverlayService : Service() {
 
     private val listener = object : IListener.Stub() {
         override fun onDataChanged(key: String?, value: String?) {
+            if (key == DockKeys.CAR_EV_INFO_CHARGING_GUN_CONN_STATE) {
+                if (lastChargingState == "1" && value == "0") {
+                    val currentBattery = VehicleClient.getData(DockKeys.CAR_EV_INFO_CUR_BATTERY_POWER_PERCENTAGE)?.toIntOrNull() ?: 0
+                    SettingsStore.setMaxPercentLastCharge(currentBattery)
+                }
+                lastChargingState = value
+            }
             main.post {
                 refreshAll()
                 if (SettingsStore.visualMode.value == SettingsStore.VISUAL_BALLOONS) showBalloonForKey(key)
@@ -276,6 +285,7 @@ class OverlayService : Service() {
         registerRequestReceiver()
         broadcastBarState()
         VehicleClient.addConnectionListener(onVehicleConnected)
+        lastChargingState = VehicleClient.getData(DockKeys.CAR_EV_INFO_CHARGING_GUN_CONN_STATE)
         io.execute { runCatching { VehicleClient.registerListener(DockControls.MONITORED, listener) } }
         HvacPanel.ensureEnabled()
         refreshAll()
@@ -972,7 +982,7 @@ class OverlayService : Service() {
         }
         
         val autonomyTv = TextView(this).apply {
-            textSize = 28f; setTextColor(cAccent); setTypeface(null, Typeface.BOLD)
+            textSize = 32f; setTextColor(cAccent); setTypeface(null, Typeface.BOLD)
             gravity = Gravity.CENTER_HORIZONTAL
         }
         val statsTv = TextView(this).apply {
@@ -1028,7 +1038,13 @@ class OverlayService : Service() {
                 val text = String.format(java.util.Locale.US, "Autonomia %.0f km / %.1f km/kWh", autonomy, kmPerKwh)
                 val ssb = SpannableStringBuilder(text)
                 
-                // Diminui "km" e "km/kWh"
+                // Cor da eficiência
+                val slashIdx = text.indexOf("/")
+                if (slashIdx != -1) {
+                    ssb.setSpan(ForegroundColorSpan(getEfficiencyColor(kmPerKwh)), slashIdx + 1, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+
+                // Diminui "Autonomia", "km" e "km/kWh"
                 val units = listOf("Autonomia", "km", "km/kWh")
                 units.forEach { unit ->
                     var start = text.indexOf(unit)
@@ -1051,14 +1067,22 @@ class OverlayService : Service() {
             if (lastInfo != null) {
                 val distLastCharge = (totalOdo - lastInfo.second).coerceAtLeast(0.0)
                 val cap = SettingsStore.getBatteryCapacityValue(this@OverlayService)
-                val usedEnergyLastCharge = ((100.0 - batteryPct) / 100.0) * cap
+                val maxPct = if (SettingsStore.maxPercentLastCharge.intValue > 0) SettingsStore.maxPercentLastCharge.intValue.toDouble() else 100.0
+                val usedEnergyLastCharge = ((maxPct - batteryPct).coerceAtLeast(0.0) / 100.0) * cap
                 
                 headerLastChargeTv.visibility = View.VISIBLE
                 distanceEnergyLastChargeTv.visibility = View.VISIBLE
                 
                 val kmPerKwhLast = if (usedEnergyLastCharge > 0.01) distLastCharge / usedEnergyLastCharge else 0.0
                 
-                headerLastChargeTv.text = String.format(java.util.Locale.US, "Desde a última recarga %.1f km/kWh", kmPerKwhLast)
+                val textLast = String.format(java.util.Locale.US, "Desde a última recarga %.1f km/kWh", kmPerKwhLast)
+                val ssbLast = SpannableStringBuilder(textLast)
+                val recargaIdx = textLast.indexOf("recarga")
+                if (recargaIdx != -1) {
+                    ssbLast.setSpan(ForegroundColorSpan(getEfficiencyColor(kmPerKwhLast)), recargaIdx + 8, textLast.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+                headerLastChargeTv.text = ssbLast
+
                 distanceEnergyLastChargeTv.text = String.format(java.util.Locale.US, "Distância %.1f km | %.1f kWh", distLastCharge, usedEnergyLastCharge)
             } else {
                 headerLastChargeTv.visibility = View.GONE
@@ -1527,6 +1551,15 @@ class OverlayService : Service() {
      * ViewPager customizado que desabilita o gesto de deslizar (swipe).
      * A navegação entre páginas passa a ser feita exclusivamente pelos botões.
      */
+    private fun getEfficiencyColor(kmPerKwh: Double): Int {
+        return when {
+            kmPerKwh > 6.0 -> DockColors.CYAN
+            kmPerKwh >= 5.0 -> DockColors.GREEN
+            kmPerKwh >= 4.0 -> DockColors.AMBER
+            else -> DockColors.ORANGE
+        }
+    }
+
     private class NonSwipeViewPager(context: Context) : ViewPager(context) {
         override fun onInterceptTouchEvent(ev: MotionEvent): Boolean = false
         override fun onTouchEvent(ev: MotionEvent): Boolean = false

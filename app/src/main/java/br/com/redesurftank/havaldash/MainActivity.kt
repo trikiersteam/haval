@@ -419,6 +419,14 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            // ---- informações extras ----
+            SectionCard("Informações Extras") {
+                val maxPercent by SettingsStore.maxPercentLastCharge
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    DimensionRow("Percentual do último carregamento", "$maxPercent%")
+                }
+            }
+
             // ---- dimensões da tela ----
             SectionCard("Dimensões da Tela") {
                 val dm = resources.displayMetrics

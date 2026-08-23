@@ -31,6 +31,7 @@ object SettingsStore {
     const val KEY_VISUAL_MODE = "visual_mode"
     const val KEY_LIGHT_FLOATING = "light_floating"
     const val KEY_BATTERY_CAPACITY = "battery_capacity"
+    const val KEY_MAX_PERCENT_LAST_CHARGE = "max_percent_last_charge"
 
     const val MODE_ALWAYS = "always"
     const val MODE_AUTO = "auto"
@@ -81,6 +82,7 @@ object SettingsStore {
     val visualMode = mutableStateOf(VISUAL_BAR)
     val lightFloatingEnabled = mutableStateOf(false)
     val batteryCapacity = mutableStateOf(BATTERY_PHEV19)
+    val maxPercentLastCharge = mutableIntStateOf(0)
 
     fun init(context: Context) {
         appCtx = context.applicationContext
@@ -102,6 +104,7 @@ object SettingsStore {
         visualMode.value = if (mode == VISUAL_BALLOONS) VISUAL_BAR else mode
         lightFloatingEnabled.value = p.getBoolean(KEY_LIGHT_FLOATING, false)
         batteryCapacity.value = p.getString(KEY_BATTERY_CAPACITY, BATTERY_PHEV19) ?: BATTERY_PHEV19
+        maxPercentLastCharge.intValue = p.getInt(KEY_MAX_PERCENT_LAST_CHARGE, 0)
     }
 
     fun setOverlayEnabled(v: Boolean) {
@@ -183,6 +186,11 @@ object SettingsStore {
     fun setBatteryCapacity(v: String) {
         batteryCapacity.value = v
         prefs(appCtx).edit().putString(KEY_BATTERY_CAPACITY, v).apply()
+    }
+
+    fun setMaxPercentLastCharge(v: Int) {
+        maxPercentLastCharge.intValue = v
+        prefs(appCtx).edit().putInt(KEY_MAX_PERCENT_LAST_CHARGE, v).apply()
     }
 
     fun getBatteryCapacityValue(context: Context): Double {
