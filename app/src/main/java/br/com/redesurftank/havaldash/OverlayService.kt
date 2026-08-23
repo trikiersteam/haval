@@ -981,8 +981,22 @@ class OverlayService : Service() {
             setPadding(0, dp(4), 0, 0)
         }
         
+        val headerLastChargeTv = TextView(this).apply {
+            textSize = 14f; setTextColor(cMuted); setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(0, dp(12), 0, 0)
+            visibility = View.GONE
+        }
+        val distanceEnergyLastChargeTv = TextView(this).apply {
+            textSize = 14f; setTextColor(cMuted); setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER_HORIZONTAL
+            visibility = View.GONE
+        }
+        
         layout.addView(autonomyTv)
         layout.addView(statsTv)
+        layout.addView(headerLastChargeTv)
+        layout.addView(distanceEnergyLastChargeTv)
         
         updaters["telemetry"] = {
             val totalOdo = VehicleClient.getData(DockKeys.CAR_EV_INFO_TOTAL_ODOMETER)?.toDoubleOrNull() ?: 0.0
@@ -1029,6 +1043,26 @@ class OverlayService : Service() {
             } else {
                 autonomyTv.text = "-- km / -- km/kWh"
                 statsTv.text = "Calculando..."
+            }
+
+            // Estatísticas desde a última recarga
+            val lastChargeRaw = VehicleClient.getData(DockKeys.CAR_EV_INFO_LAST_CHARGE_TIME_ODOMETER)
+            val lastInfo = parseLastCharge(lastChargeRaw)
+            if (lastInfo != null) {
+                val distLastCharge = (totalOdo - lastInfo.second).coerceAtLeast(0.0)
+                val cap = SettingsStore.getBatteryCapacityValue(this@OverlayService)
+                val usedEnergyLastCharge = ((100.0 - batteryPct) / 100.0) * cap
+                
+                headerLastChargeTv.visibility = View.VISIBLE
+                distanceEnergyLastChargeTv.visibility = View.VISIBLE
+                
+                val kmPerKwhLast = if (usedEnergyLastCharge > 0.01) distLastCharge / usedEnergyLastCharge else 0.0
+                
+                headerLastChargeTv.text = String.format(java.util.Locale.US, "Desde a última recarga %.1f km/kWh", kmPerKwhLast)
+                distanceEnergyLastChargeTv.text = String.format(java.util.Locale.US, "Distância %.1f km | %.1f kWh", distLastCharge, usedEnergyLastCharge)
+            } else {
+                headerLastChargeTv.visibility = View.GONE
+                distanceEnergyLastChargeTv.visibility = View.GONE
             }
         }
         
