@@ -386,31 +386,14 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                             )
                             val items = vars.toList()
-                            val chunk = (items.size + 3) / 4
-                            val col1 = items.take(chunk)
-                            val col2 = items.drop(chunk).take(chunk)
-                            val col3 = items.drop(chunk * 2).take(chunk)
-                            val col4 = items.drop(chunk * 3)
+                            val chunk = (items.size + 2) / 3
 
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                Column(Modifier.weight(1f)) {
-                                    col1.forEach { (label, _) ->
-                                        MonitorRow(label, debugValues[label])
-                                    }
-                                }
-                                Column(Modifier.weight(1f)) {
-                                    col2.forEach { (label, _) ->
-                                        MonitorRow(label, debugValues[label])
-                                    }
-                                }
-                                Column(Modifier.weight(1f)) {
-                                    col3.forEach { (label, _) ->
-                                        MonitorRow(label, debugValues[label])
-                                    }
-                                }
-                                Column(Modifier.weight(1f)) {
-                                    col4.forEach { (label, _) ->
-                                        MonitorRow(label, debugValues[label])
+                                repeat(3) { i ->
+                                    Column(Modifier.weight(1f)) {
+                                        items.drop(i * chunk).take(chunk).forEach { (label, _) ->
+                                            MonitorRow(label, debugValues[label])
+                                        }
                                     }
                                 }
                             }
