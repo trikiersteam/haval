@@ -21,7 +21,9 @@ import android.os.Looper
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
+import android.text.style.ImageSpan
 import android.text.style.RelativeSizeSpan
+import androidx.core.content.ContextCompat
 import android.view.GestureDetector
 import android.view.Gravity
 import android.view.MotionEvent
@@ -106,11 +108,6 @@ class OverlayService : Service() {
     private var lastChargingState: String? = null
 
     // Proteção Anti-Flicker e Estado Manual
-    private var lastManualSoc: Int = -1
-    private var lastManualSocTime: Long = 0
-    private var lastManualMode: Int = -1
-    private var lastManualStrategy: Int = -1
-
     private var lastManualVol: Int = -1
     private var lastManualVolTime: Long = 0
 
@@ -496,10 +493,7 @@ class OverlayService : Service() {
         row.addView(batTv); row.addView(ic); row.addView(modeTv)
 
         updaters["drive"] = { st -> 
-            val now = System.currentTimeMillis(); val isRecent = now - lastManualSocTime < 2000
-            val text = if (isRecent) (if (lastManualMode == 0) "HEV ${if (lastManualStrategy == 1) "INT" else "${lastManualSoc}%"}" else st.text) else st.text
-            val color = if (isRecent) (if (lastManualMode == 0) DockColors.AMBER else if (lastManualMode == 1) DockColors.GREEN else DockColors.CYAN) else st.color
-            modeTv.text = text; modeTv.setTextColor(color); ic.setColorFilter(color)
+            modeTv.text = st.text; modeTv.setTextColor(st.color); ic.setColorFilter(st.color)
         }
         updaters[c.id] = { st -> batTv.text = st.text; batTv.setTextColor(st.color) }
         row.setOnClickListener { onUserActivity(); openMode(DockControls.DRIVE, row) }
@@ -621,11 +615,9 @@ class OverlayService : Service() {
         
         val updateModePopupUI = {
             io.execute {
-                val now = System.currentTimeMillis()
-                val isRecent = now - lastManualSocTime < 2000
-                val curM = if (isRecent) lastManualMode else c.cur()
-                val curSt = if (isRecent && lastManualStrategy != -1) lastManualStrategy else c.curStrategy()
-                val curS = if (isRecent && lastManualSoc != -1) lastManualSoc else c.curHevSocInt()
+                val curM = c.cur()
+                val curSt = c.curStrategy()
+                val curS = c.curHevSocInt()
                 
                 main.post {
                     row2.visibility = if (curM == 0) View.VISIBLE else View.GONE
@@ -728,12 +720,9 @@ class OverlayService : Service() {
      */
     private fun changeDriveMode(c: Mode, mode: Int, strategy: Int? = null, soc: Int? = null) {
         onUserActivity(); if (modeWin != null) armPopupTimer()
-        lastManualSocTime = System.currentTimeMillis(); lastManualMode = mode
         io.execute {
             val targetStrategy = if (mode == 0) (strategy ?: c.curStrategy()) else null
-            val targetSoc = if (mode == 0 && targetStrategy == 2) (soc ?: c.curHevSocInt()) else null
-            lastManualStrategy = targetStrategy ?: -1; if (targetSoc != null) lastManualSoc = targetSoc
-            c.select(mode, strategy = targetStrategy, soc = targetSoc)
+            c.select(mode, strategy = targetStrategy, soc = soc)
             main.post { refreshAll(); if (mode != 0 && modeWin != null) closeMode() }
         }
     }
@@ -859,7 +848,7 @@ class OverlayService : Service() {
         
         col1.addView(createDashboardCard("", createHvacQuickControls("D"), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col1.addView(gapView(4)); col1.addView(createDashboardCard("", createAirflowSelection("D"), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col1.addView(gapView(4)); col1.addView(createDashboardCard("", createLevelControl(DockControls.FAN, R.drawable.ic_fan, iconSize = 42), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col1.addView(gapView(4)); col1.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempD" } as Temp), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col1.addView(gapView(4)); col1.addView(createDashboardCard("", createLevelControl(DockControls.VENT_D, R.drawable.ic_carseat_cooler), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
         col2.addView(createDashboardCard("", createBatteryCard(DockControls.ALL.find { it.id == "bat" } as Battery, segmented = true), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col2.addView(gapView(4)); col2.addView(createDashboardCard("MODO DE CONDUÇÃO", createDriveModeSelectionLight(DockControls.DRIVE), iconRes = R.drawable.ic_bolt, titleSize = 18f, radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col2.addView(gapView(4)); col2.addView(createDashboardCard("", createAmbientTempCard(DockControls.ALL.find { it.id == "recirc" } as IconToggle), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
-        col3.addView(createDashboardCard("TELEMETRIA", createTelemetryCardContent(), iconRes = R.drawable.ic_bolt, radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col3.addView(gapView(4)); col3.addView(createDashboardCard("", createVolumeControl(DockControls.ALL.find { it.id == "vol" } as Volume), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col3.addView(gapView(4)); col3.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempP" } as Temp), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col3.addView(gapView(4)); col3.addView(createDashboardCard("", createLevelControl(DockControls.VENT_P, R.drawable.ic_carseat_cooler), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
+        col3.addView(createDashboardCard("Autonomia Elétrica", createTelemetryCardContent(), iconRes = R.drawable.ic_bolt, radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col3.addView(gapView(4)); col3.addView(createDashboardCard("", createVolumeControl(DockControls.ALL.find { it.id == "vol" } as Volume), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col3.addView(gapView(4)); col3.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempP" } as Temp), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col3.addView(gapView(4)); col3.addView(createDashboardCard("", createLevelControl(DockControls.VENT_P, R.drawable.ic_carseat_cooler), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
 
         // Página 2 Light: Gráfico ampliado (Unificado)
         val page2 = createEnergyAnalysisPage(isLight = true, cardBg = cardBg, cardStroke = cardStroke)
@@ -1010,6 +999,14 @@ class OverlayService : Service() {
         
         updaters["telemetry"] = {
             val totalOdo = VehicleClient.getData(DockKeys.CAR_EV_INFO_TOTAL_ODOMETER)?.toDoubleOrNull() ?: 0.0
+
+            //CAR_EV_INFO_POWER_BATTERY_VOLTAGE voltagem da bateria de tracao
+            //CAR_EV_INFO_CUR_CHARGE_CURRENT corrente da bateria de tracao
+
+            var batteryPct = VehicleClient.getData(DockKeys.CAR_EV_INFO_CUR_BATTERY_POWER_PERCENTAGE)?.toDoubleOrNull() ?: 0.0
+            var consumed = VehicleClient.getData(DockKeys.CAR_EV_INFO_CYCLE_ENERGY_CONSUME_INFO)?.toDoubleOrNull() ?: 0.0
+            var recovered = VehicleClient.getData(DockKeys.CAR_EV_INFO_ENERGY_RECOVERY_INFO)?.toDoubleOrNull() ?: 0.0
+
             if (sessionStartOdo <= 0.0 && totalOdo > 0.0) {
                 // Se em simulação, finge que já rodamos 3km para o card aparecer com dados
                 if (SettingsStore.simulationEnabled.value) {
@@ -1018,45 +1015,79 @@ class OverlayService : Service() {
                     sessionStartOdo = totalOdo
                 }
             }
-            //CAR_EV_INFO_POWER_BATTERY_VOLTAGE voltagem da bateria de tracao
-            //CAR_EV_INFO_CUR_CHARGE_CURRENT corrente da bateria de tracao
 
-            val batteryPct = VehicleClient.getData(DockKeys.CAR_EV_INFO_CUR_BATTERY_POWER_PERCENTAGE)?.toDoubleOrNull() ?: 0.0
-            val consumed = VehicleClient.getData(DockKeys.CAR_EV_INFO_CYCLE_ENERGY_CONSUME_INFO)?.toDoubleOrNull() ?: 0.0
-            val recovered = VehicleClient.getData(DockKeys.CAR_EV_INFO_ENERGY_RECOVERY_INFO)?.toDoubleOrNull() ?: 0.0
-            
             val distance = totalOdo - sessionStartOdo
             val netEnergy = consumed - recovered
             
-            if (distance >= 0.1 && netEnergy > 0.01) {
-                val efficiency = netEnergy / distance // kWh / km
-                val kmPerKwh = distance / netEnergy
-                val cap = SettingsStore.getBatteryCapacityValue(this@OverlayService)
-                val remainingEnergy = (batteryPct / 100.0) * cap
-                val autonomy = if (efficiency > 0) remainingEnergy / efficiency else 0.0
-                
-                val text = String.format(java.util.Locale.US, "Autonomia %.0f km / %.1f km/kWh", autonomy, kmPerKwh)
-                val ssb = SpannableStringBuilder(text)
-                
-                // Cor da eficiência
-                val slashIdx = text.indexOf("/")
-                if (slashIdx != -1) {
-                    ssb.setSpan(ForegroundColorSpan(getEfficiencyColor(kmPerKwh)), slashIdx + 1, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                }
-
-                // Diminui "Autonomia", "km" e "km/kWh"
-                val units = listOf("Autonomia", "km", "km/kWh")
-                units.forEach { unit ->
-                    var start = text.indexOf(unit)
-                    while (start != -1) {
-                        ssb.setSpan(RelativeSizeSpan(0.5f), start, start + unit.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                        start = text.indexOf(unit, start + unit.length)
+            if (distance >= 0.1) {
+                if (netEnergy < 0) {
+                    // Ganho de energia (Regeneração > Consumo)
+                    val text = String.format(java.util.Locale.US, "%.1f kWh", netEnergy)
+                    val ssb = SpannableStringBuilder(text)
+                    ssb.append(" RECUPERADO")
+                    ssb.setSpan(RelativeSizeSpan(0.4f), text.length, ssb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    
+                    autonomyTv.text = ssb
+                    autonomyTv.setTextColor(DockColors.AMBER)
+                    
+                    val statsSsb = SpannableStringBuilder(String.format(java.util.Locale.US, "Distância %.1f km | %.1f kWh | ", distance, netEnergy))
+                    val iconDown = ContextCompat.getDrawable(this@OverlayService, R.drawable.battery_arrow_down_outline)?.apply { 
+                        setBounds(0, 0, dp(18), dp(18))
+                        setTint(cMuted)
                     }
+                    if (iconDown != null) {
+                        statsSsb.append("  ")
+                        statsSsb.setSpan(ImageSpan(iconDown, ImageSpan.ALIGN_BOTTOM), statsSsb.length - 1, statsSsb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    }
+                    statsSsb.append(String.format(java.util.Locale.US, " %.1f kWh | ", consumed))
+
+                    val iconUp = ContextCompat.getDrawable(this@OverlayService, R.drawable.battery_arrow_up_outline)?.apply {
+                        setBounds(0, 0, dp(18), dp(18))
+                        setTint(DockColors.AMBER)
+                    }
+                    if (iconUp != null) {
+                        statsSsb.append("  ")
+                        statsSsb.setSpan(ImageSpan(iconUp, ImageSpan.ALIGN_BOTTOM), statsSsb.length - 1, statsSsb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    }
+                    statsSsb.append(String.format(java.util.Locale.US, " -%.1f kWh", recovered))
+                    statsTv.text = statsSsb
+                } else if (netEnergy > 0.01) {
+                    // Consumo normal
+                    val efficiency = netEnergy / distance // kWh / km
+                    val kmPerKwh = distance / netEnergy
+                    val cap = SettingsStore.getBatteryCapacityValue(this@OverlayService)
+                    val remainingEnergy = (batteryPct / 100.0) * cap
+                    val autonomy = if (efficiency > 0) remainingEnergy / efficiency else 0.0
+                    
+                    val text = String.format(java.util.Locale.US, "Autonomia %.0f km / %.1f km/kWh", autonomy, kmPerKwh)
+                    val ssb = SpannableStringBuilder(text)
+                    
+                    autonomyTv.setTextColor(cAccent)
+                    
+                    // Cor da eficiência
+                    val slashIdx = text.indexOf("/")
+                    if (slashIdx != -1) {
+                        ssb.setSpan(ForegroundColorSpan(getEfficiencyColor(kmPerKwh)), slashIdx + 1, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    }
+
+                    // Diminui "Autonomia", "km" e "km/kWh"
+                    val units = listOf("Autonomia", "km", "km/kWh")
+                    units.forEach { unit ->
+                        var start = text.indexOf(unit)
+                        while (start != -1) {
+                            ssb.setSpan(RelativeSizeSpan(0.5f), start, start + unit.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                            start = text.indexOf(unit, start + unit.length)
+                        }
+                    }
+                    autonomyTv.text = ssb
+                    statsTv.text = String.format(java.util.Locale.US, "Distância %.1f km | %.1f kWh", distance, netEnergy)
+                } else {
+                    autonomyTv.setTextColor(cAccent)
+                    autonomyTv.text = "-- km / -- km/kWh"
+                    statsTv.text = "Calculando..."
                 }
-                autonomyTv.text = ssb
-                
-                statsTv.text = String.format(java.util.Locale.US, "Distância %.1f km | %.1f kWh", distance, netEnergy)
             } else {
+                autonomyTv.setTextColor(cAccent)
                 autonomyTv.text = "-- km / -- km/kWh"
                 statsTv.text = "Calculando..."
             }
@@ -1260,8 +1291,7 @@ class OverlayService : Service() {
         val otherTiles = options.map { opt -> LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; isClickable = true; addView(TextView(this@OverlayService).apply { text = opt.second.uppercase(); textSize = 18f; setTextColor(cMuted); setTypeface(typeface, Typeface.BOLD); gravity = Gravity.CENTER }) } }
         val hevSub = createHevSubCardLight(c)
         val updateUI = { targetMode: Int? ->
-            val now = System.currentTimeMillis(); val isRecent = now - lastManualSocTime < 2000
-            val curM = targetMode ?: (if (isRecent) lastManualMode else c.cur()); val curS = if (isRecent && lastManualStrategy != -1) lastManualStrategy else c.curStrategy(); val isHev = curM == 0
+            val curM = targetMode ?: c.cur(); val curS = c.curStrategy(); val isHev = curM == 0
             hevTile.background = pill(if (isHev) cSurfaceSelected else cSurfaceRaised, dp(16), stroke = if (isHev) DockColors.AMBER else cLine); hevText.setTextColor(if (isHev) DockColors.AMBER else cMuted)
             if (isHev) { strategyText.text = "INTELIGENTE"; strategyText.setTextColor(if (curS == 1) DockColors.AMBER else cMuted) } else { strategyText.text = "INTELIGENTE"; strategyText.setTextColor(cMuted) }
             options.forEachIndexed { i, (m, _) -> val active = curM == m; val t = otherTiles[i]; val tv = t.getChildAt(0) as TextView; val color = c.colors[m] ?: DockColors.GREEN; t.background = pill(if (active) cSurfaceSelected else cSurfaceRaised, dp(16), stroke = if (active) color else cLine); tv.setTextColor(if (active) cTxt else cMuted) }
@@ -1280,11 +1310,18 @@ class OverlayService : Service() {
         val sW = dp(380); val track = FrameLayout(this).apply { background = pill(cTrack, dp(18)); layoutParams = LinearLayout.LayoutParams(sW, dp(36)).apply { marginStart = dp(12) } }
         val fill = View(this).apply { background = pill(DockColors.AMBER, dp(18)) }; track.addView(fill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT)); sliderArea.addView(track)
         fun updateSliderUI(soc: Int, forced: Boolean? = null) {
-            val now = System.currentTimeMillis(); val isRecent = now - lastManualSocTime < 2000; val isSave = forced ?: (if (isRecent && lastManualStrategy != -1) lastManualStrategy == 2 else c.curStrategy() == 2); val dispSoc = if (isRecent && lastManualSoc != -1) lastManualSoc else soc
-            socLabel.text = "SAVE $dispSoc%"; socLabel.setTextColor(if (isSave) cTxt else cMuted); val lp = fill.layoutParams; lp.width = (sW * ((dispSoc - c.minSoc).toFloat() / (c.maxSoc - c.minSoc)).coerceIn(0f, 1f)).toInt(); fill.layoutParams = lp; fill.background = pill(if (isSave) DockColors.AMBER else cMuted, dp(18)); sliderArea.alpha = if (isSave) 1f else 0.4f; layout.background = pill(if (isSave) cSurfaceSelected else cCard, dp(16), stroke = if (isSave) DockColors.AMBER else cLine)
+            val isSave = forced ?: (c.curStrategy() == 2)
+            socLabel.text = "SAVE $soc%"; socLabel.setTextColor(if (isSave) cTxt else cMuted)
+            val lp = fill.layoutParams; lp.width = (sW * ((soc - c.minSoc).toFloat() / (c.maxSoc - c.minSoc)).coerceIn(0f, 1f)).toInt()
+            fill.layoutParams = lp; fill.background = pill(if (isSave) DockColors.AMBER else cMuted, dp(18))
+            sliderArea.alpha = if (isSave) 1f else 0.4f
+            layout.background = pill(if (isSave) cSurfaceSelected else cCard, dp(16), stroke = if (isSave) DockColors.AMBER else cLine)
         }
-        layout.setOnClickListener { if (layout.isEnabled) changeDriveMode(c, 0, strategy = 2) }
-        track.setOnTouchListener { _, e -> if (!layout.isEnabled) return@setOnTouchListener true; val soc = c.minSoc + ((e.x / sW).coerceIn(0f, 1f) * (c.maxSoc - c.minSoc)).toInt(); if (e.action == MotionEvent.ACTION_MOVE) updateSliderUI(soc, true); if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) changeDriveMode(c, 0, strategy = 2, soc = soc); true }
+        layout.setOnClickListener { if (layout.isEnabled) changeDriveMode(c, 0, strategy = 2, soc = null) }
+        track.setOnTouchListener { _, e -> if (!layout.isEnabled) return@setOnTouchListener true
+            val soc = c.minSoc + ((e.x / sW).coerceIn(0f, 1f) * (c.maxSoc - c.minSoc)).toInt()
+            if (e.action == MotionEvent.ACTION_MOVE) updateSliderUI(soc, true)
+            if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { onUserActivity(); changeDriveMode(c, 0, strategy = 2, soc = soc) }; true }
         layout.addView(sliderArea); updaters["hev_sub_card_light"] = { updateSliderUI(c.curHevSocInt(), null) }; return layout
     }
 

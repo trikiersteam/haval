@@ -379,7 +379,7 @@ object DockKeys {
     const val CAR_EV_INFO_ECONOMIC_GUIDE_LEVEL = "car.ev_info.economic_guide_level"
     const val CAR_EV_INFO_ECONOMIC_GUIDE_RANGE = "car.ev_info.economic_guide_range"
     const val CAR_EV_INFO_ELECTRIC_MODE_REMAIN_ODOMETER = "car.ev_info.electric_mode_remain_odometer"
-    const val CAR_EV_INFO_ENERGY_CONSUME_INFO = "car.ev_info.energy_consume_info"
+  //  const val CAR_EV_INFO_ENERGY_CONSUME_INFO = "car.ev_info.energy_consume_info" //sempre -1
     const val CAR_EV_INFO_ENERGY_DRIVE_STATE = "car.ev_info.energy_drive_state"
     const val CAR_EV_INFO_ENERGY_OUTPUT_PERCENTAGE = "car.ev_info.energy_output_percentage"
     const val CAR_EV_INFO_ENERGY_OUTPUT_WARNING = "car.ev_info.energy_output_warning"
@@ -885,7 +885,6 @@ object DockKeys {
     const val CAR_EV_INFO_CHARGING_GUN_AC_CONN_STATE_DOCK = CAR_EV_INFO_CHARGING_GUN_AC_CONN_STATE
     const val CAR_EV_INFO_CHARGING_GUN_CONN_STATE_DOCK = CAR_EV_INFO_CHARGING_GUN_CONN_STATE
     const val CAR_EV_INFO_CHARGING_STATE_DOCK = CAR_EV_INFO_CHARGING_STATE
-    const val CAR_EV_INFO_ENERGY_CONSUME_INFO_DOCK = CAR_EV_INFO_ENERGY_CONSUME_INFO
     const val CAR_EV_INFO_ENERGY_RECOVERY_INFO_DOCK = CAR_EV_INFO_ENERGY_RECOVERY_INFO
     const val CAR_EV_INFO_CYCLE_ENERGY_CONSUME_INFO_DOCK = CAR_EV_INFO_CYCLE_ENERGY_CONSUME_INFO
     const val CAR_EV_INFO_CYCLE_FUEL_CONSUME_INFO_DOCK = CAR_EV_INFO_CYCLE_FUEL_CONSUME_INFO
