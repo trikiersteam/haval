@@ -155,7 +155,7 @@ class MainActivity : ComponentActivity() {
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             Text("Haval Dash", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-            Text("Configurações da barra inferior", color = Muted, fontSize = 15.sp)
+            Text("Configurações do APP", color = Muted, fontSize = 15.sp)
 
             // ---- permissões ----
             SectionCard("Permissões") {
@@ -343,9 +343,9 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                             )
                             val evItems = visibleInfoKeys.toList()
-                            val chunk = (evItems.size + 2) / 3
+                            val chunk = (evItems.size + 1) / 2
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                repeat(3) { i ->
+                                repeat(2) { i ->
                                     Column(Modifier.weight(1f)) {
                                         evItems.drop(i * chunk).take(chunk).forEach { (label, _) ->
                                             MonitorRow(label, debugValues[label])
@@ -365,9 +365,9 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                             )
                             val evItems = visibleSettingKeys.toList()
-                            val chunk = (evItems.size + 2) / 3
+                            val chunk = (evItems.size + 1) / 2
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                repeat(3) { i ->
+                                repeat(2) { i ->
                                     Column(Modifier.weight(1f)) {
                                         evItems.drop(i * chunk).take(chunk).forEach { (label, _) ->
                                             MonitorRow(label, debugValues[label])
@@ -386,10 +386,10 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                             )
                             val items = vars.toList()
-                            val chunk = (items.size + 2) / 3
+                            val chunk = (items.size + 1) / 2
 
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                repeat(3) { i ->
+                                repeat(2) { i ->
                                     Column(Modifier.weight(1f)) {
                                         items.drop(i * chunk).take(chunk).forEach { (label, _) ->
                                             MonitorRow(label, debugValues[label])
@@ -398,7 +398,79 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
+
+                        // Sessão de Variáveis Persistentes
+                        val persistentVars = listOf(
+                            "BARRA_LIGADA" to SettingsStore.overlayEnabled.value.toString(),
+                            "VISIBILITY_MODE" to SettingsStore.visibilityMode.value,
+                            "AUTO_HIDE_SECS" to SettingsStore.autoHideSecs.intValue.toString(),
+                            "POPUP_SECS" to SettingsStore.popupSecs.intValue.toString(),
+                            "BAR_HEIGHT" to SettingsStore.barHeight.intValue.toString(),
+                            "BAR_OPACITY" to SettingsStore.barOpacity.intValue.toString(),
+                            "ITEM_FRAME" to SettingsStore.itemFrameEnabled.value.toString(),
+                            "LAUNCH_ON_BOOT" to SettingsStore.launchOnBoot.value.toString(),
+                            "VISUAL_MODE" to SettingsStore.visualMode.value,
+                            "LIGHT_FLOATING" to SettingsStore.lightFloatingEnabled.value.toString(),
+                            "BATTERY_CAP" to SettingsStore.batteryCapacity.value,
+                            "VOICE_DISABLED" to SettingsStore.nativeVoiceDisabled.value.toString(),
+                            "HEV_SAVE_PERSIST" to SettingsStore.persistHevSaveEnabled.value.toString(),
+                            "LAST_HEV_SOC" to SettingsStore.lastHevSaveSoc.intValue.toString()
+                        )
+
+                        Text(
+                            "VARIÁVEIS PERSISTENTES",
+                            color = Accent,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                        )
+                        val pItems = persistentVars
+                        val pChunk = (pItems.size + 1) / 2
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            repeat(2) { i ->
+                                Column(Modifier.weight(1f)) {
+                                    pItems.drop(i * pChunk).take(pChunk).forEach { (label, value) ->
+                                        updateMonitorValue(label, null, debugValues, value)
+                                        MonitorRow(label, debugValues[label])
+                                    }
+                                }
+                            }
+                        }
                     }
+                }
+            }
+
+            // ---- performance ----
+            SectionCard("Configurações persistentes") {
+                val nativeVoiceDisabled by SettingsStore.nativeVoiceDisabled
+                var showError by remember { mutableStateOf(false) }
+
+                LaunchedEffect(showError) {
+                    if (showError) {
+                        delay(2000)
+                        showError = false
+                    }
+                }
+
+                RowSwitch(
+                    name = "Desativar Voz Nativa",
+                    desc = "Desliga o assistente de voz nativo do carro (Iflytek/Beantechs).",
+                    checked = nativeVoiceDisabled,
+                    textColor = if (showError) Color.Red else null
+                ) { on ->
+                    if (!SettingsStore.setNativeVoiceDisabled(on)) {
+                        showError = true
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+                val persistHevSave by SettingsStore.persistHevSaveEnabled
+                RowSwitch(
+                    name = "Retomar HEV SAVE anterior",
+                    desc = "Salva o SOC do HEV SAVE e restaura ao ligar o app.",
+                    checked = persistHevSave
+                ) {
+                    SettingsStore.setPersistHevSaveEnabled(it)
                 }
             }
 
@@ -483,10 +555,10 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun RowSwitch(name: String, desc: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
+    private fun RowSwitch(name: String, desc: String, checked: Boolean, enabled: Boolean = true, textColor: Color? = null, onChange: (Boolean) -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(name, color = if (enabled) Color.White else Muted, fontSize = 16.sp)
+                Text(name, color = textColor ?: (if (enabled) Color.White else Muted), fontSize = 16.sp)
                 Text(desc, color = Muted, fontSize = 13.sp)
             }
             Switch(checked = checked, onCheckedChange = onChange, enabled = enabled)
@@ -591,14 +663,14 @@ class MainActivity : ComponentActivity() {
         val max: String = ""
     )
 
-    private fun updateMonitorValue(label: String, key: String, map: MutableMap<String, MonitorValue>): Boolean {
-        var newVal = VehicleClient.getData(key) ?: "—"
+    private fun updateMonitorValue(label: String, key: String?, map: MutableMap<String, MonitorValue>, forcedValue: String? = null): Boolean {
+        var newVal = forcedValue ?: (key?.let { VehicleClient.getData(it) } ?: "—")
 
         // Formatação para Voltagens (2 casas decimais)
-        if (key == DockKeys.BATTERY_12V_VOLTAGE ||
+        if (key != null && (key == DockKeys.BATTERY_12V_VOLTAGE ||
             key == DockKeys.CAR_EV_INFO_POWER_BATTERY_VOLTAGE ||
             key == DockKeys.CAR_EV_INFO_POWER_BATTERY_VOLTAGE_DOCK
-        ) {
+        )) {
             newVal.toDoubleOrNull()?.let {
                 newVal = String.format(java.util.Locale.US, "%.2f", it)
             }

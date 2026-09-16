@@ -32,6 +32,9 @@ object SettingsStore {
     const val KEY_LIGHT_FLOATING = "light_floating"
     const val KEY_BATTERY_CAPACITY = "battery_capacity"
     const val KEY_MAX_PERCENT_LAST_CHARGE = "max_percent_last_charge"
+    const val KEY_NATIVE_VOICE_DISABLED = "native_voice_disabled"
+    const val KEY_PERSIST_HEV_SAVE = "persist_hev_save"
+    const val KEY_LAST_HEV_SAVE_SOC = "last_hev_save_soc"
 
     const val MODE_ALWAYS = "always"
     const val MODE_AUTO = "auto"
@@ -83,6 +86,9 @@ object SettingsStore {
     val lightFloatingEnabled = mutableStateOf(false)
     val batteryCapacity = mutableStateOf(BATTERY_PHEV19)
     val maxPercentLastCharge = mutableIntStateOf(0)
+    val nativeVoiceDisabled = mutableStateOf(false)
+    val persistHevSaveEnabled = mutableStateOf(false)
+    val lastHevSaveSoc = mutableIntStateOf(0)
 
     fun init(context: Context) {
         appCtx = context.applicationContext
@@ -105,6 +111,9 @@ object SettingsStore {
         lightFloatingEnabled.value = p.getBoolean(KEY_LIGHT_FLOATING, false)
         batteryCapacity.value = p.getString(KEY_BATTERY_CAPACITY, BATTERY_PHEV19) ?: BATTERY_PHEV19
         maxPercentLastCharge.intValue = p.getInt(KEY_MAX_PERCENT_LAST_CHARGE, 0)
+        nativeVoiceDisabled.value = p.getBoolean(KEY_NATIVE_VOICE_DISABLED, false)
+        persistHevSaveEnabled.value = p.getBoolean(KEY_PERSIST_HEV_SAVE, false)
+        lastHevSaveSoc.intValue = p.getInt(KEY_LAST_HEV_SAVE_SOC, 0)
     }
 
     fun setOverlayEnabled(v: Boolean) {
@@ -191,6 +200,37 @@ object SettingsStore {
     fun setMaxPercentLastCharge(v: Int) {
         maxPercentLastCharge.intValue = v
         prefs(appCtx).edit().putInt(KEY_MAX_PERCENT_LAST_CHARGE, v).apply()
+    }
+
+    fun setNativeVoiceDisabled(v: Boolean): Boolean {
+        val packages = arrayOf("com.iflytek.cutefly.speechclient.hmi", "com.beantechs.voiceclient")
+        var allOk = true
+        for (pkg in packages) {
+            val success = if (v) {
+                val out = ShizukuShell.exec("pm", "uninstall", "--user", "0", pkg)
+                ShizukuShell.exec("pkill", "-9", "-f", pkg)
+                out?.contains("Success") == true || out?.contains("not installed for 0") == true
+            } else {
+                val out = ShizukuShell.exec("pm", "install-existing", pkg)
+                out?.contains("Package $pkg installed for user: 0") == true || out?.contains("already installed for user 0") == true
+            }
+            if (!success) allOk = false
+        }
+        if (allOk) {
+            nativeVoiceDisabled.value = v
+            prefs(appCtx).edit().putBoolean(KEY_NATIVE_VOICE_DISABLED, v).apply()
+        }
+        return allOk
+    }
+
+    fun setPersistHevSaveEnabled(v: Boolean) {
+        persistHevSaveEnabled.value = v
+        prefs(appCtx).edit().putBoolean(KEY_PERSIST_HEV_SAVE, v).apply()
+    }
+
+    fun setLastHevSaveSoc(v: Int) {
+        lastHevSaveSoc.intValue = v
+        prefs(appCtx).edit().putInt(KEY_LAST_HEV_SAVE_SOC, v).apply()
     }
 
     fun getBatteryCapacityValue(context: Context): Double {

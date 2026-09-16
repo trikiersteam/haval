@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.graphics.Color
+import android.util.Log
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -251,6 +252,25 @@ class OverlayService : Service() {
                 }
                 lastChargingState = value
             }
+
+            if (SettingsStore.persistHevSaveEnabled.value) {
+                if (key == DockKeys.CAR_EV_SETTING_POWER_RESERVE_CONFIG) {
+                    val strategy = value?.toIntOrNull()
+                    if (strategy != null && strategy != 2) {
+                        SettingsStore.setLastHevSaveSoc(0)
+                    }
+                }
+                if (key == DockKeys.CAR_EV_SETTING_CHARGE_SOC_TARGET_CONFIG) {
+                    val soc = value?.toIntOrNull()
+                    if (soc != null && soc in 20..80) {
+                        val strategy = VehicleClient.getData(DockKeys.CAR_EV_SETTING_POWER_RESERVE_CONFIG)?.toIntOrNull()
+                        if (strategy == 2) {
+                            SettingsStore.setLastHevSaveSoc(soc)
+                        }
+                    }
+                }
+            }
+
             main.post {
                 refreshAll()
                 if (SettingsStore.visualMode.value == SettingsStore.VISUAL_BALLOONS) showBalloonForKey(key)
@@ -299,6 +319,21 @@ class OverlayService : Service() {
         refreshAll()
         main.postDelayed(projPoll, 1200)
         main.post(chartTicker)
+        main.postDelayed({ restoreHevSaveSoc() }, 8000)
+    }
+
+    private fun restoreHevSaveSoc() {
+        if (!SettingsStore.persistHevSaveEnabled.value) return
+        val savedSoc = SettingsStore.lastHevSaveSoc.intValue
+        if (savedSoc < 20 || savedSoc > 80) return
+
+        io.execute {
+            val strategy = VehicleClient.getData(DockKeys.CAR_EV_SETTING_POWER_RESERVE_CONFIG)?.toIntOrNull()
+            if (strategy == 2) {
+                Log.d("HavalDash", "Restoring HEV SAVE SOC to $savedSoc")
+                VehicleClient.set(DockKeys.CAR_EV_SETTING_CHARGE_SOC_TARGET_CONFIG, savedSoc.toString())
+            }
+        }
     }
 
     private val onVehicleConnected: () -> Unit = { refreshAll() }
