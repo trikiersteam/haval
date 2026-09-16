@@ -116,6 +116,17 @@ class OverlayService : Service() {
     private var lastManualTempP: Double = -1.0
     private var lastManualTempPTime: Long = 0
 
+    private var lastManualSoc: Int = -1
+    private var lastManualSocTime: Long = 0
+
+    private var lastManualFan: Int = -1
+    private var lastManualFanTime: Long = 0
+
+    private var lastManualVentD: Int = -1
+    private var lastManualVentDTime: Long = 0
+    private var lastManualVentP: Int = -1
+    private var lastManualVentPTime: Long = 0
+
     private var sessionStartOdo: Double = 0.0
 
     private var flashView: TextView? = null
@@ -603,7 +614,17 @@ class OverlayService : Service() {
         intelBtn.setOnClickListener { changeDriveMode(c, 0, strategy = 1) }
         sliderTrack.setOnTouchListener { view, e ->
             if (modeWin != null) armPopupTimer(); val soc = c.minSoc + ((e.x / view.width).coerceIn(0f, 1f) * (c.maxSoc - c.minSoc)).toInt()
-            updateHEVUI(2, soc); if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) changeDriveMode(c, 0, strategy = 2, soc = soc)
+            if (e.action == MotionEvent.ACTION_DOWN || e.action == MotionEvent.ACTION_MOVE) {
+                lastManualSoc = soc
+                lastManualSocTime = System.currentTimeMillis()
+                updateHEVUI(2, soc)
+            }
+            if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { 
+                lastManualSoc = soc
+                lastManualSocTime = System.currentTimeMillis()
+                updateHEVUI(2, soc)
+                changeDriveMode(c, 0, strategy = 2, soc = soc) 
+            }
             true
         }
         c.order.forEach { m ->
@@ -618,10 +639,13 @@ class OverlayService : Service() {
                 val curM = c.cur()
                 val curSt = c.curStrategy()
                 val curS = c.curHevSocInt()
+                val now = System.currentTimeMillis()
                 
                 main.post {
                     row2.visibility = if (curM == 0) View.VISIBLE else View.GONE
-                    updateHEVUI(curSt, curS)
+                    if (now - lastManualSocTime > 1000 || curS == lastManualSoc) {
+                        updateHEVUI(curSt, curS)
+                    }
                     modeViews.forEach { (m, tv) -> tv.setTextColor(if (m == curM) c.colors[m] ?: cAccent else cTxt) }
                 }
             }
@@ -653,14 +677,14 @@ class OverlayService : Service() {
         val tempFill = View(this).apply { setBackgroundColor(cAccent) }; tempTrack.addView(tempFill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT)); rowTemp.addView(tempTv); rowTemp.addView(tempTrack); pop.addView(rowTemp)
 
         fun updateTempUI(v: Double) { val r = ((v - c.min) / (c.hi() - c.min)).toFloat(); val color = blend(DockColors.CYAN, DockColors.AMBER, r); tempTv.text = c.fmt(v) + "°"; tempTv.setTextColor(color); val lp = tempFill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt(); tempFill.layoutParams = lp; tempFill.setBackgroundColor(color) }
-        tempTrack.setOnTouchListener { view, e -> armPopupTimer(); val v = (kotlin.math.round((c.min + (e.x / view.width).coerceIn(0f, 1f) * (c.hi() - c.min)) / c.step) * c.step).coerceIn(c.min, c.hi()); updateTempUI(v); if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { onUserActivity(); if (c.id == "tempD") { lastManualTempD = v; lastManualTempDTime = System.currentTimeMillis() } else { lastManualTempP = v; lastManualTempPTime = System.currentTimeMillis() }; io.execute { c.select(v); main.post { refreshAll() } } }; true }
+        tempTrack.setOnTouchListener { view, e -> armPopupTimer(); val v = (kotlin.math.round((c.min + (e.x / view.width).coerceIn(0f, 1f) * (c.hi() - c.min)) / c.step) * c.step).coerceIn(c.min, c.hi()); updateTempUI(v); if (e.action == MotionEvent.ACTION_DOWN || e.action == MotionEvent.ACTION_MOVE) { if (c.id == "tempD") { lastManualTempD = v; lastManualTempDTime = System.currentTimeMillis() } else { lastManualTempP = v; lastManualTempPTime = System.currentTimeMillis() } }; if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { onUserActivity(); if (c.id == "tempD") { lastManualTempD = v; lastManualTempDTime = System.currentTimeMillis() } else { lastManualTempP = v; lastManualTempPTime = System.currentTimeMillis() }; io.execute { c.select(v); main.post { refreshAll() } } }; true }
 
         val fan = DockControls.FAN; val rowFan = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(14), 0, 0) }
         val fanTv = TextView(this).apply { setTextColor(cTxt); textSize = 20f; setTypeface(typeface, Typeface.BOLD); gravity = Gravity.CENTER; minWidth = dp(34); setPadding(dp(8), 0, dp(8), 0) }
         val fanTrack = FrameLayout(this).apply { background = pill(cCard, dp(16)); layoutParams = LinearLayout.LayoutParams(sliderW, sliderH) }
         val fanFill = View(this).apply { setBackgroundColor(cAccent) }; fanTrack.addView(fanFill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT)); rowFan.addView(icon(R.drawable.ic_fan, cTxt, 24)); rowFan.addView(fanTv); rowFan.addView(fanTrack); pop.addView(rowFan)
         fun updateFanUI(v: Int) { val r = (v - fan.min).toFloat() / (fan.hi().coerceAtLeast(fan.min + 1) - fan.min); fanTv.text = if (v < 0) "_" else v.toString(); val lp = fanFill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt(); fanFill.layoutParams = lp }
-        fanTrack.setOnTouchListener { view, e -> armPopupTimer(); val v = fan.min + ((e.x / view.width).coerceIn(0f, 1f) * (fan.hi() - fan.min)).toInt(); updateFanUI(v); if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { onUserActivity(); io.execute { fan.setLevel(v); main.post { refreshAll() } } }; true }
+        fanTrack.setOnTouchListener { view, e -> armPopupTimer(); val v = fan.min + ((e.x / view.width).coerceIn(0f, 1f) * (fan.hi() - fan.min)).toInt(); updateFanUI(v); if (e.action == MotionEvent.ACTION_DOWN || e.action == MotionEvent.ACTION_MOVE) { lastManualFan = v; lastManualFanTime = System.currentTimeMillis() }; if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { onUserActivity(); lastManualFan = v; lastManualFanTime = System.currentTimeMillis(); io.execute { fan.setLevel(v); main.post { refreshAll() } } }; true }
 
         val rowAir = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, dp(14), 0, 0) }
         val airIcons = ArrayList<Pair<AirflowOption, ImageView>>()
@@ -673,11 +697,11 @@ class OverlayService : Service() {
         val ventTrack = FrameLayout(this).apply { background = pill(cCard, dp(16)); layoutParams = LinearLayout.LayoutParams(sliderW, sliderH) }
         val ventFill = View(this).apply { setBackgroundColor(cAccent) }; ventTrack.addView(ventFill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT)); rowVent.addView(icon(R.drawable.ic_carseat_cooler, cTxt, 24)); rowVent.addView(ventTv); rowVent.addView(ventTrack); pop.addView(rowVent)
         fun updateVentUI(v: Int) { ventTv.text = if (v < 0) "_" else v.toString(); val lp = ventFill.layoutParams; lp.width = (sliderW * (v.toFloat() / vent.hi().coerceAtLeast(1)).coerceIn(0f, 1f)).toInt(); ventFill.layoutParams = lp }
-        ventTrack.setOnTouchListener { view, e -> armPopupTimer(); val v = ((e.x / view.width).coerceIn(0f, 1f) * vent.hi()).toInt(); updateVentUI(v); if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { onUserActivity(); io.execute { vent.setLevel(v); main.post { refreshAll() } } }; true }
+        ventTrack.setOnTouchListener { view, e -> armPopupTimer(); val v = ((e.x / view.width).coerceIn(0f, 1f) * vent.hi()).toInt(); updateVentUI(v); if (e.action == MotionEvent.ACTION_DOWN || e.action == MotionEvent.ACTION_MOVE) { if (c.id == "tempD") { lastManualVentD = v; lastManualVentDTime = System.currentTimeMillis() } else { lastManualVentP = v; lastManualVentPTime = System.currentTimeMillis() } }; if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { onUserActivity(); if (c.id == "tempD") { lastManualVentD = v; lastManualVentDTime = System.currentTimeMillis() } else { lastManualVentP = v; lastManualVentPTime = System.currentTimeMillis() }; io.execute { vent.setLevel(v); main.post { refreshAll() } } }; true }
 
         runCatching { wm.addView(pop, createPopupParams(anchor)); handleOutsideTouch(pop); tempWin = pop }
-        updaters["fan_popup"] = { _ -> io.execute { val v = fan.value(); main.post { updateFanUI(v) } } }
-        updaters["vent_popup"] = { _ -> io.execute { val v = vent.value(); main.post { updateVentUI(v) } } }
+        updaters["fan_popup"] = { _ -> io.execute { val v = fan.value(); val now = System.currentTimeMillis(); if (now - lastManualFanTime > 1000 || v == lastManualFan) { main.post { updateFanUI(v) } } } }
+        updaters["vent_popup"] = { _ -> io.execute { val v = vent.value(); val now = System.currentTimeMillis(); val mTime = if (c.id == "tempD") lastManualVentDTime else lastManualVentPTime; val mVal = if (c.id == "tempD") lastManualVentD else lastManualVentP; if (now - mTime > 1000 || v == mVal) { main.post { updateVentUI(v) } } } }
         updaters["auto_popup"] = { _ -> io.execute { val on = DockControls.AUTO_CONTROL.isOn(); main.post { autoBtn.setTextColor(if (on) cOnAccent else cTxt); autoBtn.background = pill(if (on) cAccent else cCard, dp(14)) } } }
         updaters["pwr_popup"] = { _ -> io.execute { val isOn = VehicleClient.getData(DockKeys.CAR_HVAC_POWER_MODE) == "1"; main.post { pwrIcon.setColorFilter(if (isOn) DockColors.GREEN else cTxt) } } }
         updaters["ac_popup"] = { _ -> io.execute { val isOn = VehicleClient.getData(DockKeys.CAR_HVAC_AC_ENABLE) == "1"; main.post { acIcon.setColorFilter(if (isOn) DockColors.GREEN else cTxt) } } }
@@ -1133,7 +1157,8 @@ class OverlayService : Service() {
         val btnPrev = ImageView(this).apply {
             setImageResource(R.drawable.page_previous)
             setColorFilter(cTxt)
-            layoutParams = LinearLayout.LayoutParams(dp(44), dp(44))
+            alpha = 0.2f
+            layoutParams = LinearLayout.LayoutParams(dp(60), dp(60))
             setPadding(dp(8), dp(8), dp(8), dp(8))
             isClickable = true
             setOnClickListener {
@@ -1145,7 +1170,8 @@ class OverlayService : Service() {
         val btnNext = ImageView(this).apply {
             setImageResource(R.drawable.page_next)
             setColorFilter(cTxt)
-            layoutParams = LinearLayout.LayoutParams(dp(44), dp(44))
+            alpha = 0.2f
+            layoutParams = LinearLayout.LayoutParams(dp(60), dp(60))
             setPadding(dp(8), dp(8), dp(8), dp(8))
             isClickable = true
             setOnClickListener {
