@@ -108,25 +108,33 @@ class OverlayService : Service() {
     private var lastCentralApp: String? = null
     private var lastChargingState: String? = null
 
-    // Proteção Anti-Flicker e Estado Manual
-    private var lastManualVol: Int = -1
-    private var lastManualVolTime: Long = 0
+    // Master Ticker e Gestão de Interação
+    private var tickerCycle = 0L
+    private val interactionLocks = HashMap<String, Long>()
+    private val masterTicker = object : Runnable {
+        override fun run() {
+            // 1. Coleta de dados do gráfico (a cada 2 ciclos = 2s)
+            if (tickerCycle % 2 == 0L) updateChartData()
+            
+            // 2. Coleta de Projeção (a cada 3 ciclos = 3s)
+            if (tickerCycle % 3 == 0L) io.execute { refreshProjection() }
+            
+            // 3. Atualização da UI Coordenada
+            coordinatedRefresh()
+            
+            tickerCycle++
+            main.postDelayed(this, 1000L)
+        }
+    }
 
-    private var lastManualTempD: Double = -1.0
-    private var lastManualTempDTime: Long = 0
-    private var lastManualTempP: Double = -1.0
-    private var lastManualTempPTime: Long = 0
+    private fun lock(id: String, durationMs: Long = 3000L) {
+        interactionLocks[id] = System.currentTimeMillis() + durationMs
+    }
 
-    private var lastManualSoc: Int = -1
-    private var lastManualSocTime: Long = 0
-
-    private var lastManualFan: Int = -1
-    private var lastManualFanTime: Long = 0
-
-    private var lastManualVentD: Int = -1
-    private var lastManualVentDTime: Long = 0
-    private var lastManualVentP: Int = -1
-    private var lastManualVentPTime: Long = 0
+    private fun isLocked(id: String): Boolean {
+        val expiry = interactionLocks[id] ?: return false
+        return System.currentTimeMillis() < expiry
+    }
 
     private var sessionStartOdo: Double = 0.0
 
@@ -172,19 +180,11 @@ class OverlayService : Service() {
     private var mockIndex = 0
     private val mockSequence = listOf(-1.0, -1.0, 10.0, 20.0, 35.0, -20.0, -18.0, -10.0, 0.0, 1.0, 1.2, 1.0, 30.0, 35.0, 5.0, 4.0, 6.0, 5.0)
 
-    private val chartTicker = object : Runnable {
-        override fun run() {
-            if (!hidden && (SettingsStore.visualMode.value == SettingsStore.VISUAL_DASHBOARD_LIGHT)) {
-                updateChartData()
-            }
-            main.postDelayed(this, 2000L)
-        }
-    }
-
     private fun updateChartData() {
+        if (hidden) return
         val isDash = SettingsStore.visualMode.value == SettingsStore.VISUAL_DASHBOARD || SettingsStore.visualMode.value == SettingsStore.VISUAL_DASHBOARD_LIGHT
         if (!isDash) return
-
+        
         val isSim = SettingsStore.simulationEnabled.value
         val volt = if (isSim) 328.0 else (VehicleClient.getData(DockKeys.CAR_EV_INFO_POWER_BATTERY_VOLTAGE)?.toDoubleOrNull() ?: 0.0) //CAR_EV_INFO_POWER_BATTERY_VOLTAGE voltagem da bateria de tracao
         val curr = if (isSim) {
@@ -272,7 +272,6 @@ class OverlayService : Service() {
             }
 
             main.post {
-                refreshAll()
                 if (SettingsStore.visualMode.value == SettingsStore.VISUAL_BALLOONS) showBalloonForKey(key)
             }
         }
@@ -316,9 +315,7 @@ class OverlayService : Service() {
         lastChargingState = VehicleClient.getData(DockKeys.CAR_EV_INFO_CHARGING_GUN_CONN_STATE)
         io.execute { runCatching { VehicleClient.registerListener(DockControls.MONITORED, listener) } }
         HvacPanel.ensureEnabled()
-        refreshAll()
-        main.postDelayed(projPoll, 1200)
-        main.post(chartTicker)
+        main.post(masterTicker)
         main.postDelayed({ restoreHevSaveSoc() }, 8000)
     }
 
@@ -345,8 +342,7 @@ class OverlayService : Service() {
      */
     override fun onDestroy() {
         super.onDestroy()
-        main.removeCallbacks(hideRunnable); main.removeCallbacks(closePopupsRunnable); main.removeCallbacks(projPoll)
-        main.removeCallbacks(chartTicker); main.removeCallbacks(flashHideRunnable)
+        main.removeCallbacks(masterTicker); main.removeCallbacks(flashHideRunnable)
         flashView?.let { runCatching { wm.removeView(it) } }
         closeAllPopups()
         runCatching { SettingsStore.prefs(this).unregisterOnSharedPreferenceChangeListener(prefsListener) }
@@ -462,11 +458,7 @@ class OverlayService : Service() {
         val tv = TextView(this).apply { setTextColor(cAccent); textSize = 34f; setTypeface(typeface, Typeface.BOLD); text = "—°"; gravity = Gravity.CENTER; setPadding(dp(14), 0, dp(14), 0) }
         row.addView(tv)
         updaters[c.id] = { st ->
-            val now = System.currentTimeMillis()
-            val cur = c.read() ?: c.min
-            val manualVal = if (c.id == "tempD") lastManualTempD else lastManualTempP
-            val manualTime = if (c.id == "tempD") lastManualTempDTime else lastManualTempPTime
-            if (now - manualTime > 2000 || cur == manualVal) { tv.text = st.text; tv.setTextColor(st.color) }
+            if (!isLocked(c.id)) { tv.text = st.text; tv.setTextColor(st.color) }
         }
         var startX = 0f
         row.setOnTouchListener { _, event ->
@@ -498,8 +490,7 @@ class OverlayService : Service() {
         val v = col(); v.isClickable = true; val ic = icon(c.icon, cTxt, 42); val track = makeTrack()
         v.addView(ic); v.addView(track.first)
         updaters[c.id] = { st ->
-            val now = System.currentTimeMillis(); val curV = c.value()
-            if (now - lastManualVolTime > 2000 || curV == lastManualVol) { setTrack(track.second, st.ratio); if (st.icon != 0) ic.setImageResource(st.icon) }
+            if (!isLocked(c.id)) { setTrack(track.second, st.ratio); if (st.icon != 0) ic.setImageResource(st.icon) }
         }
         v.setOnClickListener { onUserActivity(); openVolume(c, v) }
         return v
@@ -593,7 +584,7 @@ class OverlayService : Service() {
             if (e.action == MotionEvent.ACTION_DOWN) canGoPast12 = currentV >= 12
             val finalV = if (canGoPast12) v else minOf(v, 12)
             updateUI(finalV)
-            if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { onUserActivity(); currentV = finalV; lastManualVol = finalV; lastManualVolTime = System.currentTimeMillis(); io.execute { c.set(finalV); main.post { refreshAll() } } }
+            if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { onUserActivity(); currentV = finalV; lock(c.id); io.execute { c.set(finalV); main.post { refreshAll() } } }
             true
         }
         runCatching { wm.addView(pop, createPopupParams(anchor)); handleOutsideTouch(pop); volWin = pop }
@@ -650,13 +641,13 @@ class OverlayService : Service() {
         sliderTrack.setOnTouchListener { view, e ->
             if (modeWin != null) armPopupTimer(); val soc = c.minSoc + ((e.x / view.width).coerceIn(0f, 1f) * (c.maxSoc - c.minSoc)).toInt()
             if (e.action == MotionEvent.ACTION_DOWN || e.action == MotionEvent.ACTION_MOVE) {
-                lastManualSoc = soc
-                lastManualSocTime = System.currentTimeMillis()
+                if (e.action == MotionEvent.ACTION_DOWN) Log.d("HavalDash", "HEV SOC Slider DOWN: $soc%")
+                lock(c.id)
                 updateHEVUI(2, soc)
             }
             if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { 
-                lastManualSoc = soc
-                lastManualSocTime = System.currentTimeMillis()
+                Log.d("HavalDash", "HEV SOC Slider UP/CANCEL: $soc% (Action=${e.action})")
+                lock(c.id)
                 updateHEVUI(2, soc)
                 changeDriveMode(c, 0, strategy = 2, soc = soc) 
             }
@@ -674,11 +665,10 @@ class OverlayService : Service() {
                 val curM = c.cur()
                 val curSt = c.curStrategy()
                 val curS = c.curHevSocInt()
-                val now = System.currentTimeMillis()
                 
                 main.post {
                     row2.visibility = if (curM == 0) View.VISIBLE else View.GONE
-                    if (now - lastManualSocTime > 1000 || curS == lastManualSoc) {
+                    if (!isLocked(c.id)) {
                         updateHEVUI(curSt, curS)
                     }
                     modeViews.forEach { (m, tv) -> tv.setTextColor(if (m == curM) c.colors[m] ?: cAccent else cTxt) }
@@ -712,14 +702,14 @@ class OverlayService : Service() {
         val tempFill = View(this).apply { setBackgroundColor(cAccent) }; tempTrack.addView(tempFill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT)); rowTemp.addView(tempTv); rowTemp.addView(tempTrack); pop.addView(rowTemp)
 
         fun updateTempUI(v: Double) { val r = ((v - c.min) / (c.hi() - c.min)).toFloat(); val color = blend(DockColors.CYAN, DockColors.AMBER, r); tempTv.text = c.fmt(v) + "°"; tempTv.setTextColor(color); val lp = tempFill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt(); tempFill.layoutParams = lp; tempFill.setBackgroundColor(color) }
-        tempTrack.setOnTouchListener { view, e -> armPopupTimer(); val v = (kotlin.math.round((c.min + (e.x / view.width).coerceIn(0f, 1f) * (c.hi() - c.min)) / c.step) * c.step).coerceIn(c.min, c.hi()); updateTempUI(v); if (e.action == MotionEvent.ACTION_DOWN || e.action == MotionEvent.ACTION_MOVE) { if (c.id == "tempD") { lastManualTempD = v; lastManualTempDTime = System.currentTimeMillis() } else { lastManualTempP = v; lastManualTempPTime = System.currentTimeMillis() } }; if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { onUserActivity(); if (c.id == "tempD") { lastManualTempD = v; lastManualTempDTime = System.currentTimeMillis() } else { lastManualTempP = v; lastManualTempPTime = System.currentTimeMillis() }; io.execute { c.select(v); main.post { refreshAll() } } }; true }
+        tempTrack.setOnTouchListener { view, e -> armPopupTimer(); val v = (kotlin.math.round((c.min + (e.x / view.width).coerceIn(0f, 1f) * (c.hi() - c.min)) / c.step) * c.step).coerceIn(c.min, c.hi()); updateTempUI(v); if (e.action == MotionEvent.ACTION_DOWN || e.action == MotionEvent.ACTION_MOVE) { lock(c.id) }; if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { onUserActivity(); lock(c.id); io.execute { c.select(v); main.post { refreshAll() } } }; true }
 
         val fan = DockControls.FAN; val rowFan = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(14), 0, 0) }
         val fanTv = TextView(this).apply { setTextColor(cTxt); textSize = 20f; setTypeface(typeface, Typeface.BOLD); gravity = Gravity.CENTER; minWidth = dp(34); setPadding(dp(8), 0, dp(8), 0) }
         val fanTrack = FrameLayout(this).apply { background = pill(cCard, dp(16)); layoutParams = LinearLayout.LayoutParams(sliderW, sliderH) }
         val fanFill = View(this).apply { setBackgroundColor(cAccent) }; fanTrack.addView(fanFill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT)); rowFan.addView(icon(R.drawable.ic_fan, cTxt, 24)); rowFan.addView(fanTv); rowFan.addView(fanTrack); pop.addView(rowFan)
         fun updateFanUI(v: Int) { val r = (v - fan.min).toFloat() / (fan.hi().coerceAtLeast(fan.min + 1) - fan.min); fanTv.text = if (v < 0) "_" else v.toString(); val lp = fanFill.layoutParams; lp.width = (sliderW * r.coerceIn(0f, 1f)).toInt(); fanFill.layoutParams = lp }
-        fanTrack.setOnTouchListener { view, e -> armPopupTimer(); val v = fan.min + ((e.x / view.width).coerceIn(0f, 1f) * (fan.hi() - fan.min)).toInt(); updateFanUI(v); if (e.action == MotionEvent.ACTION_DOWN || e.action == MotionEvent.ACTION_MOVE) { lastManualFan = v; lastManualFanTime = System.currentTimeMillis() }; if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { onUserActivity(); lastManualFan = v; lastManualFanTime = System.currentTimeMillis(); io.execute { fan.setLevel(v); main.post { refreshAll() } } }; true }
+        fanTrack.setOnTouchListener { view, e -> armPopupTimer(); val v = fan.min + ((e.x / view.width).coerceIn(0f, 1f) * (fan.hi() - fan.min)).toInt(); updateFanUI(v); if (e.action == MotionEvent.ACTION_DOWN || e.action == MotionEvent.ACTION_MOVE) { lock(fan.id) }; if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { onUserActivity(); lock(fan.id); io.execute { fan.setLevel(v); main.post { refreshAll() } } }; true }
 
         val rowAir = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, dp(14), 0, 0) }
         val airIcons = ArrayList<Pair<AirflowOption, ImageView>>()
@@ -732,11 +722,11 @@ class OverlayService : Service() {
         val ventTrack = FrameLayout(this).apply { background = pill(cCard, dp(16)); layoutParams = LinearLayout.LayoutParams(sliderW, sliderH) }
         val ventFill = View(this).apply { setBackgroundColor(cAccent) }; ventTrack.addView(ventFill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT)); rowVent.addView(icon(R.drawable.ic_carseat_cooler, cTxt, 24)); rowVent.addView(ventTv); rowVent.addView(ventTrack); pop.addView(rowVent)
         fun updateVentUI(v: Int) { ventTv.text = if (v < 0) "_" else v.toString(); val lp = ventFill.layoutParams; lp.width = (sliderW * (v.toFloat() / vent.hi().coerceAtLeast(1)).coerceIn(0f, 1f)).toInt(); ventFill.layoutParams = lp }
-        ventTrack.setOnTouchListener { view, e -> armPopupTimer(); val v = ((e.x / view.width).coerceIn(0f, 1f) * vent.hi()).toInt(); updateVentUI(v); if (e.action == MotionEvent.ACTION_DOWN || e.action == MotionEvent.ACTION_MOVE) { if (c.id == "tempD") { lastManualVentD = v; lastManualVentDTime = System.currentTimeMillis() } else { lastManualVentP = v; lastManualVentPTime = System.currentTimeMillis() } }; if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { onUserActivity(); if (c.id == "tempD") { lastManualVentD = v; lastManualVentDTime = System.currentTimeMillis() } else { lastManualVentP = v; lastManualVentPTime = System.currentTimeMillis() }; io.execute { vent.setLevel(v); main.post { refreshAll() } } }; true }
+        ventTrack.setOnTouchListener { view, e -> armPopupTimer(); val v = ((e.x / view.width).coerceIn(0f, 1f) * vent.hi()).toInt(); updateVentUI(v); if (e.action == MotionEvent.ACTION_DOWN || e.action == MotionEvent.ACTION_MOVE) { lock(vent.id) }; if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { onUserActivity(); lock(vent.id); io.execute { vent.setLevel(v); main.post { refreshAll() } } }; true }
 
         runCatching { wm.addView(pop, createPopupParams(anchor)); handleOutsideTouch(pop); tempWin = pop }
-        updaters["fan_popup"] = { _ -> io.execute { val v = fan.value(); val now = System.currentTimeMillis(); if (now - lastManualFanTime > 1000 || v == lastManualFan) { main.post { updateFanUI(v) } } } }
-        updaters["vent_popup"] = { _ -> io.execute { val v = vent.value(); val now = System.currentTimeMillis(); val mTime = if (c.id == "tempD") lastManualVentDTime else lastManualVentPTime; val mVal = if (c.id == "tempD") lastManualVentD else lastManualVentP; if (now - mTime > 1000 || v == mVal) { main.post { updateVentUI(v) } } } }
+        updaters["fan_popup"] = { _ -> io.execute { val v = fan.value(); if (!isLocked(fan.id)) { main.post { updateFanUI(v) } } } }
+        updaters["vent_popup"] = { _ -> io.execute { val v = vent.value(); if (!isLocked(vent.id)) { main.post { updateVentUI(v) } } } }
         updaters["auto_popup"] = { _ -> io.execute { val on = DockControls.AUTO_CONTROL.isOn(); main.post { autoBtn.setTextColor(if (on) cOnAccent else cTxt); autoBtn.background = pill(if (on) cAccent else cCard, dp(14)) } } }
         updaters["pwr_popup"] = { _ -> io.execute { val isOn = VehicleClient.getData(DockKeys.CAR_HVAC_POWER_MODE) == "1"; main.post { pwrIcon.setColorFilter(if (isOn) DockColors.GREEN else cTxt) } } }
         updaters["ac_popup"] = { _ -> io.execute { val isOn = VehicleClient.getData(DockKeys.CAR_HVAC_AC_ENABLE) == "1"; main.post { acIcon.setColorFilter(if (isOn) DockColors.GREEN else cTxt) } } }
@@ -797,17 +787,20 @@ class OverlayService : Service() {
     }
 
     /**
-     * Atualiza todos os elementos visuais da interface (Barra e Dashboard) com os
-     * dados mais recentes lidos do barramento CAN do veículo.
+     * Atualiza todos os elementos visuais da interface (Barra e Dashboard) de forma coordenada
+     * pelo Master Ticker. Respeita os bloqueios de interação do usuário.
      */
-    private fun refreshAll() {
+    private fun coordinatedRefresh() {
         if (hidden) return
         val visual = SettingsStore.visualMode.value
         val isDash = visual == SettingsStore.VISUAL_DASHBOARD || visual == SettingsStore.VISUAL_DASHBOARD_LIGHT
         
         io.execute {
             val controls = DockControls.ALL + listOf(DockControls.DRIVE, DockControls.FAN, DockControls.VENT_D, DockControls.VENT_P, DockControls.AUTO_CONTROL, DockControls.AIRFLOW_CONTROL)
-            val snap = controls.map { it.id to it.render() }
+            
+            // Renderiza apenas os controles que NÃO estão bloqueados por interação manual
+            val updates = controls.filter { !isLocked(it.id) }.map { it.id to it.render() }
+            
             main.post {
                 // Se estiver no Dashboard e na página do Gráfico, atualiza apenas o gráfico e itens globais (projeção)
                 if (isDash && currentDashPage == 1) {
@@ -819,8 +812,10 @@ class OverlayService : Service() {
                     return@post
                 }
 
-                // Atualiza controles normais (Página 1 ou Modo Barra)
-                snap.forEach { (id, st) -> updaters[id]?.invoke(st) }
+                // Aplica atualizações dos controles filtrados
+                updates.forEach { (id, st) -> updaters[id]?.invoke(st) }
+                
+                // Outros updaters auxiliares e globais
                 updaters["telemetry"]?.invoke(RenderState())
                 updaters["fan_popup"]?.invoke(RenderState()); updaters["vent_popup"]?.invoke(RenderState()); updaters["auto_popup"]?.invoke(RenderState()); updaters["pwr_popup"]?.invoke(RenderState()); updaters["ac_popup"]?.invoke(RenderState()); updaters["air_popup"]?.invoke(RenderState())
                 DockControls.AIRFLOW_OPTIONS.forEach { opt -> updaters["air_${opt.label}"]?.invoke(RenderState()) }
@@ -834,9 +829,10 @@ class OverlayService : Service() {
         }
     }
 
+    private fun refreshAll() { coordinatedRefresh() }
+
     private fun projTile(): View { val v = col(); v.isClickable = true; val ic = ImageView(this).apply { layoutParams = LinearLayout.LayoutParams(dp(42), dp(42)) }; v.addView(ic); v.visibility = View.GONE; v.setOnClickListener { onProjClick() }; projView = v; projIcon = ic; return v }
-    private val projPoll = object : Runnable { override fun run() { refreshProjection(); main.postDelayed(this, 2500) } }
-    private fun refreshProjection() { io.execute { val raw = ProjectionLauncher.topPackage(); val fg = ProjectionLauncher.classifyProjection(raw); val conn: String?; val isFg: Boolean; if (fg != null) { conn = fg; isFg = true; lastProjection = fg } else { isFg = false; if (raw != null && raw != packageName) lastCentralApp = raw; conn = lastProjection ?: (if (ProjectionLauncher.carPlayConnected()) ProjectionLauncher.CARPLAY_PKG else null); if (conn != null) lastProjection = conn }; main.post { updateProjTile(conn, isFg) } } }
+    private fun refreshProjection() { val raw = ProjectionLauncher.topPackage(); val fg = ProjectionLauncher.classifyProjection(raw); val conn: String?; val isFg: Boolean; if (fg != null) { conn = fg; isFg = true; lastProjection = fg } else { isFg = false; if (raw != null && raw != packageName) lastCentralApp = raw; conn = lastProjection ?: (if (ProjectionLauncher.carPlayConnected()) ProjectionLauncher.CARPLAY_PKG else null); if (conn != null) lastProjection = conn }; main.post { updateProjTile(conn, isFg) } }
     private fun updateProjTile(conn: String?, fg: Boolean) { projConnected = conn; projForeground = fg; updaters["dash_proj"]?.invoke(RenderState()); val v = projView ?: return; val ic = projIcon ?: return; if (conn == null) { if (v.visibility != View.GONE) v.visibility = View.GONE; projShownState = null; return }; if (v.visibility != View.VISIBLE) v.visibility = View.VISIBLE; val want = if (fg) "car" else conn; if (projShownState != want) { when { fg -> { ic.setImageResource(R.drawable.ic_car); ic.setColorFilter(cTxt) }; conn == ProjectionLauncher.AA_PKG -> { ic.setImageResource(R.drawable.ic_androidauto); ic.clearColorFilter() }; else -> { ic.setImageResource(R.drawable.ic_carplay); ic.clearColorFilter() } }; projShownState = want } }
     /**
      * Gerencia o clique nos ícones de projeção (CarPlay/Android Auto).
@@ -1252,11 +1248,11 @@ class OverlayService : Service() {
         container.addView(tv, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.MATCH_PARENT, Gravity.CENTER))
 
         fun updateUI(v: Double) { val r = ((v - c.min) / (c.hi() - c.min)).toFloat(); val text = "${c.fmt(v)}°C"; val sb = SpannableStringBuilder(text); if (text.endsWith("°C")) sb.setSpan(RelativeSizeSpan(0.8f), text.length - 2, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE); tv.text = sb; val (s, e) = when { v <= 23.0 -> DockColors.CYAN to DockColors.CYAN; v <= 25.0 -> DockColors.CYAN to DockColors.GREEN; v <= 27.0 -> DockColors.GREEN to DockColors.AMBER; else -> DockColors.AMBER to DockColors.ORANGE }; fill.background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(s, e)).apply { cornerRadius = dp(22).toFloat() }; tv.setTextColor(blend(Color.WHITE, e, 0.3f)); val lp = fill.layoutParams; lp.width = (dp(380) * r.coerceIn(0f, 1f)).toInt(); fill.layoutParams = lp }
-        fun btn(txt: String, dir: Int) = TextView(this).apply { text = txt; textSize = 32f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; setTypeface(typeface, Typeface.BOLD); isClickable = true; setPadding(dp(20), 0, dp(20), 0); setOnClickListener { onUserActivity(); val next = ((c.read() ?: c.min) + dir * c.step).coerceIn(c.min, c.hi()); updateUI(next); if (c.id == "tempD") { lastManualTempD = next; lastManualTempDTime = System.currentTimeMillis() } else { lastManualTempP = next; lastManualTempPTime = System.currentTimeMillis() }; io.execute { c.select(next); main.post { refreshAll() } } } }
+        fun btn(txt: String, dir: Int) = TextView(this).apply { text = txt; textSize = 32f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; setTypeface(typeface, Typeface.BOLD); isClickable = true; setPadding(dp(20), 0, dp(20), 0); setOnClickListener { onUserActivity(); val next = ((c.read() ?: c.min) + dir * c.step).coerceIn(c.min, c.hi()); updateUI(next); lock(c.id); io.execute { c.select(next); main.post { refreshAll() } } } }
         container.addView(btn("−", -1), FrameLayout.LayoutParams(dp(70), dp(44), Gravity.START or Gravity.CENTER_VERTICAL)); container.addView(btn("+", 1), FrameLayout.LayoutParams(dp(70), dp(44), Gravity.END or Gravity.CENTER_VERTICAL)); layout.addView(container)
         var canGo23 = false
-        container.getChildAt(0).setOnTouchListener { _, e -> if (e.action == MotionEvent.ACTION_DOWN) canGo23 = (c.read() ?: c.min) >= 23.0; val v = (kotlin.math.round(((c.min + (e.x / dp(380)).coerceIn(0f, 1f) * (c.hi() - c.min))) / c.step) * c.step).coerceIn(c.min, c.hi()); val finalV = if (canGo23) v else minOf(v, 23.0); updateUI(finalV); if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { onUserActivity(); if (c.id == "tempD") { lastManualTempD = finalV; lastManualTempDTime = System.currentTimeMillis() } else { lastManualTempP = finalV; lastManualTempPTime = System.currentTimeMillis() }; io.execute { c.select(finalV); main.post { refreshAll() } } }; true }
-        updaters[c.id] = { val cur = c.read() ?: c.min; val now = System.currentTimeMillis(); if (c.id == "tempD") { if (now - lastManualTempDTime > 2000 || cur == lastManualTempD) updateUI(cur) } else if (c.id == "tempP") { if (now - lastManualTempPTime > 2000 || cur == lastManualTempP) updateUI(cur) } else updateUI(cur) }
+        container.getChildAt(0).setOnTouchListener { _, e -> if (e.action == MotionEvent.ACTION_DOWN) canGo23 = (c.read() ?: c.min) >= 23.0; val v = (kotlin.math.round(((c.min + (e.x / dp(380)).coerceIn(0f, 1f) * (c.hi() - c.min))) / c.step) * c.step).coerceIn(c.min, c.hi()); val finalV = if (canGo23) v else minOf(v, 23.0); updateUI(finalV); if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { onUserActivity(); lock(c.id); io.execute { c.select(finalV); main.post { refreshAll() } } }; true }
+        updaters[c.id] = { val cur = c.read() ?: c.min; if (!isLocked(c.id)) updateUI(cur) }
         return layout
     }
 
@@ -1381,9 +1377,20 @@ class OverlayService : Service() {
         layout.setOnClickListener { if (layout.isEnabled) changeDriveMode(c, 0, strategy = 2, soc = null) }
         track.setOnTouchListener { _, e -> if (!layout.isEnabled) return@setOnTouchListener true
             val soc = c.minSoc + ((e.x / sW).coerceIn(0f, 1f) * (c.maxSoc - c.minSoc)).toInt()
-            if (e.action == MotionEvent.ACTION_MOVE) updateSliderUI(soc, true)
-            if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { onUserActivity(); changeDriveMode(c, 0, strategy = 2, soc = soc) }; true }
-        layout.addView(sliderArea); updaters["hev_sub_card_light"] = { updateSliderUI(c.curHevSocInt(), null) }; return layout
+            if (e.action == MotionEvent.ACTION_DOWN) {
+                Log.d("HavalDash", "Dashboard HEV SOC Slider DOWN: $soc%")
+                lock(c.id)
+            }
+            if (e.action == MotionEvent.ACTION_MOVE) {
+                lock(c.id)
+                updateSliderUI(soc, true)
+            }
+            if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { 
+                Log.d("HavalDash", "Dashboard HEV SOC Slider UP/CANCEL: $soc% (Action=${e.action})")
+                lock(c.id)
+                onUserActivity(); changeDriveMode(c, 0, strategy = 2, soc = soc) 
+            }; true }
+        layout.addView(sliderArea); updaters["hev_sub_card_light"] = { if (!isLocked(c.id)) updateSliderUI(c.curHevSocInt(), null) }; return layout
     }
 
     private fun createAmbientTempCard(c: IconToggle): View {
@@ -1411,8 +1418,8 @@ class OverlayService : Service() {
         val sW = dp(330); val track = FrameLayout(this).apply { background = pill(cTrack, dp(18)); layoutParams = LinearLayout.LayoutParams(sW, dp(36)).apply { marginStart = dp(12) } }; val fill = View(this).apply { background = pill(DockColors.CYAN, dp(18)) }; track.addView(fill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT)); layout.addView(track)
         var canGo12 = false; var curV = 0
         fun updateUI(v: Int) { val color = if (v > 12) DockColors.RED else DockColors.CYAN; val lp = fill.layoutParams; lp.width = (sW * (v.toFloat() / c.hi()).coerceIn(0f, 1f)).toInt(); fill.layoutParams = lp; fill.background = pill(color, dp(18)) }
-        track.setOnTouchListener { _, e -> var v = ((e.x / sW).coerceIn(0f, 1f) * c.hi()).toInt(); if (e.action == MotionEvent.ACTION_DOWN) canGo12 = curV >= 12; if (!canGo12) v = minOf(v, 12); updateUI(v); if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { onUserActivity(); curV = v; lastManualVol = v; lastManualVolTime = System.currentTimeMillis(); io.execute { c.set(v); main.post { refreshAll() } } }; true }
-        updaters[c.id] = { val v = c.value(); val now = System.currentTimeMillis(); if (now - lastManualVolTime > 2000 || v == lastManualVol) { curV = v; updateUI(v); if (it.icon != 0) volIc.setImageResource(it.icon) } }; return layout
+        track.setOnTouchListener { _, e -> var v = ((e.x / sW).coerceIn(0f, 1f) * c.hi()).toInt(); if (e.action == MotionEvent.ACTION_DOWN) canGo12 = curV >= 12; if (!canGo12) v = minOf(v, 12); updateUI(v); if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL) { onUserActivity(); curV = v; lock(c.id); io.execute { c.set(v); main.post { refreshAll() } } }; true }
+        updaters[c.id] = { val v = c.value(); if (!isLocked(c.id)) { curV = v; updateUI(v); if (it.icon != 0) volIc.setImageResource(it.icon) } }; return layout
     }
 
     private fun createPowerChart(heightDp: Int = 165): View {
