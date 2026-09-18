@@ -52,6 +52,7 @@ import br.com.redesurftank.havaldash.data.SettingsStore
 import br.com.redesurftank.havaldash.data.VehicleClient
 import br.com.redesurftank.havaldash.update.UpdateManager
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -71,6 +72,16 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(primary = Accent, surface = CardBg, background = Bg)) {
                 Surface(Modifier.fillMaxSize(), color = Bg) { SettingsScreen() }
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        runCatching {
+            val file = java.io.File(getExternalFilesDir(null), "custom.apk")
+            if (file.exists()) {
+                file.delete()
             }
         }
     }
@@ -102,9 +113,72 @@ class MainActivity : ComponentActivity() {
         val simulation by SettingsStore.simulationEnabled
 
         var monitorEnabled by remember { mutableStateOf(false) }
+        var systemHardwareEnabled by remember { mutableStateOf(false) }
         val debugValues = remember { mutableStateMapOf<String, MonitorValue>() }
         val visibleInfoKeys = remember { mutableStateListOf<Pair<String, String>>() }
         val visibleSettingKeys = remember { mutableStateListOf<Pair<String, String>>() }
+        
+        var ramTextState by remember { mutableStateOf("— / — / — GB") }
+        var storageTextState by remember { mutableStateOf("— / — / — GB") }
+
+        var urlInput by remember { mutableStateOf("") }
+        var downloadingUrl by remember { mutableStateOf(false) }
+        var urlProgress by remember { mutableStateOf(0f) }
+        var installResult by remember { mutableStateOf("") }
+        val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
+
+        LaunchedEffect(systemHardwareEnabled) {
+            if (systemHardwareEnabled) {
+                while (true) {
+                    var newRamStr = "— / — / — GB"
+                    var newStorageStr = "— / — / — GB"
+
+                    // Monitoramento da Memória RAM
+                    runCatching {
+                        val activityManager = getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+                        val memoryInfo = android.app.ActivityManager.MemoryInfo()
+                        activityManager.getMemoryInfo(memoryInfo)
+                        
+                        val totalGB = memoryInfo.totalMem.toDouble() / (1024 * 1024 * 1024)
+                        val availGB = memoryInfo.availMem.toDouble() / (1024 * 1024 * 1024)
+                        val usedGB = totalGB - availGB
+
+                        newRamStr = String.format(java.util.Locale.US, "%.3f / %.3f / %.3f GB", usedGB, availGB, totalGB)
+                    }
+
+                    // Monitoramento do Espaço de Armazenamento (HD)
+                    runCatching {
+                        var totalBytes = 0L
+                        var freeBytes = 0L
+
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                            val storageStatsManager = getSystemService(android.content.Context.STORAGE_STATS_SERVICE) as android.app.usage.StorageStatsManager
+                            totalBytes = storageStatsManager.getTotalBytes(android.os.storage.StorageManager.UUID_DEFAULT)
+                            freeBytes = storageStatsManager.getFreeBytes(android.os.storage.StorageManager.UUID_DEFAULT)
+                        } else {
+                            val path = android.os.Environment.getDataDirectory()
+                            val stat = android.os.StatFs(path.path)
+                            val blockSize = stat.blockSizeLong
+                            totalBytes = stat.blockCountLong * blockSize
+                            freeBytes = stat.availableBlocksLong * blockSize
+                        }
+
+                        val usedBytes = totalBytes - freeBytes
+
+                        val totalGB = totalBytes.toDouble() / (1024 * 1024 * 1024)
+                        val freeGB = freeBytes.toDouble() / (1024 * 1024 * 1024)
+                        val usedGB = totalGB - freeGB
+
+                        newStorageStr = String.format(java.util.Locale.US, "%.3f / %.3f / %.3f GB", usedGB, freeGB, totalGB)
+                    }
+
+                    ramTextState = newRamStr
+                    storageTextState = newStorageStr
+                    
+                    delay(2000)
+                }
+            }
+        }
 
         LaunchedEffect(monitorEnabled) {
             if (monitorEnabled) {
@@ -325,6 +399,47 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            // ---- hardware info ----
+            SectionCard("Hardware do Sistema") {
+                RowSwitch("Monitorar Hardware", "Lê status de RAM e armazenamento em tempo real.", systemHardwareEnabled) {
+                    systemHardwareEnabled = it
+                }
+                if (systemHardwareEnabled) {
+                    Spacer(Modifier.height(14.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Column {
+                            Text(
+                                "MEMÓRIA RAM",
+                                color = Accent,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text("RAM (Usada/Livre/Total): ", color = Muted, fontSize = 15.sp)
+                                Text(ramTextState, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        
+                        Box(Modifier.fillMaxWidth().height(0.5.dp).background(Color.White.copy(alpha = 0.05f)))
+
+                        Column {
+                            Text(
+                                "ARMAZENAMENTO (HD)",
+                                color = Accent,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text("Espaço (Usado/Livre/Total): ", color = Muted, fontSize = 15.sp)
+                                Text(storageTextState, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+
             // ---- monitor ----
             SectionCard("Monitor de Variáveis") {
                 RowSwitch("Monitorar variáveis", "Lê valores em tempo real do sistema.", monitorEnabled) {
@@ -477,8 +592,145 @@ class MainActivity : ComponentActivity() {
             // ---- informações extras ----
             SectionCard("Informações Extras") {
                 val maxPercent by SettingsStore.maxPercentLastCharge
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     DimensionRow("Percentual do último carregamento", "$maxPercent%")
+                    
+                    Spacer(Modifier.height(4.dp))
+                    Button(
+                        onClick = {
+                            runCatching {
+                                val intent = Intent(Settings.ACTION_SETTINGS)
+                                startActivity(intent)
+                            }.onFailure {
+                                runCatching {
+                                    val intent = Intent(Intent.ACTION_MAIN).apply {
+                                        component = android.content.ComponentName("com.android.settings", "com.android.settings.Settings")
+                                    }
+                                    startActivity(intent)
+                                }
+                            }
+                        },
+                        modifier = Modifier.height(40.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = Accent
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Abrir Configurações do Android", color = Color.DarkGray, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
+                }
+            }
+
+            // ---- instalação via url ----
+            SectionCard("Instalar Aplicativo via URL") {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Informe a URL direta do arquivo APK para baixar e instalar no dispositivo.", color = Muted, fontSize = 13.sp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        androidx.compose.material3.OutlinedTextField(
+                            value = urlInput,
+                            onValueChange = { urlInput = it },
+                            label = { Text("URL do APK") },
+                            singleLine = true,
+                            enabled = !downloadingUrl,
+                            modifier = Modifier.weight(1f),
+                            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Accent,
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.1f),
+                                focusedLabelColor = Accent,
+                                unfocusedLabelColor = Muted,
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            )
+                        )
+                        
+                        if (!downloadingUrl) {
+                            Button(
+                                onClick = {
+                                    if (urlInput.isNotBlank()) {
+                                        downloadingUrl = true
+                                        urlProgress = 0f
+                                        installResult = "Iniciando download..."
+                                        coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                            try {
+                                                val file = java.io.File(getExternalFilesDir(null), "custom.apk")
+                                                if (file.exists()) file.delete()
+                                                
+                                                val url = java.net.URL(urlInput.trim())
+                                                val conn = url.openConnection() as java.net.HttpURLConnection
+                                                conn.connectTimeout = 15000
+                                                conn.readTimeout = 15000
+                                                val length = conn.contentLength
+                                                val input = java.io.BufferedInputStream(conn.inputStream)
+                                                val output = java.io.FileOutputStream(file)
+                                                val buffer = ByteArray(4096)
+                                                var bytesRead: Int
+                                                var total = 0
+                                                while (input.read(buffer).also { bytesRead = it } != -1) {
+                                                    output.write(buffer, 0, bytesRead)
+                                                    total += bytesRead
+                                                    if (length > 0) {
+                                                        urlProgress = total.toFloat() / length
+                                                    }
+                                                }
+                                                output.close()
+                                                input.close()
+                                                
+                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                    installResult = "Abrindo instalador..."
+                                                    try {
+                                                        val uri = androidx.core.content.FileProvider.getUriForFile(this@MainActivity, "${packageName}.fileprovider", file)
+                                                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                                                            setDataAndType(uri, "application/vnd.android.package-archive")
+                                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                        }
+                                                        startActivity(intent)
+                                                    } catch (e: Exception) {
+                                                        installResult = "Erro ao abrir instalador: ${e.message}"
+                                                    }
+                                                }
+                                            } catch (e: Exception) {
+                                                android.util.Log.e("HavalDash", "Download failed", e)
+                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                    installResult = "Erro no download: ${e.message}"
+                                                }
+                                            } finally {
+                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                    downloadingUrl = false
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                enabled = urlInput.isNotBlank(),
+                                modifier = Modifier.height(54.dp),
+                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                    containerColor = Accent
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Instalar", color = Color.DarkGray, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    if (downloadingUrl) {
+                        Spacer(Modifier.height(4.dp))
+                        LinearProgressIndicator(
+                            progress = { urlProgress },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Accent
+                        )
+                    }
+
+                    if (installResult.isNotEmpty()) {
+                        Spacer(Modifier.height(2.dp))
+                        Text(installResult, color = AccentSoft, fontSize = 14.sp)
+                    }
                 }
             }
 

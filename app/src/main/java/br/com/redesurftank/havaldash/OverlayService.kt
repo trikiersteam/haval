@@ -92,7 +92,7 @@ class OverlayService : Service() {
     private lateinit var handle: View
 
     private val updaters = HashMap<String, (RenderState) -> Unit>()
-    
+
     private var volWin: View? = null
     private var levelWin: View? = null
     private var modeWin: View? = null
@@ -665,7 +665,7 @@ class OverlayService : Service() {
                 val curM = c.cur()
                 val curSt = c.curStrategy()
                 val curS = c.curHevSocInt()
-                
+
                 main.post {
                     row2.visibility = if (curM == 0) View.VISIBLE else View.GONE
                     if (!isLocked(c.id)) {
@@ -814,7 +814,7 @@ class OverlayService : Service() {
 
                 // Aplica atualizações dos controles filtrados
                 updates.forEach { (id, st) -> updaters[id]?.invoke(st) }
-                
+
                 // Outros updaters auxiliares e globais
                 updaters["telemetry"]?.invoke(RenderState())
                 updaters["fan_popup"]?.invoke(RenderState()); updaters["vent_popup"]?.invoke(RenderState()); updaters["auto_popup"]?.invoke(RenderState()); updaters["pwr_popup"]?.invoke(RenderState()); updaters["ac_popup"]?.invoke(RenderState()); updaters["air_popup"]?.invoke(RenderState())
@@ -1081,12 +1081,12 @@ class OverlayService : Service() {
                     val ssb = SpannableStringBuilder(text)
                     ssb.append(" RECUPERADO")
                     ssb.setSpan(RelativeSizeSpan(0.4f), text.length, ssb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    
+
                     autonomyTv.text = ssb
                     autonomyTv.setTextColor(DockColors.AMBER)
-                    
+
                     val statsSsb = SpannableStringBuilder(String.format(java.util.Locale.US, "Distância %.1f km | %.1f kWh | ", distance, netEnergy))
-                    val iconDown = ContextCompat.getDrawable(this@OverlayService, R.drawable.battery_arrow_down_outline)?.apply { 
+                    val iconDown = ContextCompat.getDrawable(this@OverlayService, R.drawable.battery_arrow_down_outline)?.apply {
                         setBounds(0, 0, dp(18), dp(18))
                         setTint(cMuted)
                     }
@@ -1116,9 +1116,9 @@ class OverlayService : Service() {
                     
                     val text = String.format(java.util.Locale.US, "Autonomia %.0f km / %.1f km/kWh", autonomy, kmPerKwh)
                     val ssb = SpannableStringBuilder(text)
-                    
+
                     autonomyTv.setTextColor(cAccent)
-                    
+
                     // Cor da eficiência
                     val slashIdx = text.indexOf("/")
                     if (slashIdx != -1) {
@@ -1160,7 +1160,7 @@ class OverlayService : Service() {
                 distanceEnergyLastChargeTv.visibility = View.VISIBLE
                 
                 val kmPerKwhLast = if (usedEnergyLastCharge > 0.01) distLastCharge / usedEnergyLastCharge else 0.0
-                
+
                 val textLast = String.format(java.util.Locale.US, "Desde a última recarga %.1f km/kWh", kmPerKwhLast)
                 val ssbLast = SpannableStringBuilder(textLast)
                 val recargaIdx = textLast.indexOf("recarga")
