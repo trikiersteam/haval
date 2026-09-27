@@ -1031,12 +1031,12 @@ class OverlayService : Service() {
         }
 
         val speedBtn = TextView(this).apply {
-            textSize = 20f
+            textSize = 28f
             setTypeface(typeface, Typeface.BOLD)
             gravity = Gravity.CENTER
             isClickable = true
             isFocusable = true
-            setPadding(dp(20), dp(8), dp(20), dp(8))
+            setPadding(dp(20), dp(6), dp(20), dp(6))
         }
 
         fun updateUI() {
