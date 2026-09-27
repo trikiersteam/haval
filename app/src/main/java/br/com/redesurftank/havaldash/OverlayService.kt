@@ -138,6 +138,10 @@ class OverlayService : Service() {
 
     private var sessionStartOdo: Double = 0.0
 
+    private var isAverageSpeedActive: Boolean = false
+    private var vMedia_odometroInicial: Double = 0.0
+    private var vMedia_tempoInicial: Long = 0L
+
     private var flashView: TextView? = null
     private val flashHideRunnable = Runnable {
         flashView?.let { runCatching { wm.removeView(it) } }
@@ -817,6 +821,7 @@ class OverlayService : Service() {
 
                 // Outros updaters auxiliares e globais
                 updaters["telemetry"]?.invoke(RenderState())
+                if (tickerCycle % 2 == 0L) updaters["avg_speed"]?.invoke(RenderState())
                 updaters["fan_popup"]?.invoke(RenderState()); updaters["vent_popup"]?.invoke(RenderState()); updaters["auto_popup"]?.invoke(RenderState()); updaters["pwr_popup"]?.invoke(RenderState()); updaters["ac_popup"]?.invoke(RenderState()); updaters["air_popup"]?.invoke(RenderState())
                 DockControls.AIRFLOW_OPTIONS.forEach { opt -> updaters["air_${opt.label}"]?.invoke(RenderState()) }
                 updaters["proj"]?.invoke(RenderState()); updaters["header_info"]?.invoke(RenderState()); updaters["tempD_sync"]?.invoke(RenderState())
@@ -903,7 +908,7 @@ class OverlayService : Service() {
         
         col1.addView(createDashboardCard("", createHvacQuickControls("D"), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col1.addView(gapView(4)); col1.addView(createDashboardCard("", createAirflowSelection("D"), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col1.addView(gapView(4)); col1.addView(createDashboardCard("", createLevelControl(DockControls.FAN, R.drawable.ic_fan, iconSize = 42), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col1.addView(gapView(4)); col1.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempD" } as Temp), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col1.addView(gapView(4)); col1.addView(createDashboardCard("", createLevelControl(DockControls.VENT_D, R.drawable.ic_carseat_cooler), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
         col2.addView(createDashboardCard("", createBatteryCard(DockControls.ALL.find { it.id == "bat" } as Battery, segmented = true), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col2.addView(gapView(4)); col2.addView(createDashboardCard("MODO DE CONDUÇÃO", createDriveModeSelectionLight(DockControls.DRIVE), iconRes = R.drawable.ic_bolt, titleSize = 18f, radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col2.addView(gapView(4)); col2.addView(createDashboardCard("", createAmbientTempCard(DockControls.ALL.find { it.id == "recirc" } as IconToggle), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
-        col3.addView(createDashboardCard("Autonomia Elétrica", createTelemetryCardContent(), iconRes = R.drawable.ic_bolt, radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col3.addView(gapView(4)); col3.addView(createDashboardCard("", createVolumeControl(DockControls.ALL.find { it.id == "vol" } as Volume), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col3.addView(gapView(4)); col3.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempP" } as Temp), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col3.addView(gapView(4)); col3.addView(createDashboardCard("", createLevelControl(DockControls.VENT_P, R.drawable.ic_carseat_cooler), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
+        col3.addView(createDashboardCard("Velocidade Média", createAverageSpeedCardContent(), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col3.addView(gapView(4)); col3.addView(createDashboardCard("Autonomia Elétrica", createTelemetryCardContent(), iconRes = R.drawable.ic_bolt, radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col3.addView(gapView(4)); col3.addView(createDashboardCard("", createVolumeControl(DockControls.ALL.find { it.id == "vol" } as Volume), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col3.addView(gapView(4)); col3.addView(createDashboardCard("", createTempControl(DockControls.ALL.find { it.id == "tempP" } as Temp), radius = 8, bgColor = cardBg, strokeColor = cardStroke)); col3.addView(gapView(4)); col3.addView(createDashboardCard("", createLevelControl(DockControls.VENT_P, R.drawable.ic_carseat_cooler), radius = 8, bgColor = cardBg, strokeColor = cardStroke))
 
         // Página 2 Light: Gráfico ampliado (Unificado)
         val page2 = createEnergyAnalysisPage(isLight = true, cardBg = cardBg, cardStroke = cardStroke)
@@ -1016,6 +1021,64 @@ class OverlayService : Service() {
         }
         
         return page
+    }
+
+    private fun createAverageSpeedCardContent(): View {
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(0, dp(4), 0, dp(4))
+        }
+
+        val speedBtn = TextView(this).apply {
+            textSize = 20f
+            setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            isClickable = true
+            isFocusable = true
+            setPadding(dp(20), dp(8), dp(20), dp(8))
+        }
+
+        fun updateUI() {
+            if (!isAverageSpeedActive) {
+                speedBtn.text = "INICIAR"
+                speedBtn.setTextColor(cMuted)
+                speedBtn.background = pill(cTrack, dp(16))
+            } else {
+                val currentOdo = VehicleClient.getData(DockKeys.CAR_EV_INFO_TOTAL_ODOMETER)?.toDoubleOrNull() ?: vMedia_odometroInicial
+                val deltaOdo = currentOdo - vMedia_odometroInicial
+                val deltaMillis = System.currentTimeMillis() - vMedia_tempoInicial
+                val deltaHours = deltaMillis / (1000.0 * 3600.0)
+
+                val avgSpeed = if (deltaHours > 0.0001) (deltaOdo / deltaHours).coerceAtLeast(0.0) else 0.0
+                speedBtn.text = String.format(java.util.Locale.US, "%.1f km/h", avgSpeed)
+                speedBtn.setTextColor(cAccent)
+                speedBtn.background = pill(cSurfaceSelected, dp(16), stroke = cAccent)
+            }
+        }
+
+        speedBtn.setOnClickListener {
+            onUserActivity()
+            if (isAverageSpeedActive) {
+                isAverageSpeedActive = false
+                vMedia_odometroInicial = 0.0
+                vMedia_tempoInicial = 0L
+            } else {
+                isAverageSpeedActive = true
+                vMedia_odometroInicial = VehicleClient.getData(DockKeys.CAR_EV_INFO_TOTAL_ODOMETER)?.toDoubleOrNull() ?: 0.0
+                vMedia_tempoInicial = System.currentTimeMillis()
+            }
+            updateUI()
+        }
+
+        layout.addView(speedBtn)
+
+        updaters["avg_speed"] = {
+            updateUI()
+        }
+
+        updateUI()
+        return layout
     }
 
     private fun createTelemetryCardContent(): View {
