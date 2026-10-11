@@ -37,19 +37,13 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.viewpager.widget.PagerAdapter
 import androidx.viewpager.widget.ViewPager
-import com.github.mikephil.charting.charts.BarChart
 import com.github.mikephil.charting.charts.LineChart
-import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.components.YAxis
-import com.github.mikephil.charting.data.BarData
-import com.github.mikephil.charting.data.BarDataSet
-import com.github.mikephil.charting.data.BarEntry
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.formatter.ValueFormatter
 import com.github.mikephil.charting.utils.MPPointD
-import br.com.redesurftank.havaldash.DockKeys
 import br.com.redesurftank.havaldash.data.AirflowOption
 import br.com.redesurftank.havaldash.data.Battery
 import br.com.redesurftank.havaldash.data.Control
@@ -1134,28 +1128,7 @@ class OverlayService : Service() {
 
                     autonomyTv.text = ssb
                     autonomyTv.setTextColor(DockColors.AMBER)
-
-                    val statsSsb = SpannableStringBuilder(String.format(java.util.Locale.US, "Distância %.1f km | %.1f kWh | ", distance, netEnergy))
-                    val iconDown = ContextCompat.getDrawable(this@OverlayService, R.drawable.battery_arrow_down_outline)?.apply {
-                        setBounds(0, 0, dp(18), dp(18))
-                        setTint(cMuted)
-                    }
-                    if (iconDown != null) {
-                        statsSsb.append("  ")
-                        statsSsb.setSpan(ImageSpan(iconDown, ImageSpan.ALIGN_BOTTOM), statsSsb.length - 1, statsSsb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    }
-                    statsSsb.append(String.format(java.util.Locale.US, " %.1f kWh | ", consumed))
-
-                    val iconUp = ContextCompat.getDrawable(this@OverlayService, R.drawable.battery_arrow_up_outline)?.apply {
-                        setBounds(0, 0, dp(18), dp(18))
-                        setTint(DockColors.AMBER)
-                    }
-                    if (iconUp != null) {
-                        statsSsb.append("  ")
-                        statsSsb.setSpan(ImageSpan(iconUp, ImageSpan.ALIGN_BOTTOM), statsSsb.length - 1, statsSsb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    }
-                    statsSsb.append(String.format(java.util.Locale.US, " -%.1f kWh", recovered))
-                    statsTv.text = statsSsb
+                    statsTv.text = buildStatsSsb(distance, netEnergy, consumed, recovered)
                 } else if (netEnergy > 0.01) {
                     // Consumo normal
                     val efficiency = netEnergy / distance // kWh / km
@@ -1185,7 +1158,7 @@ class OverlayService : Service() {
                         }
                     }
                     autonomyTv.text = ssb
-                    statsTv.text = String.format(java.util.Locale.US, "Distância %.1f km | %.1f kWh", distance, netEnergy)
+                    statsTv.text = buildStatsSsb(distance, netEnergy, consumed, recovered)
                 } else {
                     autonomyTv.setTextColor(cAccent)
                     autonomyTv.text = "-- km / -- km/kWh"
@@ -1211,7 +1184,9 @@ class OverlayService : Service() {
                 
                 val kmPerKwhLast = if (usedEnergyLastCharge > 0.01) distLastCharge / usedEnergyLastCharge else 0.0
 
-                val textLast = String.format(java.util.Locale.US, "Desde a última recarga %.1f km/kWh", kmPerKwhLast)
+                val kwh100kmLast = if (kmPerKwhLast > 0) 100.0 / kmPerKwhLast else 0.0
+
+                val textLast = String.format(java.util.Locale.US, "Desde a última recarga %.1f km/kWh | %.1f kWh/100km", kmPerKwhLast, kwh100kmLast)
                 val ssbLast = SpannableStringBuilder(textLast)
                 val recargaIdx = textLast.indexOf("recarga")
                 if (recargaIdx != -1) {
@@ -1700,6 +1675,30 @@ class OverlayService : Service() {
     private class TouchFrame(context: Context, val onTouch: () -> Unit, val onSwipeDown: () -> Unit, val onSwipeUp: () -> Unit) : FrameLayout(context) {
         private val threshold = 30 * context.resources.displayMetrics.density; private val hLockThreshold = 10 * context.resources.displayMetrics.density; private var downY = 0f; private var downX = 0f; private var fired = false; private var hLocked = false
         override fun dispatchTouchEvent(ev: MotionEvent?): Boolean { if (ev == null) return super.dispatchTouchEvent(ev); when (ev.actionMasked) { MotionEvent.ACTION_DOWN -> { downY = ev.y; downX = ev.x; fired = false; hLocked = false; onTouch() }; MotionEvent.ACTION_MOVE -> { if (fired) return true; val dy = ev.y - downY; val dx = ev.x - downX; val absDy = kotlin.math.abs(dy); val absDx = kotlin.math.abs(dx); if (!hLocked && absDx > hLockThreshold && absDx > absDy) hLocked = true; if (!hLocked && absDy > threshold && absDy > absDx) { fired = true; val cancel = MotionEvent.obtain(ev).also { it.action = MotionEvent.ACTION_CANCEL }; super.dispatchTouchEvent(cancel); cancel.recycle(); if (dy > 0) onSwipeDown() else onSwipeUp(); return true } }; MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { if (fired) { fired = false; return true } }; MotionEvent.ACTION_OUTSIDE -> { onSwipeDown(); return true } }; return super.dispatchTouchEvent(ev) }
+    }
+
+    private fun buildStatsSsb(distance: Double, netEnergy: Double, consumed: Double, recovered: Double): SpannableStringBuilder {
+        val statsSsb = SpannableStringBuilder(String.format(java.util.Locale.US, "Distância %.1f km | %.1f kWh | ", distance, netEnergy))
+        val iconBatteryDown = ContextCompat.getDrawable(this@OverlayService, R.drawable.battery_arrow_down_outline)?.apply {
+            setBounds(0, 0, dp(18), dp(18))
+            setTint(cMuted)
+        }
+        if (iconBatteryDown != null) {
+            statsSsb.append("  ")
+            statsSsb.setSpan(ImageSpan(iconBatteryDown, ImageSpan.ALIGN_BOTTOM), statsSsb.length - 1, statsSsb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        statsSsb.append(String.format(java.util.Locale.US, " %.1f kWh | ", consumed))
+
+        val iconBatteryUp = ContextCompat.getDrawable(this@OverlayService, R.drawable.battery_arrow_up_outline)?.apply {
+            setBounds(0, 0, dp(18), dp(18))
+            setTint(DockColors.AMBER)
+        }
+        if (iconBatteryUp != null) {
+            statsSsb.append("  ")
+            statsSsb.setSpan(ImageSpan(iconBatteryUp, ImageSpan.ALIGN_BOTTOM), statsSsb.length - 1, statsSsb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        statsSsb.append(String.format(java.util.Locale.US, " -%.1f kWh", recovered))
+        return statsSsb
     }
 
     /**
