@@ -258,12 +258,6 @@ class OverlayService : Service() {
             }
 
             if (SettingsStore.persistHevSaveEnabled.value) {
-                if (key == DockKeys.CAR_EV_SETTING_POWER_RESERVE_CONFIG) {
-                    val strategy = value?.toIntOrNull()
-                    if (strategy != null && strategy != 2) {
-                        SettingsStore.setLastHevSaveSoc(0)
-                    }
-                }
                 if (key == DockKeys.CAR_EV_SETTING_CHARGE_SOC_TARGET_CONFIG) {
                     val soc = value?.toIntOrNull()
                     if (soc != null && soc in 20..80) {
@@ -327,14 +321,7 @@ class OverlayService : Service() {
         if (!SettingsStore.persistHevSaveEnabled.value) return
         val savedSoc = SettingsStore.lastHevSaveSoc.intValue
         if (savedSoc < 20 || savedSoc > 80) return
-
-        io.execute {
-            val strategy = VehicleClient.getData(DockKeys.CAR_EV_SETTING_POWER_RESERVE_CONFIG)?.toIntOrNull()
-            if (strategy == 2) {
-                Log.d("HavalDash", "Restoring HEV SAVE SOC to $savedSoc")
-                VehicleClient.set(DockKeys.CAR_EV_SETTING_CHARGE_SOC_TARGET_CONFIG, savedSoc.toString())
-            }
-        }
+        VehicleClient.set(DockKeys.CAR_EV_SETTING_CHARGE_SOC_TARGET_CONFIG, savedSoc.toString())
     }
 
     private val onVehicleConnected: () -> Unit = { refreshAll() }
